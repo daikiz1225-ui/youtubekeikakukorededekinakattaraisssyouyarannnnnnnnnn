@@ -5,28 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>kick tube</title>
     <link rel="stylesheet" href="style.css">
-    <style>
-        /* ボタンを「押せる！」と認識させるスタイル */
-        #search-button {
-            -webkit-appearance: none;
-            appearance: none;
-            background: #ff0000;
-            color: white;
-            padding: 12px 24px;
-            border: none;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            touch-action: manipulation; /* 連打やズーム誤作動防止 */
-        }
-        #search-button:active {
-            background: #cc0000;
-            transform: scale(0.95);
-        }
-    </style>
 </head>
-<body>
+<body style="background-color: #111; color: white; transition: background-color 0.2s;">
 
     <aside id="sidebar">
         <div class="logo">kick tube</div>
@@ -35,33 +15,32 @@
 
     <main id="main-content">
         <header id="search-header">
-            <form id="search-form" onsubmit="return false;" class="search-container" style="display:flex; gap:10px;">
-                <input type="text" id="search-input" placeholder="動画を検索..." autocomplete="off" style="flex:1;">
-                <button id="search-button" type="submit">検索</button>
+            <form id="search-form" onsubmit="return false;" class="search-container" style="display:flex; gap:10px; padding:10px;">
+                <input type="text" id="search-input" placeholder="動画を検索..." style="flex:1; padding:10px; border-radius:5px; border:none;">
+                <button id="search-button" type="submit" style="padding:10px 20px; background:red; color:white; border:none; border-radius:5px; font-weight:bold;">検索</button>
             </form>
         </header>
 
         <section id="view-home" class="view">
             <div id="search-results" class="video-grid">
-                <div class="status-msg">検索ワードを入力してください</div>
+                <div style="text-align:center; padding:50px; color:#888;">検索ワードを入れてね</div>
             </div>
         </section>
 
         <section id="view-player" class="view" style="display: none;">
             <div id="player-container"></div>
-            <div id="video-controls" style="padding:20px; text-align:center;">
-                <button id="reload-video" class="btn">🔄 再読み込み</button>
+            <div id="video-controls" style="text-align:center; padding:20px;">
                 <button id="back-to-home" class="btn">⬅️ 戻る</button>
             </div>
         </section>
     </main>
 
-    <script type="module" src="js/config.js?v=4.0"></script>
-    <script type="module" src="js/ui-switcher.js?v=4.0"></script>
-    <script type="module" src="js/search-engine.js?v=4.0"></script>
-    <script type="module" src="js/thumbnail-list.js?v=4.0"></script>
-    <script type="module" src="js/player.js?v=4.0"></script>
-    <script type="module" src="js/main.js?v=4.0"></script>
+    <script type="module" src="js/config.js?v=5.0"></script>
+    <script type="module" src="js/ui-switcher.js?v=5.0"></script>
+    <script type="module" src="js/search-engine.js?v=5.0"></script>
+    <script type="module" src="js/thumbnail-list.js?v=5.0"></script>
+    <script type="module" src="js/player.js?v=5.0"></script>
+    <script type="module" src="js/main.js?v=5.0"></script>
 
 </body>
 </html>
