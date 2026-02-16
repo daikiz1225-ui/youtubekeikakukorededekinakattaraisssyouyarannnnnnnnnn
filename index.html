@@ -5,13 +5,34 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>kick tube</title>
     <link rel="stylesheet" href="style.css">
+    <style>
+        /* 検索中・エラー表示のスタイル */
+        .status-msg {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 40px;
+            font-size: 18px;
+        }
+        .loading { color: #aaa; }
+        .error { color: #ff4444; font-weight: bold; background: #222; border-radius: 8px; margin: 10px; }
+        
+        /* 検索ボタンを押しやすく */
+        #search-button {
+            padding: 10px 20px;
+            background: #ff0000;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+    </style>
 </head>
 <body>
 
     <aside id="sidebar">
         <div class="logo">kick tube</div>
-        <nav id="channel-list">
-            </nav>
+        <nav id="channel-list"></nav>
     </aside>
 
     <main id="main-content">
@@ -24,9 +45,7 @@
 
         <section id="view-home" class="view">
             <div id="search-results" class="video-grid">
-                <div style="text-align:center; padding:50px; color:#888;">
-                    検索ワードを入力してください
-                </div>
+                <div class="status-msg">検索ワードを入力してください</div>
             </div>
         </section>
 
@@ -39,12 +58,12 @@
         </section>
     </main>
 
-    <script type="module" src="js/config.js"></script>
-    <script type="module" src="js/ui-switcher.js"></script>
-    <script type="module" src="js/search-engine.js"></script>
-    <script type="module" src="js/thumbnail-list.js"></script>
-    <script type="module" src="js/player.js"></script>
-    <script type="module" src="js/main.js"></script>
+    <script type="module" src="js/config.js?v=3.0"></script>
+    <script type="module" src="js/ui-switcher.js?v=3.0"></script>
+    <script type="module" src="js/search-engine.js?v=3.0"></script>
+    <script type="module" src="js/thumbnail-list.js?v=3.0"></script>
+    <script type="module" src="js/player.js?v=3.0"></script>
+    <script type="module" src="js/main.js?v=3.0"></script>
 
 </body>
 </html>
