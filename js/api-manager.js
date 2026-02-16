@@ -1,33 +1,17 @@
 /**
- * APIキーの保存・取得を管理する（1ファイル1機能：データ管理）
+ * Pipedのインスタンスドメインを管理する（1ファイル1機能）
  */
-export const ApiManager = {
-    getKeys() {
-        const saved = localStorage.getItem('kick_tube_keys');
-        const keys = saved ? JSON.parse(saved) : ["", "", "", "", ""];
-        console.log("取得されたキー一覧:", keys); // デバッグ用
-        return keys;
+export const InstanceManager = {
+    // 保存されているドメインを取得
+    getDomain() {
+        // 初期値として有名なインスタンスをセットしておくと親切
+        return localStorage.getItem('kick_tube_domain') || "pipedapi.kavin.rocks";
     },
 
-    saveKeys(keysArray) {
-        localStorage.setItem('kick_tube_keys', JSON.stringify(keysArray));
-        console.log("キーを保存しました:", keysArray);
-    },
-
-    getCurrentIndex() {
-        return parseInt(localStorage.getItem('kick_tube_active_index') || "0");
-    },
-
-    setCurrentIndex(index) {
-        localStorage.setItem('kick_tube_active_index', index.toString());
-        console.log("使用するキーの番号を切り替えました:", index);
-    },
-
-    getActiveKey() {
-        const keys = this.getKeys();
-        const index = this.getCurrentIndex();
-        const activeKey = keys[index];
-        console.log(`現在使用中のキー (Index: ${index}):`, activeKey ? "あり" : "なし(空です)");
-        return activeKey;
+    // ドメインを保存
+    saveDomain(domain) {
+        // 末尾に / がついてたら消す（エラー防止）
+        const cleanDomain = domain.replace(/\/$/, "");
+        localStorage.setItem('kick_tube_domain', cleanDomain);
     }
 };
