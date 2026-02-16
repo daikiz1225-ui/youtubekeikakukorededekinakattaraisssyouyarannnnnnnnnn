@@ -11,13 +11,10 @@ const SettingsManager = {
         this.saveBtn = document.getElementById('save-settings-btn');
 
         if (this.trigger) {
-            // clickだけでなく、iPad用のタッチイベントも追加
-            const openAction = (e) => {
-                e.preventDefault(); // 2回実行されるのを防ぐ
+            this.trigger.addEventListener('click', (e) => {
+                e.preventDefault();
                 this.open();
-            };
-            this.trigger.addEventListener('click', openAction);
-            this.trigger.addEventListener('touchstart', openAction, {passive: false});
+            });
         }
 
         if (this.saveBtn) {
@@ -37,22 +34,20 @@ const SettingsManager = {
                        style="width: 100%; background: transparent; border: none; border-bottom: 2px solid #ff0000; color: white; outline: none; padding: 5px 0; font-size: 16px;">
             </div>
         `;
-        this.modal.style.display = 'flex';
+        // クラスを追加して強制的に表示させる
+        this.modal.classList.add('active');
+        console.log("Modal opened with 'active' class");
     },
 
     save() {
         const domainInput = document.getElementById('piped-domain');
         if (domainInput) {
             InstanceManager.saveDomain(domainInput.value.trim());
-            this.modal.style.display = 'none';
+            // クラスを消して隠す
+            this.modal.classList.remove('active');
             alert("設定を保存したぜ！");
         }
     }
 };
 
-// 初期化
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => SettingsManager.init());
-} else {
-    SettingsManager.init();
-}
+document.addEventListener('DOMContentLoaded', () => SettingsManager.init());
