@@ -1,8 +1,5 @@
 import { InstanceManager } from './instance-manager.js';
 
-/**
- * 設定画面の表示・保存を管理する（1ファイル1機能）
- */
 const SettingsManager = {
     modal: null,
     trigger: null,
@@ -14,9 +11,15 @@ const SettingsManager = {
         this.saveBtn = document.getElementById('save-settings-btn');
 
         if (this.trigger) {
-            this.trigger.addEventListener('click', () => this.open());
-            console.log("設定ボタンの監視を開始したぜ");
+            // clickだけでなく、iPad用のタッチイベントも追加
+            const openAction = (e) => {
+                e.preventDefault(); // 2回実行されるのを防ぐ
+                this.open();
+            };
+            this.trigger.addEventListener('click', openAction);
+            this.trigger.addEventListener('touchstart', openAction, {passive: false});
         }
+
         if (this.saveBtn) {
             this.saveBtn.addEventListener('click', () => this.save());
         }
@@ -47,7 +50,7 @@ const SettingsManager = {
     }
 };
 
-// 画面が準備できたら初期化
+// 初期化
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => SettingsManager.init());
 } else {
