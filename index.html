@@ -5,6 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>kick tube</title>
     <link rel="stylesheet" href="style.css">
+    <style>
+        /* 検索中表示を確実に見せるための緊急スタイル */
+        .loading-text {
+            grid-column: 1/-1;
+            text-align: center;
+            padding: 50px;
+            font-size: 24px;
+            color: #ff0000; /* 目立つ色に */
+            font-weight: bold;
+        }
+    </style>
 </head>
 <body>
 
@@ -13,8 +24,8 @@
         <nav id="channel-list">
             </nav>
         
-        <div id="settings-trigger">
-            <span>⚙️</span> 設定
+        <div id="settings-trigger" style="cursor: pointer; margin-top: auto; padding: 15px; background: #333; border-radius: 8px; text-align: center;">
+            ⚙️ 設定
         </div>
     </aside>
 
@@ -22,36 +33,46 @@
         <header id="search-header">
             <div class="search-container">
                 <input type="text" id="search-input" placeholder="動画を検索..." autocomplete="off">
-                <button id="search-button">検索</button>
+                <button id="search-button" type="button">検索</button>
             </div>
         </header>
 
         <section id="view-home" class="view">
             <div id="search-results" class="video-grid">
-                </div>
+                <p style="text-align:center; color:#666; padding:20px;">検索ワードを入力してください</p>
+            </div>
         </section>
 
         <section id="view-player" class="view" style="display: none;">
             <div id="player-container">
                 </div>
-            <div id="video-controls">
-                <button id="reload-video" class="btn">🔄 動画を再読み込み</button>
+            <div id="video-controls" style="padding: 10px; display: flex; gap: 10px; justify-content: center;">
+                <button id="reload-video" class="btn">🔄 再読み込み</button>
                 <button id="back-to-home" class="btn">⬅️ 戻る</button>
             </div>
         </section>
     </main>
 
-    <div id="settings-modal" class="modal">
+    <div id="settings-modal" class="modal" style="display: none;">
         <div class="modal-content">
-            <h2>APIキー設定 (最大5つ)</h2>
-            <p>使用するキーを選択して入力してください。</p>
-            <div id="api-inputs">
-                </div>
-            <div class="modal-actions">
-                <button id="save-settings-btn" class="btn-save">保存して閉じる</button>
-            </div>
+            <h2>API設定</h2>
+            <div id="api-inputs"></div>
+            <button id="save-settings-btn" class="btn-save" style="margin-top: 20px; width: 100%; padding: 15px;">保存して閉じる</button>
         </div>
     </div>
+
+    <script type="module">
+        // 外部ファイルが読み込めない時のための緊急デバッグ
+        const btn = document.getElementById('search-button');
+        const results = document.getElementById('search-results');
+        
+        if (btn) {
+            btn.onclick = () => {
+                console.log("Button clicked!");
+                results.innerHTML = '<div class="loading-text">🔍 検索中...</div>';
+            };
+        }
+    </script>
 
     <script type="module" src="js/main.js"></script>
     <script type="module" src="js/settings.js"></script>
