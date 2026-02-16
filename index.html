@@ -5,63 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>kick tube</title>
     <link rel="stylesheet" href="style.css">
-    <style>
-        /* モーダルの強制表示設定 */
-        #settings-modal {
-            display: none;
-            position: fixed;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.9);
-            justify-content: center;
-            align-items: center;
-            z-index: 10000;
-        }
-        #settings-modal.active {
-            display: flex !important;
-        }
-        .modal-content {
-            background: #222;
-            padding: 30px;
-            border-radius: 15px;
-            width: 90%;
-            max-width: 400px;
-            color: white;
-            text-align: center;
-            border: 1px solid #444;
-        }
-        input#piped-domain {
-            width: 100%;
-            padding: 12px;
-            margin: 20px 0;
-            background: #333;
-            border: 1px solid #444;
-            color: white;
-            border-radius: 8px;
-            font-size: 16px;
-            outline: none;
-        }
-        input#piped-domain:focus {
-            border-color: #ff0000;
-        }
-        .save-btn {
-            width: 100%;
-            padding: 15px;
-            background: #ff0000;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-weight: bold;
-            cursor: pointer;
-        }
-    </style>
 </head>
 <body>
 
     <aside id="sidebar">
         <div class="logo">kick tube</div>
-        <nav id="channel-list"></nav>
-        <button id="settings-trigger" type="button" style="margin-top:auto; padding:10px; background:transparent; border:none; color:#555; cursor:pointer;">⚙️ 設定</button>
+        <nav id="channel-list">
+            </nav>
     </aside>
 
     <main id="main-content">
@@ -89,22 +39,12 @@
         </section>
     </main>
 
-    <div id="settings-modal">
-        <div class="modal-content">
-            <h2 style="color: #ff0000; margin-top:0;">URL未設定</h2>
-            <p style="font-size:14px; color:#ccc;">Pipedインスタンスドメインを入力して保存してください。</p>
-            <input type="text" id="piped-domain" placeholder="pipedapi.kavin.rocks">
-            <button id="save-settings-btn" class="save-btn">保存して開始</button>
-        </div>
-    </div>
-
-    <script type="module" src="js/instance-manager.js?v=2.1"></script>
-    <script type="module" src="js/ui-switcher.js?v=2.1"></script>
-    <script type="module" src="js/search-engine.js?v=2.1"></script>
-    <script type="module" src="js/thumbnail-list.js?v=2.1"></script>
-    <script type="module" src="js/player.js?v=2.1"></script>
-    <script type="module" src="js/settings.js?v=2.1"></script>
-    <script type="module" src="js/main.js?v=2.1"></script>
+    <script type="module" src="js/config.js"></script>
+    <script type="module" src="js/ui-switcher.js"></script>
+    <script type="module" src="js/search-engine.js"></script>
+    <script type="module" src="js/thumbnail-list.js"></script>
+    <script type="module" src="js/player.js"></script>
+    <script type="module" src="js/main.js"></script>
 
 </body>
 </html>
