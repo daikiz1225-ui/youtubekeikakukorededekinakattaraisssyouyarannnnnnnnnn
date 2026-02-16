@@ -6,25 +6,23 @@
     <title>kick tube</title>
     <link rel="stylesheet" href="style.css">
     <style>
-        /* 検索中・エラー表示のスタイル */
-        .status-msg {
-            grid-column: 1 / -1;
-            text-align: center;
-            padding: 40px;
-            font-size: 18px;
-        }
-        .loading { color: #aaa; }
-        .error { color: #ff4444; font-weight: bold; background: #222; border-radius: 8px; margin: 10px; }
-        
-        /* 検索ボタンを押しやすく */
+        /* ボタンを「押せる！」と認識させるスタイル */
         #search-button {
-            padding: 10px 20px;
+            -webkit-appearance: none;
+            appearance: none;
             background: #ff0000;
             color: white;
+            padding: 12px 24px;
             border: none;
-            border-radius: 5px;
-            cursor: pointer;
+            border-radius: 8px;
+            font-size: 16px;
             font-weight: bold;
+            cursor: pointer;
+            touch-action: manipulation; /* 連打やズーム誤作動防止 */
+        }
+        #search-button:active {
+            background: #cc0000;
+            transform: scale(0.95);
         }
     </style>
 </head>
@@ -37,10 +35,10 @@
 
     <main id="main-content">
         <header id="search-header">
-            <div class="search-container">
-                <input type="text" id="search-input" placeholder="動画を検索..." autocomplete="off">
-                <button id="search-button" type="button">検索</button>
-            </div>
+            <form id="search-form" onsubmit="return false;" class="search-container" style="display:flex; gap:10px;">
+                <input type="text" id="search-input" placeholder="動画を検索..." autocomplete="off" style="flex:1;">
+                <button id="search-button" type="submit">検索</button>
+            </form>
         </header>
 
         <section id="view-home" class="view">
@@ -58,12 +56,12 @@
         </section>
     </main>
 
-    <script type="module" src="js/config.js?v=3.0"></script>
-    <script type="module" src="js/ui-switcher.js?v=3.0"></script>
-    <script type="module" src="js/search-engine.js?v=3.0"></script>
-    <script type="module" src="js/thumbnail-list.js?v=3.0"></script>
-    <script type="module" src="js/player.js?v=3.0"></script>
-    <script type="module" src="js/main.js?v=3.0"></script>
+    <script type="module" src="js/config.js?v=4.0"></script>
+    <script type="module" src="js/ui-switcher.js?v=4.0"></script>
+    <script type="module" src="js/search-engine.js?v=4.0"></script>
+    <script type="module" src="js/thumbnail-list.js?v=4.0"></script>
+    <script type="module" src="js/player.js?v=4.0"></script>
+    <script type="module" src="js/main.js?v=4.0"></script>
 
 </body>
 </html>
