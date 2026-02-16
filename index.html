@@ -6,12 +6,12 @@
     <title>kick tube</title>
     <link rel="stylesheet" href="style.css">
     <style>
-        /* ボタンとしての認識を強制するスタイル */
+        /* ボタンの認識をさらに強化 */
         #settings-trigger {
             appearance: none;
             -webkit-appearance: none;
             background: #333;
-            border: none;
+            border: 2px solid #444;
             color: white;
             width: 100%;
             padding: 20px;
@@ -21,9 +21,34 @@
             margin-top: auto;
             display: block;
             outline: none;
+            -webkit-tap-highlight-color: transparent; /* タップ時の青枠を消す */
         }
-        #settings-trigger:active {
-            background: #444; /* 押した時の反応 */
+
+        /* モーダルの基本状態（非表示） */
+        #settings-modal {
+            display: none; /* 最初は隠す */
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+
+        /* このクラスがついた時だけ表示される（強制！） */
+        #settings-modal.active {
+            display: flex !important;
+        }
+
+        .modal-content {
+            background: #222;
+            padding: 30px;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 400px;
+            color: white;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
         }
     </style>
 </head>
@@ -32,10 +57,7 @@
     <aside id="sidebar">
         <div class="logo">kick tube</div>
         <nav id="channel-list"></nav>
-        
-        <button id="settings-trigger" type="button">
-            ⚙️ 設定を開く
-        </button>
+        <button id="settings-trigger" type="button">⚙️ 設定を開く</button>
     </aside>
 
     <main id="main-content">
@@ -63,21 +85,21 @@
         </section>
     </main>
 
-    <div id="settings-modal" class="modal" style="display: none;">
+    <div id="settings-modal">
         <div class="modal-content">
-            <h2>設定</h2>
+            <h2 style="margin-top:0;">設定</h2>
             <div id="api-inputs"></div>
-            <button id="save-settings-btn" class="btn-save" style="margin-top: 20px;">保存して閉じる</button>
+            <button id="save-settings-btn" style="width: 100%; padding: 15px; background: #ff0000; color: white; border: none; border-radius: 8px; margin-top: 20px; font-weight: bold; cursor: pointer;">保存して閉じる</button>
         </div>
     </div>
 
-    <script type="module" src="js/instance-manager.js?v=1.1"></script>
-    <script type="module" src="js/ui-switcher.js?v=1.1"></script>
-    <script type="module" src="js/search-engine.js?v=1.1"></script>
-    <script type="module" src="js/thumbnail-list.js?v=1.1"></script>
-    <script type="module" src="js/player.js?v=1.1"></script>
-    <script type="module" src="js/settings.js?v=1.1"></script>
-    <script type="module" src="js/main.js?v=1.1"></script>
+    <script type="module" src="js/instance-manager.js?v=1.2"></script>
+    <script type="module" src="js/ui-switcher.js?v=1.2"></script>
+    <script type="module" src="js/search-engine.js?v=1.2"></script>
+    <script type="module" src="js/thumbnail-list.js?v=1.2"></script>
+    <script type="module" src="js/player.js?v=1.2"></script>
+    <script type="module" src="js/settings.js?v=1.2"></script>
+    <script type="module" src="js/main.js?v=1.2"></script>
 
-</body> 
+</body>
 </html>
