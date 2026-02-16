@@ -1,30 +1,28 @@
-import { ApiManager } from './api-manager.js';
+import { InstanceManager } from './instance-manager.js';
 
 export async function fetchVideos(query) {
-    const apiKey = ApiManager.getActiveKey();
+    const domain = InstanceManager.getDomain();
     
-    if (!apiKey || apiKey.trim() === "") {
-        return Promise.reject(new Error("APIキーが空だよ！左下の設定から入力してね。"));
-    }
-
-    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&type=video&maxResults=24&key=${apiKey}`;
+    // Pipedの検索URLを組み立て
+    // filter=videos をつけると動画だけ取れる
+    const url = `https://${domain}/api/v1/search?q=${encodeURIComponent(query)}&filter=videos`;
     
     try {
         const response = await fetch(url);
+        if (!response.ok) throw new Error("インスタンスが反応してないか、URLが間違ってるぜ");
+        
         const data = await response.json();
-
-        if (!response.ok) {
-            // Googleからのエラーメッセージを具体的に出す
-            const errorMsg = data.error ? data.error.message : "不明なAPIエラー";
-            throw new Error(`YouTube APIエラー: ${errorMsg}`);
-        }
-
-        return data.items.map(item => ({
-            id: item.id.videoId,
-            title: item.snippet.title
-        }));
+        
+        // Pipedのデータ形式から kick tube 用に変換
+        // url項目が "/watch?v=ID" になってるから、ID部分だけ切り出す
+        return data.items.map(item => {
+            const videoId = item.url.split('v=')[1];
+            return {
+                id: videoId,
+                title: item.title
+            };
+        });
     } catch (error) {
-        console.error("Fetch Error:", error);
-        throw error;
+        throw new Error(`Pipedエラー: ${error.message}`);
     }
 }
