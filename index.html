@@ -13,8 +13,8 @@
         <nav id="channel-list">
             </nav>
         
-        <div id="settings-trigger" class="sidebar-item">
-            <span>⚙️</span> 設定
+        <div id="settings-trigger" style="cursor: pointer; margin-top: auto; padding: 20px; background: #333; border-radius: 10px; text-align: center; color: white;">
+            ⚙️ 設定を開く
         </div>
     </aside>
 
@@ -28,30 +28,26 @@
 
         <section id="view-home" class="view">
             <div id="search-results" class="video-grid">
-                <div class="initial-message">
-                    <p>Pipedインスタンスを設定して検索を開始してください</p>
+                <div style="text-align:center; padding:50px; color:#888;">
+                    設定からPipedドメインを入力してください
                 </div>
             </div>
         </section>
 
         <section id="view-player" class="view" style="display: none;">
-            <div id="player-container">
-                </div>
-            <div id="video-controls">
-                <button id="reload-video" class="btn">🔄 再読み込み</button>
-                <button id="back-to-home" class="btn">⬅️ 戻る</button>
+            <div id="player-container"></div>
+            <div id="video-controls" style="padding:20px; text-align:center;">
+                <button id="reload-video" style="padding:10px 20px;">🔄 再読み込み</button>
+                <button id="back-to-home" style="padding:10px 20px;">⬅️ 戻る</button>
             </div>
         </section>
     </main>
 
-    <div id="settings-modal" class="modal" style="display: none;">
-        <div class="modal-content">
-            <h2>Piped インスタンス設定</h2>
-            <div id="api-inputs">
-                </div>
-            <div class="modal-actions">
-                <button id="save-settings-btn" class="btn-save">保存して閉じる</button>
-            </div>
+    <div id="settings-modal" class="modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); justify-content: center; align-items: center; z-index: 999;">
+        <div class="modal-content" style="background: #222; padding: 30px; border-radius: 15px; width: 90%; max-width: 400px; color: white;">
+            <h2>設定</h2>
+            <div id="api-inputs"></div>
+            <button id="save-settings-btn" style="width: 100%; padding: 15px; background: #ff0000; color: white; border: none; border-radius: 8px; margin-top: 20px;">保存して閉じる</button>
         </div>
     </div>
 
