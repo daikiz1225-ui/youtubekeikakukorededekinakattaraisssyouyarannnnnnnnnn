@@ -13,7 +13,7 @@
         <nav id="channel-list">
             </nav>
         
-        <div id="settings-trigger" onclick="toggleSettings()">
+        <div id="settings-trigger">
             <span>⚙️</span> 設定
         </div>
     </aside>
@@ -21,7 +21,7 @@
     <main id="main-content">
         <header id="search-header">
             <div class="search-container">
-                <input type="text" id="search-input" placeholder="動画を検索...">
+                <input type="text" id="search-input" placeholder="動画を検索..." autocomplete="off">
                 <button id="search-button">検索</button>
             </div>
         </header>
@@ -34,23 +34,27 @@
         <section id="view-player" class="view" style="display: none;">
             <div id="player-container">
                 </div>
-            <div id="video-info">
-                <button id="reload-video">🔄 動画を再読み込み</button>
-                <button id="back-to-home">⬅️ 戻る</button>
+            <div id="video-controls">
+                <button id="reload-video" class="btn">🔄 動画を再読み込み</button>
+                <button id="back-to-home" class="btn">⬅️ 戻る</button>
             </div>
         </section>
     </main>
 
     <div id="settings-modal" class="modal">
         <div class="modal-content">
-            <h3>APIキー管理 (Max 5)</h3>
+            <h2>APIキー設定 (最大5つ)</h2>
+            <p>使用するキーを選択して入力してください。</p>
             <div id="api-inputs">
                 </div>
-            <button onclick="saveApiSettings()">保存して閉じる</button>
+            <div class="modal-actions">
+                <button id="save-settings-btn" class="btn-save">保存して閉じる</button>
+            </div>
         </div>
     </div>
 
-    <script src="js/ui-switcher.js"></script>
-    <script src="js/api-manager.js"></script>
+    <script type="module" src="js/main.js"></script>
+    <script type="module" src="js/settings.js"></script>
+
 </body>
 </html>
