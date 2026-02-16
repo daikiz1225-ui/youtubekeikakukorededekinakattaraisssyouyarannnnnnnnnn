@@ -1,0 +1,138 @@
+:root {
+    --bg-dark: #0f0f0f;
+    --sidebar-bg: #1a1a1a;
+    --accent-red: #ff0000;
+    --text-white: #ffffff;
+    --input-bg: #2a2a2a;
+}
+
+body {
+    margin: 0;
+    display: flex;
+    height: 100vh;
+    background-color: var(--bg-dark);
+    color: var(--text-white);
+    font-family: sans-serif;
+    overflow: hidden;
+}
+
+/* サイドバー */
+#sidebar {
+    width: 240px;
+    background-color: var(--sidebar-bg);
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+    border-right: 1px solid #333;
+}
+
+.logo {
+    font-size: 24px;
+    font-weight: bold;
+    color: var(--accent-red);
+    margin-bottom: 30px;
+}
+
+#settings-trigger {
+    margin-top: auto;
+    cursor: pointer;
+    padding: 10px;
+    border-radius: 8px;
+    background: #333;
+    text-align: center;
+}
+
+/* メインエリア */
+#main-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+#search-header {
+    padding: 15px;
+    background: var(--bg-dark);
+}
+
+.search-container {
+    display: flex;
+    max-width: 600px;
+    margin: 0 auto;
+    background: var(--input-bg);
+    border-radius: 25px;
+    padding: 5px 15px;
+}
+
+#search-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: white;
+    padding: 10px;
+    font-size: 16px;
+    outline: none;
+}
+
+#search-button {
+    background: var(--accent-red);
+    border: none;
+    color: white;
+    padding: 0 20px;
+    border-radius: 20px;
+    cursor: pointer;
+}
+
+/* 動画グリッド（ホーム） */
+.video-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 20px;
+    padding: 20px;
+    overflow-y: auto;
+}
+
+/* 再生画面 */
+#player-container {
+    width: 90%;
+    margin: 20px auto;
+    aspect-ratio: 16 / 9;
+    background: #000;
+    border-radius: 15px;
+    overflow: hidden;
+}
+
+/* 設定モーダル */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 100;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.8);
+    justify-content: center;
+    align-items: center;
+}
+
+.modal-content {
+    background: #222;
+    padding: 30px;
+    border-radius: 15px;
+    width: 80%;
+    max-width: 500px;
+}
+
+input[type="text"] {
+    width: 100%;
+    margin: 10px 0;
+    padding: 10px;
+    background: #333;
+    border: 1px solid #444;
+    color: white;
+    border-radius: 5px;
+}
+
+/* iPadレスポンシブ */
+@media (max-width: 768px) {
+    #sidebar { width: 80px; }
+    .logo, #settings-trigger span:last-child { display: none; }
+}
