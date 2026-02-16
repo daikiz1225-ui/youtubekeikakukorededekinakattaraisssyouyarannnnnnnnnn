@@ -9,58 +9,44 @@ async function executeSearch() {
 
     if (!query) return;
 
-    // 1. ボタンが反応したことを示すため、即座に「検索中」を出す
+    // 画面に即座に反応を出す
     UISwitcher.showHome();
-    resultsContainer.innerHTML = `
-        <div class="status-msg loading">
-            <p>🔍 "${query}" を検索中...</p>
-            <p style="font-size: 12px; margin-top: 10px;">Pipedインスタンスに接続しています</p>
-        </div>
-    `;
+    resultsContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:50px;">🔍 検索中... (${query})</div>`;
 
     try {
+        console.log("Searching for:", query);
         const videos = await fetchVideos(query);
-        
-        if (videos.length === 0) {
-            resultsContainer.innerHTML = '<div class="status-msg">動画が見つかりませんでした。</div>';
-            return;
-        }
-
         renderThumbnails(videos);
     } catch (error) {
-        // 2. 接続エラーが起きたら、理由を画面に赤文字で出す
-        console.error("Search Error:", error);
-        resultsContainer.innerHTML = `
-            <div class="status-msg error">
-                <p>⚠️ エラーが発生しました</p>
-                <p style="font-size: 14px; font-weight: normal; margin-top: 10px;">${error.message}</p>
-                <button onclick="location.reload()" style="margin-top:15px; padding:8px; cursor:pointer;">再読み込み</button>
-            </div>
-        `;
+        resultsContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; color:red; padding:20px;">${error.message}</div>`;
     }
 }
 
 function init() {
-    const btn = document.getElementById('search-button');
+    const form = document.getElementById('search-form');
     const input = document.getElementById('search-input');
 
-    if (btn) {
-        // clickとtouchstartの両方で確実に反応させる
-        btn.addEventListener('click', executeSearch);
-        btn.addEventListener('touchstart', (e) => {
-            e.preventDefault();
+    if (form) {
+        // clickではなく「送信(submit)」を監視。これならiPadのキーボードの「確定」でも動く
+        form.addEventListener('submit', (e) => {
+            e.preventDefault(); // ページのリロードを防ぐ
             executeSearch();
-        }, {passive: false});
-    }
-
-    if (input) {
-        input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                executeSearch();
-                input.blur();
-            }
+            if (input) input.blur(); // キーボードを閉じる
         });
+    }
+    
+    // バックアップ用：念のためボタン単体へのタッチも監視
+    const btn = document.getElementById('search-button');
+    if (btn) {
+        btn.addEventListener('touchstart', () => {
+            console.log("Button touched");
+        }, {passive: true});
     }
 }
 
-document.addEventListener('DOMContentLoaded', init);
+// 確実に初期化
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+} else {
+    init();
+}
