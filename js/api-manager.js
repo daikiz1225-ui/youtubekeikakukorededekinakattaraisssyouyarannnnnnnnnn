@@ -1,31 +1,33 @@
 /**
- * APIキーの保存・取得・選択を管理するモジュール
+ * APIキーの保存・取得を管理する（1ファイル1機能：データ管理）
  */
 export const ApiManager = {
-    // 保存されている5つのキーを取得（なければ空配列）
     getKeys() {
         const saved = localStorage.getItem('kick_tube_keys');
-        return saved ? JSON.parse(saved) : ["", "", "", "", ""];
+        const keys = saved ? JSON.parse(saved) : ["", "", "", "", ""];
+        console.log("取得されたキー一覧:", keys); // デバッグ用
+        return keys;
     },
 
-    // 5つのキーを保存
     saveKeys(keysArray) {
         localStorage.setItem('kick_tube_keys', JSON.stringify(keysArray));
+        console.log("キーを保存しました:", keysArray);
     },
 
-    // 現在選択されているキーの番号（0〜4）を取得
     getCurrentIndex() {
         return parseInt(localStorage.getItem('kick_tube_active_index') || "0");
     },
 
-    // 使うキーを切り替える
     setCurrentIndex(index) {
         localStorage.setItem('kick_tube_active_index', index.toString());
+        console.log("使用するキーの番号を切り替えました:", index);
     },
 
-    // 今すぐ使えるキーを1本返す
     getActiveKey() {
         const keys = this.getKeys();
-        return keys[this.getCurrentIndex()];
+        const index = this.getCurrentIndex();
+        const activeKey = keys[index];
+        console.log(`現在使用中のキー (Index: ${index}):`, activeKey ? "あり" : "なし(空です)");
+        return activeKey;
     }
 };
