@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>kick tube</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <aside id="sidebar">
+        <div class="logo">kick tube</div>
+        <nav id="channel-list">
+            </nav>
+        
+        <div id="settings-trigger" onclick="toggleSettings()">
+            <span>⚙️</span> 設定
+        </div>
+    </aside>
+
+    <main id="main-content">
+        <header id="search-header">
+            <div class="search-container">
+                <input type="text" id="search-input" placeholder="動画を検索...">
+                <button id="search-button">検索</button>
+            </div>
+        </header>
+
+        <section id="view-home" class="view">
+            <div id="search-results" class="video-grid">
+                </div>
+        </section>
+
+        <section id="view-player" class="view" style="display: none;">
+            <div id="player-container">
+                </div>
+            <div id="video-info">
+                <button id="reload-video">🔄 動画を再読み込み</button>
+                <button id="back-to-home">⬅️ 戻る</button>
+            </div>
+        </section>
+    </main>
+
+    <div id="settings-modal" class="modal">
+        <div class="modal-content">
+            <h3>APIキー管理 (Max 5)</h3>
+            <div id="api-inputs">
+                </div>
+            <button onclick="saveApiSettings()">保存して閉じる</button>
+        </div>
+    </div>
+
+    <script src="js/ui-switcher.js"></script>
+    <script src="js/api-manager.js"></script>
+</body>
+</html>
