@@ -4,5 +4,5 @@
  */
 export const CONFIG = {
     // 例: "pipedapi.kavin.rocks" や "api.piped.vicr.me" など
-    PIPED_DOMAIN: "pipedapi.kavin.rocks"
+    PIPED_DOMAIN: "piped.wireway.ch"
 };
