@@ -1,50 +1,58 @@
 import { fetchVideos } from './search-engine.js';
 import { renderThumbnails } from './thumbnail-list.js';
 import { UISwitcher } from './ui-switcher.js';
-import { InstanceManager } from './instance-manager.js';
-
-/**
- * 設定が空なら設定画面を強制的に出す機能
- */
-function forceSettingsIfEmpty() {
-    if (!InstanceManager.isConfigured()) {
-        const modal = document.getElementById('settings-modal');
-        if (modal) {
-            modal.classList.add('active');
-            return true; // 空だった
-        }
-    }
-    return false; // 設定済み
-}
 
 async function executeSearch() {
-    // 検索前にもチェック！URLが消えてたら検索させずに設定を出す
-    if (forceSettingsIfEmpty()) return;
-
     const searchInput = document.getElementById('search-input');
     const resultsContainer = document.getElementById('search-results');
     const query = searchInput.value.trim();
+
     if (!query) return;
 
+    // 1. ボタンが反応したことを示すため、即座に「検索中」を出す
     UISwitcher.showHome();
-    resultsContainer.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:50px;">🔍 検索中...</div>';
+    resultsContainer.innerHTML = `
+        <div class="status-msg loading">
+            <p>🔍 "${query}" を検索中...</p>
+            <p style="font-size: 12px; margin-top: 10px;">Pipedインスタンスに接続しています</p>
+        </div>
+    `;
 
     try {
         const videos = await fetchVideos(query);
+        
+        if (videos.length === 0) {
+            resultsContainer.innerHTML = '<div class="status-msg">動画が見つかりませんでした。</div>';
+            return;
+        }
+
         renderThumbnails(videos);
     } catch (error) {
-        resultsContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:50px; color:#ff6b6b;">${error.message}</div>`;
+        // 2. 接続エラーが起きたら、理由を画面に赤文字で出す
+        console.error("Search Error:", error);
+        resultsContainer.innerHTML = `
+            <div class="status-msg error">
+                <p>⚠️ エラーが発生しました</p>
+                <p style="font-size: 14px; font-weight: normal; margin-top: 10px;">${error.message}</p>
+                <button onclick="location.reload()" style="margin-top:15px; padding:8px; cursor:pointer;">再読み込み</button>
+            </div>
+        `;
     }
 }
 
 function init() {
-    // 起動時にURLがなければ即座に出す
-    forceSettingsIfEmpty();
-
     const btn = document.getElementById('search-button');
     const input = document.getElementById('search-input');
 
-    if (btn) btn.addEventListener('click', executeSearch);
+    if (btn) {
+        // clickとtouchstartの両方で確実に反応させる
+        btn.addEventListener('click', executeSearch);
+        btn.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            executeSearch();
+        }, {passive: false});
+    }
+
     if (input) {
         input.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
