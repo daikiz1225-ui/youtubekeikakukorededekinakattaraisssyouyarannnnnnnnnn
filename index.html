@@ -5,24 +5,44 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>kick tube</title>
     <link rel="stylesheet" href="style.css">
+    <style>
+        /* ボタンとしての認識を強制するスタイル */
+        #settings-trigger {
+            appearance: none;
+            -webkit-appearance: none;
+            background: #333;
+            border: none;
+            color: white;
+            width: 100%;
+            padding: 20px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: auto;
+            display: block;
+            outline: none;
+        }
+        #settings-trigger:active {
+            background: #444; /* 押した時の反応 */
+        }
+    </style>
 </head>
 <body>
 
     <aside id="sidebar">
         <div class="logo">kick tube</div>
-        <nav id="channel-list">
-            </nav>
+        <nav id="channel-list"></nav>
         
-        <div id="settings-trigger" style="cursor: pointer; margin-top: auto; padding: 20px; background: #333; border-radius: 10px; text-align: center; color: white;">
+        <button id="settings-trigger" type="button">
             ⚙️ 設定を開く
-        </div>
+        </button>
     </aside>
 
     <main id="main-content">
         <header id="search-header">
             <div class="search-container">
                 <input type="text" id="search-input" placeholder="動画を検索..." autocomplete="off">
-                <button id="search-button">検索</button>
+                <button id="search-button" type="button">検索</button>
             </div>
         </header>
 
@@ -37,27 +57,27 @@
         <section id="view-player" class="view" style="display: none;">
             <div id="player-container"></div>
             <div id="video-controls" style="padding:20px; text-align:center;">
-                <button id="reload-video" style="padding:10px 20px;">🔄 再読み込み</button>
-                <button id="back-to-home" style="padding:10px 20px;">⬅️ 戻る</button>
+                <button id="reload-video" class="btn">🔄 再読み込み</button>
+                <button id="back-to-home" class="btn">⬅️ 戻る</button>
             </div>
         </section>
     </main>
 
-    <div id="settings-modal" class="modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); justify-content: center; align-items: center; z-index: 999;">
-        <div class="modal-content" style="background: #222; padding: 30px; border-radius: 15px; width: 90%; max-width: 400px; color: white;">
+    <div id="settings-modal" class="modal" style="display: none;">
+        <div class="modal-content">
             <h2>設定</h2>
             <div id="api-inputs"></div>
-            <button id="save-settings-btn" style="width: 100%; padding: 15px; background: #ff0000; color: white; border: none; border-radius: 8px; margin-top: 20px;">保存して閉じる</button>
+            <button id="save-settings-btn" class="btn-save" style="margin-top: 20px;">保存して閉じる</button>
         </div>
     </div>
 
-    <script type="module" src="js/instance-manager.js"></script>
-    <script type="module" src="js/ui-switcher.js"></script>
-    <script type="module" src="js/search-engine.js"></script>
-    <script type="module" src="js/thumbnail-list.js"></script>
-    <script type="module" src="js/player.js"></script>
-    <script type="module" src="js/settings.js"></script>
-    <script type="module" src="js/main.js"></script>
+    <script type="module" src="js/instance-manager.js?v=1.1"></script>
+    <script type="module" src="js/ui-switcher.js?v=1.1"></script>
+    <script type="module" src="js/search-engine.js?v=1.1"></script>
+    <script type="module" src="js/thumbnail-list.js?v=1.1"></script>
+    <script type="module" src="js/player.js?v=1.1"></script>
+    <script type="module" src="js/settings.js?v=1.1"></script>
+    <script type="module" src="js/main.js?v=1.1"></script>
 
-</body>
+</body> 
 </html>
