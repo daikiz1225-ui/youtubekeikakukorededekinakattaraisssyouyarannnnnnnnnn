@@ -3,80 +3,143 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Edu-Kahoot Portal</title>
+    <title>YouTube</title>
     <style>
-        body { background: #46178f; color: #fff; font-family: sans-serif; margin: 0; padding: 0; overflow-x: hidden; }
-        header { background: #330e6b; padding: 20px; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
-        .search-box { display: flex; max-width: 600px; margin: 0 auto; gap: 10px; }
-        input { flex: 1; padding: 12px; border-radius: 5px; border: none; font-size: 16px; outline: none; }
-        button { background: #26890c; color: #fff; border: none; padding: 10px 25px; border-radius: 5px; font-weight: bold; cursor: pointer; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; padding: 20px; }
-        .card { background: #fff; color: #333; border-radius: 8px; overflow: hidden; cursor: pointer; transition: 0.2s; }
-        .card:active { transform: scale(0.95); }
-        .card img { width: 100%; aspect-ratio: 16/9; object-fit: cover; }
-        .card h3 { font-size: 14px; margin: 10px; height: 3em; overflow: hidden; }
+        :root { --bg-color: #0f0f0f; --text-color: #ffffff; --card-bg: #1e1e1e; }
+        body { background: var(--bg-color); color: var(--text-color); font-family: "Roboto", Arial, sans-serif; margin: 0; padding: 0; }
         
-        /* プレイヤー画面 */
-        #player-view { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 1000; }
-        .back-btn { position: absolute; top: 20px; left: 20px; z-index: 1100; background: #eb1041; color: #fff; border: none; padding: 10px 20px; border-radius: 5px; font-weight: bold; }
+        /* ヘッダー */
+        header { background: var(--bg-color); display: flex; align-items: center; padding: 10px 20px; position: sticky; top: 0; z-index: 2000; }
+        .logo { font-size: 20px; font-weight: bold; color: #ff0000; display: flex; align-items: center; gap: 5px; cursor: pointer; }
+        .search-container { flex: 1; display: flex; justify-content: center; }
+        .search-box { display: flex; width: 60%; max-width: 600px; background: #222; border: 1px solid #333; border-radius: 40px; overflow: hidden; }
+        input { background: transparent; border: none; color: #fff; padding: 10px 20px; flex: 1; font-size: 16px; outline: none; }
+        .search-btn { background: #333; border: none; padding: 0 20px; color: #fff; cursor: pointer; border-left: 1px solid #444; }
+
+        /* ホーム画面 (グリッド) */
+        #home-view { padding: 20px; }
+        .video-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+        .v-card { cursor: pointer; border-radius: 12px; overflow: hidden; background: transparent; }
+        .v-card img { width: 100%; border-radius: 12px; aspect-ratio: 16/9; object-fit: cover; }
+        .v-card .details { padding: 12px 0; }
+        .v-card h3 { font-size: 16px; margin: 0; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+        /* 再生画面 (Watch Page) */
+        #watch-view { display: none; padding: 20px; }
+        .watch-container { display: flex; flex-direction: row; gap: 24px; max-width: 1700px; margin: 0 auto; }
+        .main-content { flex: 3; }
+        .sidebar { flex: 1; }
+        
+        /* プレイヤー */
+        .player-box { width: 100%; aspect-ratio: 16/9; background: #000; border-radius: 12px; overflow: hidden; }
         iframe { width: 100%; height: 100%; border: none; }
+        .video-info { margin-top: 15px; }
+        .video-title { font-size: 20px; font-weight: bold; }
+        .channel-info { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
+        .channel-icon { width: 40px; height: 40px; background: #444; border-radius: 50%; }
+
+        /* サイドバーカード */
+        .side-card { display: flex; gap: 8px; margin-bottom: 12px; cursor: pointer; }
+        .side-card img { width: 160px; height: 90px; border-radius: 8px; object-fit: cover; }
+        .side-card h3 { font-size: 14px; margin: 0; -webkit-line-clamp: 2; display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; }
+
+        @media (max-width: 1000px) {
+            .watch-container { flex-direction: column; }
+            .search-box { width: 90%; }
+        }
     </style>
 </head>
 <body>
 
-<div id="home-view">
-    <header><h1>Kahoot! 学習ビデオ検索</h1></header>
-    <div class="search-box" style="margin-top: 20px;">
-        <input type="text" id="q" placeholder="学習キーワードを入力...">
-        <button onclick="search()">検索</button>
+<header>
+    <div class="logo" onclick="goHome()"><span>▶</span> YouTube</div>
+    <div class="search-container">
+        <div class="search-box">
+            <input type="text" id="q" placeholder="検索" onkeypress="if(event.key==='Enter') search()">
+            <button class="search-btn" onclick="search()">🔍</button>
+        </div>
     </div>
-    <div id="results" class="grid"></div>
+</header>
+
+<div id="home-view">
+    <div id="results" class="video-grid"></div>
 </div>
 
-<div id="player-view">
-    <button class="back-btn" onclick="closePlayer()">戻る</button>
-    <div id="video-wrapper" style="width: 100%; height: 100%;"></div>
+<div id="watch-view">
+    <div class="watch-container">
+        <div class="main-content">
+            <div class="player-box" id="player-container"></div>
+            <div class="video-info">
+                <div class="video-title" id="v-title">動画タイトル</div>
+                <div class="channel-info">
+                    <div class="channel-icon"></div>
+                    <div id="v-channel" style="font-weight: bold;">チャンネル名</div>
+                </div>
+            </div>
+        </div>
+        <div class="sidebar" id="related-list"></div>
+    </div>
 </div>
 
 <script>
 const KEY = "AIzaSyBbqPhAbqoWDOurTt7hejQmwc6dAoZ5Iy0";
-// 💡 Kahoot!から盗み出した魔法のキー（encデータ）
 const ENC = "AXH1ezm-TdFofe0cZEIyT5D-ZlyaXT8az20UGmK_8TRbbl7-MJkqQiDn89vv-Kx83auqjnc7WreI4HeppaSKfC0XpFV0BvqF3llcrWUQtfrIeuuX8ALKwU5iNjS56Z545ilryvxnkk2BGKeZvaLB6tiu1GwH4Npdfw%3D%3D";
+let searchCache = [];
 
 async function search() {
     const q = document.getElementById('q').value;
     if(!q) return;
-    const res = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(q)}&type=video&maxResults=24&key=${KEY}`);
+    goHome();
+    const res = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(q)}&type=video&maxResults=20&key=${KEY}`);
     const data = await res.json();
+    searchCache = data.items;
+    renderHome(data.items);
+}
+
+function renderHome(items) {
     const container = document.getElementById('results');
-    container.innerHTML = '';
-    
-    data.items.forEach(item => {
-        const card = document.createElement('div');
-        card.className = 'card';
-        card.onclick = () => play(item.id.videoId);
-        card.innerHTML = `<img src="${item.snippet.thumbnails.high.url}"><h3>${item.snippet.title}</h3>`;
-        container.appendChild(card);
-    });
+    container.innerHTML = items.map((item, index) => `
+        <div class="v-card" onclick="play(${index})">
+            <img src="${item.snippet.thumbnails.high.url}">
+            <div class="details">
+                <h3>${item.snippet.title}</h3>
+                <div style="font-size:12px; color:#aaa; margin-top:5px;">${item.snippet.channelTitle}</div>
+            </div>
+        </div>
+    `).join('');
 }
 
-function play(id) {
+function play(index) {
+    const item = searchCache[index];
+    const id = item.id.videoId;
     document.getElementById('home-view').style.display = 'none';
-    document.getElementById('player-view').style.display = 'block';
+    document.getElementById('watch-view').style.display = 'block';
     
-    // 💡 Kahoot!の通信を完璧にコピーしたURL
-    // これでi-FILTERは「Kahoot!の授業中だな」と勘違いする
-    const kahootFakeUrl = `https://www.youtubeeducation.com/embed/${id}?autoplay=1&origin=https%3A%2F%2Fcreate.kahoot.it&enablejsapi=1&embed_config=%7B%22enc%22%3A%22${ENC}%22%2C%22hideTitle%22%3Atrue%7D`;
+    document.getElementById('v-title').innerText = item.snippet.title;
+    document.getElementById('v-channel').innerText = item.snippet.channelTitle;
 
-    document.getElementById('video-wrapper').innerHTML = `
-        <iframe src="${kahootFakeUrl}" allow="autoplay; fullscreen" allowfullscreen></iframe>
-    `;
+    // 勝利の Kahoot! 突破ロジック
+    const url = `https://www.youtubeeducation.com/embed/${id}?autoplay=1&origin=https%3A%2F%2Fcreate.kahoot.it&enablejsapi=1&embed_config=%7B%22enc%22%3A%22${ENC}%22%2C%22hideTitle%22%3Atrue%7D`;
+    document.getElementById('player-container').innerHTML = `<iframe src="${url}" allow="autoplay; fullscreen" allowfullscreen></iframe>`;
+
+    // サイドバーに関連動画（今回の検索結果の残り）を表示
+    const sidebar = document.getElementById('related-list');
+    sidebar.innerHTML = searchCache.map((v, i) => i === index ? '' : `
+        <div class="side-card" onclick="play(${i})">
+            <img src="${v.snippet.thumbnails.medium.url}">
+            <div>
+                <h3>${v.snippet.title}</h3>
+                <div style="font-size:11px; color:#aaa;">${v.snippet.channelTitle}</div>
+            </div>
+        </div>
+    `).join('');
+    window.scrollTo(0,0);
 }
 
-function closePlayer() {
+function goHome() {
     document.getElementById('home-view').style.display = 'block';
-    document.getElementById('player-view').style.display = 'none';
-    document.getElementById('video-wrapper').innerHTML = '';
+    document.getElementById('watch-view').style.display = 'none';
+    document.getElementById('player-container').innerHTML = '';
 }
 </script>
 </body>
