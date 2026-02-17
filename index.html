@@ -5,34 +5,110 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>kick tube</title>
     <link rel="stylesheet" href="style.css">
+    <style>
+        body {
+            background: #111;
+            color: white;
+            font-family: sans-serif;
+            margin: 0;
+            transition: background 0.3s;
+        }
+        #search-header {
+            padding: 20px;
+            background: #222;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .search-container {
+            display: flex;
+            gap: 10px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        #search-input {
+            flex: 1;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #444;
+            background: #000;
+            color: white;
+            font-size: 16px;
+        }
+        #search-button {
+            padding: 12px 24px;
+            background: #ff0000;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .video-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+            padding: 20px;
+        }
+        .video-card {
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .video-card:hover {
+            transform: scale(1.03);
+        }
+        #player-container {
+            width: 100%;
+            max-width: 1000px;
+            margin: 0 auto;
+            aspect-ratio: 16 / 9;
+            background: #000;
+        }
+        iframe {
+            width: 100%;
+            height: 100%;
+        }
+        .btn-back {
+            margin: 20px;
+            padding: 10px 20px;
+            background: #333;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+    </style>
 </head>
-<body style="background: #111; color: white; transition: background 0.3s;">
-
-    <aside id="sidebar">
-        <div class="logo">kick tube</div>
-    </aside>
+<body>
 
     <main id="main-content">
         <header id="search-header">
-            <form id="search-form" class="search-container" style="display:flex; gap:10px; padding:20px;">
-                <input type="text" id="search-input" placeholder="動画を検索..." style="flex:1; padding:15px; font-size:16px;">
-                <button id="search-button" type="submit" style="padding:15px 30px; background:red; color:white; font-weight:bold; border:none; border-radius:8px;">検索</button>
+            <form id="search-form" onsubmit="return false;" class="search-container">
+                <input type="text" id="search-input" placeholder="YouTubeを検索..." autocomplete="off">
+                <button id="search-button" type="submit">検索</button>
             </form>
         </header>
 
         <section id="view-home">
             <div id="search-results" class="video-grid">
-                <div style="text-align:center; padding:50px; color:#888;">検索ワードを入力してね</div>
+                <div style="grid-column: 1/-1; text-align: center; padding: 50px; color: #888;">
+                    検索ワードを入力してね
+                </div>
             </div>
+        </section>
+
+        <section id="view-player" style="display: none;">
+            <button class="btn-back" onclick="location.reload()">⬅️ 戻る</button>
+            <div id="player-container"></div>
         </section>
     </main>
 
-    <script src="js/config.js?v=8.0"></script>
-<script src="js/ui-switcher.js?v=8.0"></script>
-<script src="js/search-engine.js?v=8.0"></script>
-<script src="js/thumbnail-list.js?v=8.0"></script>
-<script src="js/player.js?v=8.0"></script>
-<script src="js/main.js?v=8.0"></script>
+    <script src="js/config.js?v=9.0"></script>
+    <script src="js/ui-switcher.js?v=9.0"></script>
+    <script src="js/search-engine.js?v=9.0"></script>
+    <script src="js/thumbnail-list.js?v=9.0"></script>
+    <script src="js/player.js?v=9.0"></script>
+    <script src="js/main.js?v=9.0"></script>
 
 </body>
 </html>
