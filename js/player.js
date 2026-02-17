@@ -1,32 +1,29 @@
 window.playVideo = async function(videoId, title) {
-    const playerView = document.getElementById('view-player');
-    const homeView = document.getElementById('view-home');
+    const playerContainer = document.getElementById('player-container');
+    const viewHome = document.getElementById('view-home');
+    const viewPlayer = document.getElementById('view-player');
+    const titleElement = document.getElementById('current-video-title');
 
-    // プレイヤーと関連動画の横並びレイアウトを作る
-    playerView.innerHTML = `
-        <div class="player-layout">
-            <div class="player-main">
-                <div id="player-container">
-                    <iframe 
-                        src="https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1&autoplay=1" 
-                        frameborder="0" 
-                        allowfullscreen>
-                    </iframe>
-                </div>
-                <div class="video-info">
-                    <div class="channel-icon"></div> <h2 class="video-title">${title}</h2>
-                </div>
-            </div>
-            <div id="related-videos" class="related-list">
-                <p>関連動画を取得中...</p>
-            </div>
-        </div>
-        <button class="btn-back" onclick="location.reload()">⬅️ 戻る</button>
+    // IDがない場合でも、教育用ドメインで最も「教材」っぽく見えるパラメータを盛る
+    // rel=0 (関連動画を消す), controls=1 (操作可能), modestbranding=1 (ロゴ消し)
+    const videoUrl = `https://www.youtubeeducation.com/embed/${videoId}?rel=0&modestbranding=1&controls=1&showinfo=0&autoplay=1`;
+
+    playerContainer.innerHTML = `
+        <iframe 
+            src="${videoUrl}" 
+            frameborder="0" 
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+            allowfullscreen>
+        </iframe>
     `;
 
-    homeView.style.display = 'none';
-    playerView.style.display = 'block';
+    if (titleElement) titleElement.innerText = title;
 
-    // 関連動画を取得して表示する（あとで定義するぜ）
-    window.fetchRelatedVideos(videoId);
+    if (viewHome) viewHome.style.display = 'none';
+    if (viewPlayer) viewPlayer.style.display = 'block';
+
+    // 関連動画の取得
+    if (window.fetchRelatedVideos) {
+        window.fetchRelatedVideos(videoId);
+    }
 };
