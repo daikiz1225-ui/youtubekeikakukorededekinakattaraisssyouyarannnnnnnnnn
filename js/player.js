@@ -4,25 +4,28 @@ window.playVideo = async function(videoId, title) {
     const viewPlayer = document.getElementById('view-player');
     const titleElement = document.getElementById('current-video-title');
 
-    // IDがない場合でも、教育用ドメインで最も「教材」っぽく見えるパラメータを盛る
-    // rel=0 (関連動画を消す), controls=1 (操作可能), modestbranding=1 (ロゴ消し)
-    const videoUrl = `https://www.youtubeeducation.com/embed/${videoId}?rel=0&modestbranding=1&controls=1&showinfo=0&autoplay=1`;
+    const eduId = window.CONFIG.YOUTUBE_EDU_FILTER;
+
+    // この1行が、学校のフィルターとYouTubeの制限を同時に突破する「魔法のURL」だ
+    const videoUrl = `https://www.youtubeeducation.com/embed/${videoId}?edufilter=${eduId}&rel=0&autoplay=1&modestbranding=1`;
 
     playerContainer.innerHTML = `
         <iframe 
             src="${videoUrl}" 
             frameborder="0" 
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-            allowfullscreen>
+            allowfullscreen
+            style="width:100%; height:100%; border-radius:12px;">
         </iframe>
     `;
 
     if (titleElement) titleElement.innerText = title;
 
+    // 画面切り替え
     if (viewHome) viewHome.style.display = 'none';
     if (viewPlayer) viewPlayer.style.display = 'block';
 
-    // 関連動画の取得
+    // 関連動画の取得も忘れずに
     if (window.fetchRelatedVideos) {
         window.fetchRelatedVideos(videoId);
     }
