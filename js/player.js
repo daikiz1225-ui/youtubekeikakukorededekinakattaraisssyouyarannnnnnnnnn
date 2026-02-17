@@ -1,24 +1,32 @@
-/**
- * 教育用ドメインを使って動画を埋め込む
- */
-window.playVideo = function(videoId) {
-    const playerContainer = document.getElementById('player-container');
-    const viewHome = document.getElementById('view-home');
-    const viewPlayer = document.getElementById('view-player');
+window.playVideo = async function(videoId, title) {
+    const playerView = document.getElementById('view-player');
+    const homeView = document.getElementById('view-home');
 
-    // だいき指定のドメインでURLを作成
-    const videoUrl = `https://www.youtubeeducation.com/embed/${videoId}?rel=0&modestbranding=1&autoplay=1`;
-
-    playerContainer.innerHTML = `
-        <iframe 
-            src="${videoUrl}" 
-            frameborder="0" 
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-            allowfullscreen
-            style="width:100%; height:100%; aspect-ratio: 16/9;">
-        </iframe>
+    // プレイヤーと関連動画の横並びレイアウトを作る
+    playerView.innerHTML = `
+        <div class="player-layout">
+            <div class="player-main">
+                <div id="player-container">
+                    <iframe 
+                        src="https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1&autoplay=1" 
+                        frameborder="0" 
+                        allowfullscreen>
+                    </iframe>
+                </div>
+                <div class="video-info">
+                    <div class="channel-icon"></div> <h2 class="video-title">${title}</h2>
+                </div>
+            </div>
+            <div id="related-videos" class="related-list">
+                <p>関連動画を取得中...</p>
+            </div>
+        </div>
+        <button class="btn-back" onclick="location.reload()">⬅️ 戻る</button>
     `;
 
-    if (viewHome) viewHome.style.display = 'none';
-    if (viewPlayer) viewPlayer.style.display = 'block';
+    homeView.style.display = 'none';
+    playerView.style.display = 'block';
+
+    // 関連動画を取得して表示する（あとで定義するぜ）
+    window.fetchRelatedVideos(videoId);
 };
