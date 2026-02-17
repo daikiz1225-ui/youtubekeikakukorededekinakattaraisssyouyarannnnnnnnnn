@@ -1,42 +1,30 @@
-import { fetchVideos } from './search-engine.js';
-import { renderThumbnails } from './thumbnail-list.js';
-import { UISwitcher } from './ui-switcher.js';
-
-async function executeSearch() {
-    console.log("executeSearch started");
-    const searchInput = document.getElementById('search-input');
-    const resultsContainer = document.getElementById('search-results');
-    
-    // 【デバッグ用】JSが生きてれば、検索ボタンを押した瞬間に背景が少し赤くなる
-    document.body.style.backgroundColor = "#1a0000";
-    setTimeout(() => { document.body.style.backgroundColor = "#111"; }, 200);
-
-    const query = searchInput.value.trim();
-    if (!query) return;
-
-    // 即座に「検索中」を出す
-    UISwitcher.showHome();
-    resultsContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:50px; color:white; font-size:20px;">🔍 検索中: ${query}</div>`;
-
-    try {
-        const videos = await fetchVideos(query);
-        renderThumbnails(videos);
-    } catch (error) {
-        resultsContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; color:red; padding:20px;">エラー: ${error.message}</div>`;
-    }
-}
-
-function init() {
-    console.log("JS init started");
+// 他のファイルを待ってから動くようにする
+window.onload = function() {
+    console.log("Kick Tube Ready!");
     const form = document.getElementById('search-form');
+    
     if (form) {
-        form.addEventListener('submit', (e) => {
+        form.onsubmit = async function(e) {
             e.preventDefault();
-            executeSearch();
-        });
-    }
-}
+            
+            // 【生存確認】これが動けば絶対に光る！
+            document.body.style.backgroundColor = "red";
+            setTimeout(() => { document.body.style.backgroundColor = "#111"; }, 300);
 
-// ページ読み込み完了を待たずに実行を試みる（iPad対策）
-init();
-document.addEventListener('DOMContentLoaded', init);
+            const input = document.getElementById('search-input');
+            const results = document.getElementById('search-results');
+            const query = input.value.trim();
+
+            if (!query) return;
+
+            results.innerHTML = `<div style="text-align:center; padding:50px; font-size:24px;">🔍 検索中: ${query}</div>`;
+
+            try {
+                const videos = await window.fetchVideos(query);
+                window.renderThumbnails(videos); // thumbnail-list.jsが必要
+            } catch (err) {
+                results.innerHTML = `<div style="color:red;">エラー: ${err.message}</div>`;
+            }
+        };
+    }
+};
