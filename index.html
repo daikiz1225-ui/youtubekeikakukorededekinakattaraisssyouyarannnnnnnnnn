@@ -3,36 +3,42 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Kick Tube - Proxy Engine</title>
+    <title>Kick Tube - SS Bypass</title>
     <style>
         body { background: #000; color: #fff; font-family: sans-serif; margin: 0; padding: 0; }
-        .search-box { padding: 20px; background: #111; display: flex; gap: 8px; position: sticky; top: 0; z-index: 100; border-bottom: 1px solid #333; }
-        input { flex: 1; background: #222; border: 1px solid #444; color: #fff; padding: 12px; border-radius: 24px; outline: none; }
-        button { background: #f00; color: #fff; border: none; padding: 10px 20px; border-radius: 24px; font-weight: bold; cursor: pointer; }
+        header { background: #111; padding: 15px; position: sticky; top: 0; z-index: 1000; border-bottom: 1px solid #333; }
+        .search-box { display: flex; max-width: 800px; margin: 0 auto; gap: 8px; }
+        input { flex: 1; background: #222; border: 1px solid #444; color: #fff; padding: 12px; border-radius: 24px; font-size: 16px; outline: none; }
+        button { background: #ff0000; color: #fff; border: none; padding: 10px 20px; border-radius: 24px; font-weight: bold; cursor: pointer; }
         .video-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 20px; padding: 20px; }
-        .video-card { cursor: pointer; background: #111; border-radius: 12px; overflow: hidden; }
+        .video-card { cursor: pointer; border-radius: 12px; overflow: hidden; background: #111; transition: 0.2s; }
+        .video-card:active { transform: scale(0.95); }
         .video-card img { width: 100%; aspect-ratio: 16/9; object-fit: cover; }
-        .video-card h3 { font-size: 14px; padding: 10px; margin: 0; height: 3em; overflow: hidden; }
-        #view-player { display: none; padding: 20px; }
-        .video-wrapper { width: 100%; aspect-ratio: 16/9; background: #000; border-radius: 12px; overflow: hidden; }
-        video { width: 100%; height: 100%; }
+        .video-card h3 { font-size: 14px; margin: 10px; height: 3em; overflow: hidden; }
+        #view-player { display: none; height: 100vh; flex-direction: column; }
+        .iframe-container { flex: 1; width: 100%; background: #000; }
+        iframe { width: 100%; height: 100%; border: none; }
+        .back-bar { background: #111; padding: 10px; display: flex; align-items: center; }
     </style>
 </head>
 <body>
 
     <div id="view-home">
-        <div class="search-box">
-            <input type="text" id="search-input" placeholder="YouTubeをプロキシ検索...">
-            <button onclick="doSearch()">検索</button>
-        </div>
+        <header>
+            <div class="search-box">
+                <input type="text" id="search-input" placeholder="動画を検索..." onkeypress="if(event.key==='Enter') doSearch()">
+                <button onclick="doSearch()">検索</button>
+            </div>
+        </header>
         <div id="search-results" class="video-grid"></div>
     </div>
 
     <div id="view-player">
-        <button onclick="location.reload()" style="background:#333; color:#fff; border:none; padding:10px; border-radius:8px; margin-bottom:15px;">← 戻る</button>
-        <div class="video-wrapper" id="player-container"></div>
-        <h1 id="player-title" style="font-size:18px; margin-top:15px;"></h1>
-        <p id="status-msg" style="color:#aaa; font-size:12px;"></p>
+        <div class="back-bar">
+            <button onclick="goBack()" style="background:#333; color:#fff; border:none; padding:8px 15px; border-radius:8px;">← 戻る</button>
+            <span id="player-title" style="margin-left:15px; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"></span>
+        </div>
+        <div class="iframe-container" id="player-container"></div>
     </div>
 
     <script>
@@ -41,49 +47,39 @@
         async function doSearch() {
             const query = document.getElementById('search-input').value;
             if (!query) return;
-            const res = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&type=video&maxResults=20&key=${API_KEY}`);
-            const data = await res.json();
             const results = document.getElementById('search-results');
-            results.innerHTML = '';
-            data.items.forEach(item => {
-                const card = document.createElement('div');
-                card.className = 'video-card';
-                card.onclick = () => proxyPlay(item.id.videoId, item.snippet.title);
-                card.innerHTML = `<img src="${item.snippet.thumbnails.high.url}"><h3>${item.snippet.title}</h3>`;
-                results.appendChild(card);
-            });
-        }
-
-        async function proxyPlay(videoId, title) {
-            document.getElementById('view-home').style.display = 'none';
-            document.getElementById('view-player').style.display = 'block';
-            document.getElementById('player-title').innerText = title;
-            const msg = document.getElementById('status-msg');
-            msg.innerText = "プロキシ経由でストリームを抽出中...";
-
-            // 💡 信頼性の高いCORSプロキシを介して、YouTubeの内部情報を取得する
-            // これにより、制限付きモードの壁を「横から」すり抜ける
-            const corsProxy = "https://api.allorigins.win/raw?url=";
-            const targetUrl = encodeURIComponent(`https://www.youtube.com/get_video_info?video_id=${videoId}&html5=1`);
+            results.innerHTML = '検索中...';
 
             try {
-                // ここで本来ブラウザが見れない情報をプロキシ経由で取得
-                const response = await fetch(corsProxy + targetUrl);
-                const text = await response.text();
-                
-                // YouTubeの生データから再生用URLを探す（簡易的な抽出ロジック）
-                // ※制限が厳しい動画は、ここで暗号化(Signature)の解読が必要になる
-                const streamUrl = `https://y.com.sb/latest_version?id=${videoId}&itag=18`;
+                const res = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&type=video&maxResults=24&key=${API_KEY}`);
+                const data = await res.json();
+                results.innerHTML = '';
+                data.items.forEach(item => {
+                    const card = document.createElement('div');
+                    card.className = 'video-card';
+                    card.onclick = () => {
+                        const videoId = item.id.videoId;
+                        document.getElementById('view-home').style.display = 'none';
+                        document.getElementById('view-player').style.display = 'flex';
+                        document.getElementById('player-title').innerText = item.snippet.title;
+                        
+                        // ✅ だいきが見つけた ssルートを適用
+                        const ssUrl = `https://www.ssyoutube.com/watch?v=${videoId}`;
+                        
+                        document.getElementById('player-container').innerHTML = `
+                            <iframe src="${ssUrl}" allowfullscreen></iframe>
+                        `;
+                    };
+                    card.innerHTML = `<img src="${item.snippet.thumbnails.high.url}"><h3>${item.snippet.title}</h3>`;
+                    results.appendChild(card);
+                });
+            } catch (e) { results.innerHTML = 'エラーが発生しました'; }
+        }
 
-                document.getElementById('player-container').innerHTML = `
-                    <video id="p-video" controls autoplay>
-                        <source src="${streamUrl}" type="video/mp4">
-                    </video>
-                `;
-                msg.innerText = "プロキシ接続成功。";
-            } catch (e) {
-                msg.innerText = "プロキシ解析に失敗しました。";
-            }
+        function goBack() {
+            document.getElementById('view-home').style.display = 'block';
+            document.getElementById('view-player').style.display = 'none';
+            document.getElementById('player-container').innerHTML = '';
         }
     </script>
 </body>
