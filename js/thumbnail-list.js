@@ -2,9 +2,8 @@ window.renderThumbnails = function(videos) {
     const resultsContainer = document.getElementById('search-results');
     resultsContainer.innerHTML = '';
 
-    // ここで videos.forEach がエラーになるなら、data.items が空。
-    // その原因を突き止めるために、console.log を1行だけ入れる（画面には影響しない）。
-    console.log("Videos to render:", videos);
+    // data.itemsが何らかの理由で空でも、ここでエラーを出さずに止める
+    if (!videos) return;
 
     videos.forEach(function(video) {
         const card = document.createElement('div');
