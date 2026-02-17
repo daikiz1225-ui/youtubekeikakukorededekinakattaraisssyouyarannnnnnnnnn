@@ -10,7 +10,6 @@ window.fetchVideos = async function() {
         const response = await fetch(url);
         const data = await response.json();
 
-        // 判定を入れず、シンプルに map して渡す
         const videos = data.items.map(item => ({
             id: item.id.videoId,
             title: item.snippet.title,
@@ -20,7 +19,7 @@ window.fetchVideos = async function() {
 
         window.renderThumbnails(videos);
     } catch (error) {
-        console.error('Error:', error);
+        console.error('Search error:', error);
     }
 };
 
