@@ -3,22 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Kick Tube - Education Test</title>
+    <title>Kick Tube - Downloader Style</title>
     <style>
         body { background-color: #000; color: #fff; font-family: sans-serif; margin: 0; padding: 0; }
         header { background-color: #111; padding: 15px; position: sticky; top: 0; z-index: 1000; border-bottom: 1px solid #333; }
         .search-box { display: flex; max-width: 800px; margin: 0 auto; gap: 8px; }
         input { flex: 1; background: #222; border: 1px solid #444; color: #fff; padding: 12px 16px; border-radius: 24px; font-size: 16px; outline: none; }
-        input:focus { border-color: #ff0000; }
         button { background: #ff0000; color: #fff; border: none; padding: 10px 20px; border-radius: 24px; font-weight: bold; cursor: pointer; }
-        
         .video-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 20px; padding: 20px; }
-        .video-card { cursor: pointer; border-radius: 12px; overflow: hidden; }
+        .video-card { cursor: pointer; border-radius: 12px; overflow: hidden; background: #111; }
         .video-card img { width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 12px; }
-        .video-card h3 { font-size: 14px; margin: 10px 5px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-
+        .video-card h3 { font-size: 14px; margin: 10px 5px; height: 40px; overflow: hidden; }
         #view-player { display: none; padding: 20px; max-width: 1000px; margin: 0 auto; }
-        .player-wrapper { width: 100%; aspect-ratio: 16/9; background: #000; border-radius: 12px; overflow: hidden; }
+        .video-wrapper { width: 100%; aspect-ratio: 16/9; background: #000; border-radius: 12px; overflow: hidden; }
+        video { width: 100%; height: 100%; }
         .back-btn { background: #333; color: #fff; border: none; padding: 10px 20px; border-radius: 8px; margin-bottom: 15px; cursor: pointer; }
     </style>
 </head>
@@ -27,7 +25,7 @@
     <div id="view-home">
         <header>
             <div class="search-box">
-                <input type="text" id="search-input" placeholder="YouTubeを検索" onkeypress="if(event.key==='Enter') doSearch()">
+                <input type="text" id="search-input" placeholder="動画を検索..." onkeypress="if(event.key==='Enter') doSearch()">
                 <button onclick="doSearch()">検索</button>
             </div>
         </header>
@@ -36,65 +34,72 @@
 
     <div id="view-player">
         <button class="back-btn" onclick="goBack()">← 戻る</button>
-        <div class="player-wrapper" id="player-container"></div>
+        <div class="video-wrapper" id="player-container">
+            </div>
         <h1 id="player-title" style="font-size: 20px; margin-top: 15px;"></h1>
+        <p id="status-msg" style="color: #aaa; font-size: 12px;"></p>
     </div>
 
     <script>
         const API_KEY = "AIzaSyBbqPhAbqoWDOurTt7hejQmwc6dAoZ5Iy0";
-        // 🚨 だいきの予想：最初の 'o-' を抜いた ID
-        const EDU_ID = "hmiN9tvUUI2EQM";
 
         async function doSearch() {
             const query = document.getElementById('search-input').value;
             if (!query) return;
-
             const results = document.getElementById('search-results');
             results.innerHTML = '<p style="grid-column: 1/-1; text-align: center;">検索中...</p>';
-
             const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&type=video&maxResults=24&key=${API_KEY}`;
 
             try {
                 const res = await fetch(url);
                 const data = await res.json();
-
-                if (data.error) {
-                    results.innerHTML = `<p style="grid-column: 1/-1; color: red;">API Error: ${data.error.message}</p>`;
-                    return;
-                }
-
                 results.innerHTML = '';
                 data.items.forEach(item => {
                     const card = document.createElement('div');
                     card.className = 'video-card';
-                    card.onclick = () => {
-                        const videoId = item.id.videoId;
-                        document.getElementById('view-home').style.display = 'none';
-                        document.getElementById('view-player').style.display = 'block';
-                        document.getElementById('player-title').innerText = item.snippet.title;
-                        
-                        // EducationドメインでIDを適用
-                        const embedUrl = `https://www.youtubeeducation.com/embed/${videoId}?edufilter=${EDU_ID}`;
-                        
-                        document.getElementById('player-container').innerHTML = `
-                            <iframe 
-                                src="${embedUrl}" 
-                                frameborder="0" 
-                                style="width:100%; height:100%;" 
-                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                                allowfullscreen>
-                            </iframe>
-                        `;
-                    };
-                    card.innerHTML = `
-                        <img src="${item.snippet.thumbnails.high.url}">
-                        <h3>${item.snippet.title}</h3>
-                    `;
+                    card.onclick = () => startBypassPlayer(item.id.videoId, item.snippet.title);
+                    card.innerHTML = `<img src="${item.snippet.thumbnails.high.url}"><h3>${item.snippet.title}</h3>`;
                     results.appendChild(card);
                 });
-            } catch (e) {
-                results.innerHTML = '<p>エラーが発生しました</p>';
-            }
+            } catch (e) { results.innerHTML = '<p>エラーが発生しました</p>'; }
+        }
+
+        async function startBypassPlayer(videoId, title) {
+            document.getElementById('view-home').style.display = 'none';
+            document.getElementById('view-player').style.display = 'block';
+            document.getElementById('player-title').innerText = title;
+            const container = document.getElementById('player-container');
+            const msg = document.getElementById('status-msg');
+            
+            msg.innerText = "動画を解析中... (制限を回避しています)";
+            container.innerHTML = '<div style="display:flex; height:100%; align-items:center; justify-content:center;">解析中...</div>';
+
+            // 🚨 ここが「理想」の心臓部
+            // 外部の解析プロキシ（Invidiousなどのインスタンス）を使用して
+            // YouTubeのプレイヤーを介さずに、動画ファイルを直接引っ張ってくる
+            const invidiousInstances = [
+                "https://invidious.snopyta.org",
+                "https://y.com.sb",
+                "https://invidious.kavin.rocks"
+            ];
+            
+            // 試しに一つのインスタンスから動画ソースを取得する形
+            const streamUrl = `https://y.com.sb/latest_version?id=${videoId}&itag=22`;
+
+            container.innerHTML = `
+                <video id="my-video" controls autoplay>
+                    <source src="${streamUrl}" type="video/mp4">
+                    ブラウザが動画再生に対応していません。
+                </video>
+            `;
+
+            const videoTag = document.getElementById('my-video');
+            videoTag.onerror = () => {
+                msg.innerText = "エラー：この動画は直接取得できませんでした。別の動画を試してください。";
+            };
+            videoTag.onloadeddata = () => {
+                msg.innerText = "再生準備完了（制限回避成功）";
+            };
         }
 
         function goBack() {
