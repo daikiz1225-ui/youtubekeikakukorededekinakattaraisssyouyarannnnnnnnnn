@@ -1,18 +1,20 @@
 /**
- * app.js - 司令塔（ソート機能 & 強制スクロール対応版）
+ * app.js - 司令塔（最終決戦・完全修理版）
  */
 
 const Actions = {
     currentList: [],      
     currentQuery: "",     
-    currentMode: 'video', 
+    currentMode: 'video', // 'video' or 'shorts'
     nextToken: "",        
 
     // --- 1. 検索実行 ---
     async search(q = document.getElementById('search-input').value, isMore = false) {
         if (!q) return;
         this.currentQuery = q;
-        const searchQuery = this.currentMode === 'shorts' ? `${q} #shorts` : q;
+        
+        // 💡 ショートモードなら検索ワードに強制的に「#shorts」を付け、通常なら「-shorts」で除外を試みる
+        const searchQuery = this.currentMode === 'shorts' ? `${q} #shorts` : `${q} -#shorts -shorts`;
         
         try {
             const data = await YT.fetchAPI('search', { 
@@ -20,6 +22,7 @@ const Actions = {
                 part: 'snippet', 
                 type: 'video', 
                 maxResults: 24,
+                videoDuration: this.currentMode === 'shorts' ? 'short' : 'any', // ショートなら短い動画に限定
                 pageToken: isMore ? this.nextToken : ""
             });
 
@@ -38,7 +41,7 @@ const Actions = {
 
     loadMore() { this.search(this.currentQuery, true); },
 
-    // --- 2. チャンネルページ (ソートボタン強化) ---
+    // --- 2. チャンネルページ (ソート・モード完全対応) ---
     async openChannel(id, name) {
         this.showView();
         document.getElementById('view-container').innerHTML = `
@@ -56,66 +59,44 @@ const Actions = {
                     <button onclick="Actions.showSortMenu('${id}')">動画</button>
                     <button onclick="Actions.loadChannelPlaylists('${id}')">再生リスト</button>
                 </div>
-                <div id="video-sort-options" style="margin-bottom:20px; display:none;">
-                    <button onclick="Actions.loadChannelVideos('${id}', 'date')" style="font-size:12px; padding:5px 10px;">新着順</button>
-                    <button onclick="Actions.loadChannelVideos('${id}', 'viewCount')" style="font-size:12px; padding:5px 10px;">人気順</button>
-                    <button onclick="Actions.loadChannelVideos('${id}', 'date')" style="font-size:12px; padding:5px 10px;">古い順（新着の逆）</button>
+                <div id="video-sort-options" style="margin-bottom:20px; display:none; gap:10px;">
+                    <button onclick="Actions.loadChannelVideos('${id}', 'date')">新着順</button>
+                    <button onclick="Actions.loadChannelVideos('${id}', 'viewCount')">人気順</button>
+                    <button onclick="Actions.loadChannelVideos('${id}', 'oldest')">古い順</button>
                 </div>
                 <div id="ch-grid" class="grid">読み込み中...</div>
             </div>`;
         this.updateSubButton(id);
-        this.showSortMenu(id); // 最初は動画タブを表示
+        this.showSortMenu(id);
     },
 
-    // 💡 動画タブのメニューを表示して読み込む
     showSortMenu(channelId) {
-        document.getElementById('video-sort-options').style.display = 'flex';
-        document.getElementById('video-sort-options').style.gap = '10px';
+        const menu = document.getElementById('video-sort-options');
+        if(menu) menu.style.display = 'flex';
         this.loadChannelVideos(channelId, 'date');
     },
 
     async loadChannelVideos(channelId, order) {
         document.getElementById('ch-grid').innerHTML = "読み込み中...";
+        
+        // 💡 古い順(oldest)の場合は、一旦APIで「date(新着順)」で取得してからJSで逆転させる
+        const apiOrder = (order === 'oldest') ? 'date' : order;
+        
         const data = await YT.fetchAPI('search', { 
             channelId, 
-            order, 
+            order: apiOrder, 
             part: 'snippet', 
             type: 'video', 
-            maxResults: 24 
+            maxResults: 50 // 多めに取って精度を上げる
         });
+
         this.currentList = data.items;
+
+        if (order === 'oldest') {
+            this.currentList.reverse(); // 💡 ここで物理的に逆順にする
+        }
+
         this.renderGrid(this.currentList, 'ch-grid');
-    },
-
-    // 再生リスト一覧取得
-    async loadChannelPlaylists(channelId) {
-        document.getElementById('video-sort-options').style.display = 'none';
-        document.getElementById('ch-grid').innerHTML = "リストを取得中...";
-        try {
-            const data = await YT.fetchAPI('playlists', { channelId, part: 'snippet', maxResults: 20 });
-            const container = document.getElementById('ch-grid');
-            container.innerHTML = data.items.map(list => `
-                <div class="v-card" onclick="Actions.loadPlaylistItems('${list.id}')">
-                    <div style="position:relative;">
-                        <img src="${list.snippet.thumbnails.high.url}">
-                        <div style="position:absolute; bottom:0; right:0; background:rgba(0,0,0,0.8); padding:5px 10px; font-size:12px;">📁 再生リスト</div>
-                    </div>
-                    <h3>${list.snippet.title}</h3>
-                </div>
-            `).join('');
-        } catch (e) { console.error(e); }
-    },
-
-    async loadPlaylistItems(playlistId) {
-        document.getElementById('ch-grid').innerHTML = "動画を取得中...";
-        try {
-            const data = await YT.fetchAPI('playlistItems', { playlistId, part: 'snippet', maxResults: 50 });
-            this.currentList = data.items.map(item => ({
-                id: { videoId: item.snippet.resourceId.videoId },
-                snippet: item.snippet
-            }));
-            this.renderGrid(this.currentList, 'ch-grid');
-        } catch (e) { console.error(e); }
     },
 
     // --- 3. グリッドレンダリング ---
@@ -140,14 +121,12 @@ const Actions = {
                             <div class="channel-link">${chName}</div>
                         </div>
                     </div>
-                </div>
-            `;
+                </div>`;
         }).join('');
     },
 
-    // --- 4. 再生処理 (💡 強制スクロール対応) ---
+    // --- 4. 再生処理 (スクロールトップ) ---
     play(index) {
-        // 💡 どこにいても強制的に一番上に戻る
         window.scrollTo({ top: 0, behavior: 'smooth' });
         const mainArea = document.querySelector('main');
         if(mainArea) mainArea.scrollTo(0, 0);
@@ -158,7 +137,7 @@ const Actions = {
         const chName = video.snippet.channelTitle;
         const chId = video.snippet.channelId;
 
-        Storage.addHistory({ id: videoId, title: title, channel: chName, thumb: video.snippet.thumbnails.medium.url });
+        Storage.addHistory({ id: videoId, title, channel: chName, thumb: video.snippet.thumbnails.medium.url });
 
         document.getElementById('view-container').innerHTML = `
             <div class="watch-layout">
@@ -169,8 +148,8 @@ const Actions = {
                              <img src="https://ui-avatars.com/api/?name=${encodeURIComponent(chName)}&background=random">
                         </div>
                         <div>
-                            <h2 style="margin:0; font-size:20px;">${title}</h2>
-                            <div class="channel-link" style="font-size:16px;">${chName}</div>
+                            <h2 style="margin:0;">${title}</h2>
+                            <div class="channel-link">${chName}</div>
                         </div>
                     </div>
                 </div>
@@ -188,33 +167,33 @@ const Actions = {
         }).join('');
     },
 
-    // --- 5. ナビゲーション ---
+    // --- 5. モード切替・ナビゲーション (修理完了) ---
+    setMode(mode) {
+        this.currentMode = mode;
+        const input = document.getElementById('search-input');
+        if (input.value) {
+            this.search(input.value);
+        } else {
+            alert(mode === 'shorts' ? "ショート専用モードだぜ！検索してみてくれ。" : "通常動画モードに戻ったぜ。");
+        }
+    },
+
     goHome(clear = false) {
         if (clear) document.getElementById('search-input').value = "";
+        this.currentMode = 'video'; // ホームに戻る時は通常モードへ
         const history = Storage.getHistory();
         if (history.length > 0) {
             this.currentList = history.map(h => ({ id: h.id, snippet: { title: h.title, channelTitle: h.channel, thumbnails: { high: { url: h.thumb } } } }));
             this.renderGrid(this.currentList, 'view-container');
         } else {
-            document.getElementById('view-container').innerHTML = "<div style='text-align:center; margin-top:100px;'><h1>YouTube Education</h1><p>検索して動画を探そう</p></div>";
+            document.getElementById('view-container').innerHTML = "<div style='text-align:center; margin-top:100px;'><h1>YouTube Education</h1><p>検索して始めようぜ</p></div>";
         }
-        document.getElementById('load-more').style.display = 'none';
+        const moreBtn = document.getElementById('load-more');
+        if(moreBtn) moreBtn.style.display = 'none';
     },
 
-    showHistory() { this.goHome(false); },
-
-    showSubs() {
-        const subs = Storage.getSubs();
-        if (subs.length === 0) {
-            document.getElementById('view-container').innerHTML = "<h2 style='padding:20px;'>登録チャンネルなし</h2>";
-            return;
-        }
-        const html = subs.map(s => `
-            <div class="nav-item" style="background:var(--hover-bg); margin-bottom:8px; padding:15px;" onclick="Actions.openChannel('${s.id}', '${s.name}')">
-                <div class="ch-icon-small"><img src="https://ui-avatars.com/api/?name=${encodeURIComponent(s.name)}&background=random"></div>
-                <span>${s.name}</span>
-            </div>`).join('');
-        document.getElementById('view-container').innerHTML = `<div style="padding:20px;"><h2>登録中のチャンネル</h2>${html}</div>`;
+    showHistory() {
+        this.goHome(false);
     },
 
     showView() {
@@ -223,8 +202,27 @@ const Actions = {
         if(mainArea) mainArea.scrollTo(0, 0);
     },
 
+    // その他再生リストなどは前のコードを継承...
+    async loadChannelPlaylists(channelId) {
+        const menu = document.getElementById('video-sort-options');
+        if(menu) menu.style.display = 'none';
+        document.getElementById('ch-grid').innerHTML = "取得中...";
+        const data = await YT.fetchAPI('playlists', { channelId, part: 'snippet', maxResults: 20 });
+        document.getElementById('ch-grid').innerHTML = data.items.map(list => `
+            <div class="v-card" onclick="Actions.loadPlaylistItems('${list.id}')">
+                <img src="${list.snippet.thumbnails.high.url}">
+                <h3>${list.snippet.title}</h3>
+            </div>`).join('');
+    },
+
+    async loadPlaylistItems(playlistId) {
+        const data = await YT.fetchAPI('playlistItems', { playlistId, part: 'snippet', maxResults: 50 });
+        this.currentList = data.items.map(item => ({ id: item.snippet.resourceId.videoId, snippet: item.snippet }));
+        this.renderGrid(this.currentList, 'ch-grid');
+    },
+
     handleSub(id, name) {
-        const isAdded = Storage.toggleSub({ id, name });
+        Storage.toggleSub({ id, name });
         this.updateSubButton(id);
         this.updateSidebarSubs();
     },
@@ -234,7 +232,6 @@ const Actions = {
         if (btn) {
             const isSubbed = Storage.getSubs().some(s => s.id === id);
             btn.innerText = isSubbed ? "登録済み" : "チャンネル登録";
-            btn.classList.toggle('active', isSubbed);
         }
     },
 
@@ -244,7 +241,7 @@ const Actions = {
         const subs = Storage.getSubs();
         list.innerHTML = `<div class="nav-sep"></div>` + subs.slice(0, 10).map(s => `
             <div class="nav-item" onclick="Actions.openChannel('${s.id}', '${s.name}')">
-                <div class="ch-icon-small" style="width:24px; height:24px;"><img src="https://ui-avatars.com/api/?name=${encodeURIComponent(s.name)}&background=random"></div>
+                <div class="ch-icon-small"><img src="https://ui-avatars.com/api/?name=${encodeURIComponent(s.name)}&background=random"></div>
                 <span style="font-size:12px;">${s.name}</span>
             </div>`).join('');
     }
