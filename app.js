@@ -1,5 +1,5 @@
 /**
- * app.js - 司令塔（再生リスト・フル機能版）
+ * app.js - 司令塔（ソート機能 & 強制スクロール対応版）
  */
 
 const Actions = {
@@ -27,7 +27,7 @@ const Actions = {
             if (isMore) this.currentList.push(...data.items);
             else {
                 this.currentList = data.items;
-                this.showView('grid-view');
+                this.showView();
             }
 
             this.renderGrid(this.currentList, 'view-container');
@@ -38,7 +38,7 @@ const Actions = {
 
     loadMore() { this.search(this.currentQuery, true); },
 
-    // --- 2. チャンネルページ (再生リストボタン追加) ---
+    // --- 2. チャンネルページ (ソートボタン強化) ---
     async openChannel(id, name) {
         this.showView();
         document.getElementById('view-container').innerHTML = `
@@ -53,25 +53,46 @@ const Actions = {
                     </div>
                 </div>
                 <div class="sort-btns">
-                    <button onclick="Actions.loadChannelVideos('${id}', 'date')">動画</button>
+                    <button onclick="Actions.showSortMenu('${id}')">動画</button>
                     <button onclick="Actions.loadChannelPlaylists('${id}')">再生リスト</button>
+                </div>
+                <div id="video-sort-options" style="margin-bottom:20px; display:none;">
+                    <button onclick="Actions.loadChannelVideos('${id}', 'date')" style="font-size:12px; padding:5px 10px;">新着順</button>
+                    <button onclick="Actions.loadChannelVideos('${id}', 'viewCount')" style="font-size:12px; padding:5px 10px;">人気順</button>
+                    <button onclick="Actions.loadChannelVideos('${id}', 'date')" style="font-size:12px; padding:5px 10px;">古い順（新着の逆）</button>
                 </div>
                 <div id="ch-grid" class="grid">読み込み中...</div>
             </div>`;
         this.updateSubButton(id);
-        this.loadChannelVideos(id, 'date');
+        this.showSortMenu(id); // 最初は動画タブを表示
     },
 
-    // 💡 YouTube上の再生リスト一覧を取得
+    // 💡 動画タブのメニューを表示して読み込む
+    showSortMenu(channelId) {
+        document.getElementById('video-sort-options').style.display = 'flex';
+        document.getElementById('video-sort-options').style.gap = '10px';
+        this.loadChannelVideos(channelId, 'date');
+    },
+
+    async loadChannelVideos(channelId, order) {
+        document.getElementById('ch-grid').innerHTML = "読み込み中...";
+        const data = await YT.fetchAPI('search', { 
+            channelId, 
+            order, 
+            part: 'snippet', 
+            type: 'video', 
+            maxResults: 24 
+        });
+        this.currentList = data.items;
+        this.renderGrid(this.currentList, 'ch-grid');
+    },
+
+    // 再生リスト一覧取得
     async loadChannelPlaylists(channelId) {
+        document.getElementById('video-sort-options').style.display = 'none';
         document.getElementById('ch-grid').innerHTML = "リストを取得中...";
         try {
-            const data = await YT.fetchAPI('playlists', { 
-                channelId, 
-                part: 'snippet', 
-                maxResults: 20 
-            });
-            
+            const data = await YT.fetchAPI('playlists', { channelId, part: 'snippet', maxResults: 20 });
             const container = document.getElementById('ch-grid');
             container.innerHTML = data.items.map(list => `
                 <div class="v-card" onclick="Actions.loadPlaylistItems('${list.id}')">
@@ -85,27 +106,16 @@ const Actions = {
         } catch (e) { console.error(e); }
     },
 
-    // 💡 再生リスト内の動画一覧を取得
     async loadPlaylistItems(playlistId) {
         document.getElementById('ch-grid').innerHTML = "動画を取得中...";
         try {
-            const data = await YT.fetchAPI('playlistItems', { 
-                playlistId, 
-                part: 'snippet', 
-                maxResults: 50 
-            });
+            const data = await YT.fetchAPI('playlistItems', { playlistId, part: 'snippet', maxResults: 50 });
             this.currentList = data.items.map(item => ({
                 id: { videoId: item.snippet.resourceId.videoId },
                 snippet: item.snippet
             }));
             this.renderGrid(this.currentList, 'ch-grid');
         } catch (e) { console.error(e); }
-    },
-
-    async loadChannelVideos(channelId, order) {
-        const data = await YT.fetchAPI('search', { channelId, order, part: 'snippet', type: 'video', maxResults: 24 });
-        this.currentList = data.items;
-        this.renderGrid(this.currentList, 'ch-grid');
     },
 
     // --- 3. グリッドレンダリング ---
@@ -135,8 +145,13 @@ const Actions = {
         }).join('');
     },
 
-    // --- 4. 再生処理 ---
+    // --- 4. 再生処理 (💡 強制スクロール対応) ---
     play(index) {
+        // 💡 どこにいても強制的に一番上に戻る
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        const mainArea = document.querySelector('main');
+        if(mainArea) mainArea.scrollTo(0, 0);
+
         const video = this.currentList[index];
         const videoId = video.id.videoId || (video.id.resourceId ? video.id.resourceId.videoId : video.id);
         const title = video.snippet.title;
@@ -171,7 +186,6 @@ const Actions = {
                     <div style="flex:1;"><h4 style="margin:0; font-size:13px;">${v.snippet.title}</h4></div>
                 </div>`;
         }).join('');
-        window.scrollTo(0, 0);
     },
 
     // --- 5. ナビゲーション ---
@@ -203,7 +217,11 @@ const Actions = {
         document.getElementById('view-container').innerHTML = `<div style="padding:20px;"><h2>登録中のチャンネル</h2>${html}</div>`;
     },
 
-    showView() { window.scrollTo(0,0); },
+    showView() {
+        window.scrollTo(0,0);
+        const mainArea = document.querySelector('main');
+        if(mainArea) mainArea.scrollTo(0, 0);
+    },
 
     handleSub(id, name) {
         const isAdded = Storage.toggleSub({ id, name });
