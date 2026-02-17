@@ -1,17 +1,18 @@
 window.renderThumbnails = function(videos) {
     const resultsContainer = document.getElementById('search-results');
+    if (!resultsContainer) return;
     resultsContainer.innerHTML = '';
 
-    // data.itemsが何らかの理由で空でも、ここでエラーを出さずに止める
-    if (!videos) return;
+    // videosが空、もしくはundefinedの場合にforEachを回さないように鉄壁のガード
+    if (!videos || !Array.isArray(videos)) {
+        console.log("No videos data received");
+        return;
+    }
 
     videos.forEach(function(video) {
         const card = document.createElement('div');
         card.className = 'video-card';
-        
-        card.onclick = function() { 
-            window.playVideo(video.id, video.title); 
-        };
+        card.onclick = function() { window.playVideo(video.id, video.title); };
 
         card.innerHTML = `
             <img src="${video.thumbnail}" style="width:100%; border-radius:8px;">
