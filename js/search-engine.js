@@ -1,6 +1,6 @@
 window.fetchVideos = async function() {
     const input = document.getElementById('search-input');
-    const query = input.value.trim();
+    const query = input.value;
     if (!query) return;
 
     const apiKey = window.CONFIG.YOUTUBE_API_KEY;
@@ -10,7 +10,7 @@ window.fetchVideos = async function() {
         const response = await fetch(url);
         const data = await response.json();
 
-        // 取得したデータをそのまま renderThumbnails に投げる
+        // 取得したデータをそのまま次の関数へ渡すだけ
         const videos = data.items.map(item => ({
             id: item.id.videoId,
             title: item.snippet.title,
@@ -20,8 +20,6 @@ window.fetchVideos = async function() {
 
         window.renderThumbnails(videos);
     } catch (error) {
-        console.error('Search error:', error);
+        console.error('Error:', error);
     }
 };
-
-window.searchVideos = window.fetchVideos;
