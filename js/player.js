@@ -4,10 +4,12 @@ window.playVideo = async function(videoId, title) {
     const viewPlayer = document.getElementById('view-player');
     const titleElement = document.getElementById('current-video-title');
 
-    const eduId = window.CONFIG.YOUTUBE_EDU_FILTER;
+    // だいきが抜き出した最強の通行証
+    const eduId = "o-hmiN9tvUUI2EQM";
 
-    // この1行が、学校のフィルターとYouTubeの制限を同時に突破する「魔法のURL」だ
-    const videoUrl = `https://www.youtubeeducation.com/embed/${videoId}?edufilter=${eduId}&rel=0&autoplay=1&modestbranding=1`;
+    // Gitのサイトが `${id}${params}` で組み立てていた形を再現
+    // 最初のパラメータは ? で始め、その後に & で繋ぐのが基本だ
+    const videoUrl = `https://www.youtubeeducation.com/embed/${videoId}?edufilter=${eduId}&rel=0&autoplay=1&modestbranding=1&controls=1&showinfo=0`;
 
     playerContainer.innerHTML = `
         <iframe 
@@ -19,13 +21,14 @@ window.playVideo = async function(videoId, title) {
         </iframe>
     `;
 
+    // タイトルなどの情報をセット
     if (titleElement) titleElement.innerText = title;
-
-    // 画面切り替え
+    
+    // 画面切り替え（iPadでスムーズに動くよう display を制御）
     if (viewHome) viewHome.style.display = 'none';
     if (viewPlayer) viewPlayer.style.display = 'block';
 
-    // 関連動画の取得も忘れずに
+    // 関連動画の取得
     if (window.fetchRelatedVideos) {
         window.fetchRelatedVideos(videoId);
     }
