@@ -4,10 +4,8 @@ window.playVideo = async function(videoId, title) {
     const viewPlayer = document.getElementById('view-player');
     const titleElement = document.getElementById('current-video-title');
 
-    // だいきが見つけた通行証
+    // お前が苦労して見つけたID
     const eduId = "o-hmiN9tvUUI2EQM";
-
-    // 教育用ドメインとパラメータを適用
     const videoUrl = `https://www.youtubeeducation.com/embed/${videoId}?edufilter=${eduId}&rel=0&autoplay=1`;
 
     playerContainer.innerHTML = `
