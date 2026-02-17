@@ -1,13 +1,11 @@
-// 他のファイルを待ってから動くようにする
 window.onload = function() {
-    console.log("Kick Tube Ready!");
     const form = document.getElementById('search-form');
     
     if (form) {
         form.onsubmit = async function(e) {
             e.preventDefault();
             
-            // 【生存確認】これが動けば絶対に光る！
+            // 動作確認用の赤いフラッシュ
             document.body.style.backgroundColor = "red";
             setTimeout(() => { document.body.style.backgroundColor = "#111"; }, 300);
 
@@ -17,13 +15,15 @@ window.onload = function() {
 
             if (!query) return;
 
-            results.innerHTML = `<div style="text-align:center; padding:50px; font-size:24px;">🔍 検索中: ${query}</div>`;
+            results.innerHTML = `<div style="text-align:center; padding:50px; font-size:24px;">🔍 "${query}" をYouTube APIで検索中...</div>`;
 
             try {
+                // 1. 検索実行
                 const videos = await window.fetchVideos(query);
-                window.renderThumbnails(videos); // thumbnail-list.jsが必要
+                // 2. サムネイル表示（thumbnail-list.jsが必要）
+                window.renderThumbnails(videos); 
             } catch (err) {
-                results.innerHTML = `<div style="color:red;">エラー: ${err.message}</div>`;
+                results.innerHTML = `<div style="color:red; padding:20px;">エラー: ${err.message}</div>`;
             }
         };
     }
