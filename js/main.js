@@ -5,23 +5,24 @@ window.onload = function() {
         form.onsubmit = async function(e) {
             e.preventDefault();
             
-            // 動作確認用の赤いフラッシュ
-            document.body.style.backgroundColor = "red";
-            setTimeout(() => { document.body.style.backgroundColor = "#111"; }, 300);
-
             const input = document.getElementById('search-input');
             const results = document.getElementById('search-results');
             const query = input.value.trim();
 
             if (!query) return;
 
-            results.innerHTML = `<div style="text-align:center; padding:50px; font-size:24px;">🔍 "${query}" をYouTube APIで検索中...</div>`;
+            results.innerHTML = `<div style="text-align:center; padding:50px;">🔍 検索中...</div>`;
 
             try {
-                // 1. 検索実行
                 const videos = await window.fetchVideos(query);
-                // 2. サムネイル表示（thumbnail-list.jsが必要）
-                window.renderThumbnails(videos); 
+                
+                // エラーの原因「関数がない」を防ぐチェック
+                if (typeof window.renderThumbnails === 'function') {
+                    window.renderThumbnails(videos);
+                } else {
+                    throw new Error("表示機能(thumbnail-list.js)がまだ読み込まれていないぜ。リロードしてみて！");
+                }
+
             } catch (err) {
                 results.innerHTML = `<div style="color:red; padding:20px;">エラー: ${err.message}</div>`;
             }
