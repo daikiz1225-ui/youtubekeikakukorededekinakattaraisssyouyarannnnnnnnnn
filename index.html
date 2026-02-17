@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Kick Tube - Education Mode</title>
+    <title>Kick Tube - Education Test</title>
     <style>
         body { background-color: #000; color: #fff; font-family: sans-serif; margin: 0; padding: 0; }
         header { background-color: #111; padding: 15px; position: sticky; top: 0; z-index: 1000; border-bottom: 1px solid #333; }
@@ -41,10 +41,9 @@
     </div>
 
     <script>
-        // ✅ だいきのAPIキーをセット完了
         const API_KEY = "AIzaSyBbqPhAbqoWDOurTt7hejQmwc6dAoZ5Iy0";
-        // ✅ 最強の教育用IDをセット
-        const EDU_ID = "o-hmiN9tvUUI2EQM";
+        // 🚨 だいきの予想：最初の 'o-' を抜いた ID
+        const EDU_ID = "hmiN9tvUUI2EQM";
 
         async function doSearch() {
             const query = document.getElementById('search-input').value;
@@ -74,7 +73,7 @@
                         document.getElementById('view-player').style.display = 'block';
                         document.getElementById('player-title').innerText = item.snippet.title;
                         
-                        // ✅ youtubeeducation.comドメインを使用
+                        // EducationドメインでIDを適用
                         const embedUrl = `https://www.youtubeeducation.com/embed/${videoId}?edufilter=${EDU_ID}`;
                         
                         document.getElementById('player-container').innerHTML = `
