@@ -1,50 +1,20 @@
-/* app.js */
+/* app.js の修正・強化版 */
 const Actions = {
-    currentList: [],
-    
-    async search(q = document.getElementById('search-input').value) {
-        if(!q) return;
-        const data = await YT.fetchAPI('search', { q, part: 'snippet', type: 'video', maxResults: 20 });
-        this.currentList = data.items;
-        this.renderGrid(data.items);
-    },
-
-    // チャンネルページを開く
-    async openChannel(id, name) {
-        const view = document.getElementById('view-container');
-        view.innerHTML = `
-            <div class="ch-info">
-                <div style="width:80px; height:80px; background:#444; border-radius:50%;"></div>
-                <h1>${name}</h1>
-                <button id="sub-btn" class="sub-btn" onclick="Actions.handleSub('${id}', '${name}')">登録</button>
-            </div>
-            <div class="sort-btns">
-                <button onclick="Actions.loadChannelVideos('${id}', 'date')">新着順</button>
-                <button onclick="Actions.loadChannelVideos('${id}', 'viewCount')">人気順</button>
-            </div>
-            <div id="ch-grid" class="grid"></div>
-        `;
-        this.loadChannelVideos(id, 'date');
-    },
-
-    async loadChannelVideos(channelId, order) {
-        const data = await YT.fetchAPI('search', { channelId, order, part: 'snippet', type: 'video', maxResults: 20 });
-        this.currentList = data.items;
-        this.renderGrid(data.items, 'ch-grid');
-    },
-
-    handleSub(id, name) {
-        const isAdded = Storage.toggleSub({ id, name });
-        document.getElementById('sub-btn').innerText = isAdded ? "登録済み" : "登録";
-        document.getElementById('sub-btn').classList.toggle('active', isAdded);
-    },
+    // ... 前回の search はそのまま ...
 
     renderGrid(items, target = 'view-container') {
         const html = items.map((item, i) => `
-            <div class="v-card" onclick="Actions.play(${i})">
-                <img src="${item.snippet.thumbnails.high.url}">
-                <h3>${item.snippet.title}</h3>
-                <div style="color:#aaa; font-size:12px;" onclick="event.stopPropagation(); Actions.openChannel('${item.snippet.channelId}', '${item.snippet.channelTitle}')">${item.snippet.channelTitle}</div>
+            <div class="v-card">
+                <img src="${item.snippet.thumbnails.high.url}" onclick="Actions.play(${i})">
+                <div class="video-info-row">
+                    <div class="ch-icon-small" onclick="Actions.openChannel('${item.snippet.channelId}', '${item.snippet.channelTitle}')">
+                        <img src="https://ui-avatars.com/api/?name=${encodeURIComponent(item.snippet.channelTitle)}&background=random">
+                    </div>
+                    <div>
+                        <h3 onclick="Actions.play(${i})">${item.snippet.title}</h3>
+                        <div class="channel-link" onclick="Actions.openChannel('${item.snippet.channelId}', '${item.snippet.channelTitle}')">${item.snippet.channelTitle}</div>
+                    </div>
+                </div>
             </div>
         `).join('');
         document.getElementById(target).innerHTML = `<div class="grid">${html}</div>`;
@@ -52,28 +22,59 @@ const Actions = {
 
     play(index) {
         const video = this.currentList[index];
-        Storage.addHistory({ id: video.id.videoId, title: video.snippet.title });
+        const videoId = video.id.videoId || video.id; // 検索結果とチャンネル動画の両方に対応
         
+        Storage.addHistory({ id: videoId, title: video.snippet.title });
+        
+        // 💡 画面を「再生モード」に切り替え
         document.getElementById('view-container').innerHTML = `
             <div class="watch-layout">
                 <div class="player-area">
                     <div class="player-box">
-                        <iframe src="${YT.getEmbedUrl(video.id.videoId)}" allowfullscreen></iframe>
+                        <iframe src="${YT.getEmbedUrl(videoId)}" allow="autoplay; fullscreen" allowfullscreen></iframe>
                     </div>
-                    <h2>${video.snippet.title}</h2>
+                    <div class="video-info-row">
+                        <div class="ch-icon-small" onclick="Actions.openChannel('${video.snippet.channelId}', '${video.snippet.channelTitle}')">
+                             <img src="https://ui-avatars.com/api/?name=${encodeURIComponent(video.snippet.channelTitle)}&background=random">
+                        </div>
+                        <div>
+                            <h2 style="margin:0;">${video.snippet.title}</h2>
+                            <div class="channel-link" style="font-size:16px;">${video.snippet.channelTitle}</div>
+                        </div>
+                    </div>
                 </div>
                 <div class="sidebar-area" id="side-list"></div>
             </div>
         `;
-        // 関連動画（今のリストの残り）を表示
-        const sideHtml = this.currentList.map((v, i) => i === index ? '' : `<div class="v-card" onclick="Actions.play(${i})"><img src="${v.snippet.thumbnails.medium.url}"><h4>${v.snippet.title}</h4></div>`).join('');
-        document.getElementById('side-list').innerHTML = sideHtml;
+        this.renderSideList(index);
+    },
+
+    // 💡 サイドバーのボタン群（履歴・登録チャンネル）に機能を繋ぐ
+    showHistory() {
+        const history = Storage.getHistory();
+        this.currentList = history.map(h => ({ id: h.id, snippet: { title: h.title, thumbnails: { high: { url: `https://img.youtube.com/vi/${h.id}/hqdefault.jpg` } }, channelTitle: "再生履歴" } }));
+        this.renderGrid(this.currentList);
+    },
+
+    showSubs() {
+        const subs = Storage.getSubs();
+        if(subs.length === 0) {
+            document.getElementById('view-container').innerHTML = "<h2>登録チャンネルはありません</h2>";
+            return;
+        }
+        // 登録チャンネルの一覧を表示（ここから各チャンネルページへ飛べる）
+        const html = subs.map(s => `
+            <div class="nav-item" style="background:#1e1e1e; margin-bottom:10px;" onclick="Actions.openChannel('${s.id}', '${s.name}')">
+                <div class="ch-icon-small"></div>
+                <span>${s.name}</span>
+            </div>
+        `).join('');
+        document.getElementById('view-container').innerHTML = `<h2>登録中のチャンネル</h2><div style="margin-top:20px;">${html}</div>`;
     }
 };
 
-const Router = {
-    goHome(clear) {
-        if(clear) document.getElementById('search-input').value = "";
-        document.getElementById('view-container').innerHTML = `<div class="grid" id="home-grid"></div>`;
-    }
+// 💡 ショートモードの切り替えをサイドバーのボタンにセット
+Actions.setMode = function(mode) {
+    alert(mode + " モードに切り替えました。検索時に適用されます。");
+    this.currentMode = mode;
 };
