@@ -1,15 +1,16 @@
-window.playVideo = async function(videoId, title) {
+window.playVideo = async function(videoId, title, channelName) {
     const playerContainer = document.getElementById('player-container');
     const viewHome = document.getElementById('view-home');
     const viewPlayer = document.getElementById('view-player');
     const titleElement = document.getElementById('current-video-title');
+    const channelElement = document.getElementById('current-channel-name');
 
-    // だいきが抜き出した最強の通行証
-    const eduId = "o-hmiN9tvUUI2EQM";
+    // config.jsからIDを読み込む
+    const eduId = window.CONFIG.YOUTUBE_EDU_FILTER;
 
-    // Gitのサイトが `${id}${params}` で組み立てていた形を再現
-    // 最初のパラメータは ? で始め、その後に & で繋ぐのが基本だ
-    const videoUrl = `https://www.youtubeeducation.com/embed/${videoId}?edufilter=${eduId}&rel=0&autoplay=1&modestbranding=1&controls=1&showinfo=0`;
+    // 重要：URLの組み立て
+    // youtubeeducation.com を使い、edufilterパラメータを先頭に持ってくる
+    const videoUrl = `https://www.youtubeeducation.com/embed/${videoId}?edufilter=${eduId}&rel=0&autoplay=1&modestbranding=1&controls=1`;
 
     playerContainer.innerHTML = `
         <iframe 
@@ -21,10 +22,11 @@ window.playVideo = async function(videoId, title) {
         </iframe>
     `;
 
-    // タイトルなどの情報をセット
-    if (titleElement) titleElement.innerText = title;
-    
-    // 画面切り替え（iPadでスムーズに動くよう display を制御）
+    // 表示情報の更新（undefined対策）
+    if (titleElement) titleElement.innerText = title || "無題の動画";
+    if (channelElement) channelElement.innerText = channelName || "チャンネル名不明";
+
+    // 画面切り替え
     if (viewHome) viewHome.style.display = 'none';
     if (viewPlayer) viewPlayer.style.display = 'block';
 
