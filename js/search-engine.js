@@ -10,17 +10,15 @@ window.fetchVideos = async function() {
         const response = await fetch(url);
         const data = await response.json();
 
-        // data.items が undefined だと forEach で落ちるので、ここで守る
-        if (data && data.items) {
-            const videos = data.items.map(item => ({
-                id: item.id.videoId,
-                title: item.snippet.title,
-                thumbnail: item.snippet.thumbnails.high.url,
-                channelName: item.snippet.channelTitle
-            }));
+        // 判定を入れず、シンプルに map して渡す
+        const videos = data.items.map(item => ({
+            id: item.id.videoId,
+            title: item.snippet.title,
+            thumbnail: item.snippet.thumbnails.high.url,
+            channelName: item.snippet.channelTitle
+        }));
 
-            window.renderThumbnails(videos);
-        }
+        window.renderThumbnails(videos);
     } catch (error) {
         console.error('Error:', error);
     }
