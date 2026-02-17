@@ -3,83 +3,62 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Kick Tube - SS Bypass</title>
+    <meta name="referrer" content="no-referrer-when-downgrade">
+    <title>Yahoo!ニュース - 映像配信サービス</title>
     <style>
-        body { background: #000; color: #fff; font-family: sans-serif; margin: 0; padding: 0; }
-        header { background: #111; padding: 15px; position: sticky; top: 0; z-index: 1000; border-bottom: 1px solid #333; }
-        .search-box { display: flex; max-width: 800px; margin: 0 auto; gap: 8px; }
-        input { flex: 1; background: #222; border: 1px solid #444; color: #fff; padding: 12px; border-radius: 24px; font-size: 16px; outline: none; }
-        button { background: #ff0000; color: #fff; border: none; padding: 10px 20px; border-radius: 24px; font-weight: bold; cursor: pointer; }
-        .video-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 20px; padding: 20px; }
-        .video-card { cursor: pointer; border-radius: 12px; overflow: hidden; background: #111; transition: 0.2s; }
-        .video-card:active { transform: scale(0.95); }
-        .video-card img { width: 100%; aspect-ratio: 16/9; object-fit: cover; }
-        .video-card h3 { font-size: 14px; margin: 10px; height: 3em; overflow: hidden; }
-        #view-player { display: none; height: 100vh; flex-direction: column; }
-        .iframe-container { flex: 1; width: 100%; background: #000; }
-        iframe { width: 100%; height: 100%; border: none; }
-        .back-bar { background: #111; padding: 10px; display: flex; align-items: center; }
+        /* Yahoo!ニュースっぽい配色とデザインに偽装 */
+        body { background: #f2f2f2; color: #333; font-family: "MS PGothic", sans-serif; margin: 0; }
+        header { background: #fff; border-bottom: 2px solid #ff0000; padding: 10px; display: flex; align-items: center; }
+        .logo { font-weight: bold; font-size: 20px; color: #000; text-decoration: none; }
+        .search-container { background: #fff; padding: 15px; margin: 10px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        input { width: 70%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; }
+        .btn { background: #333; color: #fff; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; }
+        
+        /* 動画カード */
+        .video-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 15px; padding: 15px; }
+        .video-card { background: #fff; border: 1px solid #ddd; cursor: pointer; font-size: 12px; }
+        .video-card img { width: 100%; }
+        .video-card h3 { margin: 5px; height: 3em; overflow: hidden; }
     </style>
 </head>
 <body>
 
-    <div id="view-home">
-        <header>
-            <div class="search-box">
-                <input type="text" id="search-input" placeholder="動画を検索..." onkeypress="if(event.key==='Enter') doSearch()">
-                <button onclick="doSearch()">検索</button>
-            </div>
-        </header>
-        <div id="search-results" class="video-grid"></div>
+    <header>
+        <a href="#" class="logo">Yahoo!ニュース</a>
+    </header>
+
+    <div class="search-container">
+        <input type="text" id="search-input" placeholder="キーワードを入力してください">
+        <button class="btn" onclick="doSearch()">検索</button>
     </div>
 
-    <div id="view-player">
-        <div class="back-bar">
-            <button onclick="goBack()" style="background:#333; color:#fff; border:none; padding:8px 15px; border-radius:8px;">← 戻る</button>
-            <span id="player-title" style="margin-left:15px; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"></span>
-        </div>
-        <div class="iframe-container" id="player-container"></div>
-    </div>
+    <div id="search-results" class="video-grid"></div>
 
     <script>
         const API_KEY = "AIzaSyBbqPhAbqoWDOurTt7hejQmwc6dAoZ5Iy0";
 
         async function doSearch() {
             const query = document.getElementById('search-input').value;
-            if (!query) return;
+            const res = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&type=video&maxResults=20&key=${API_KEY}`);
+            const data = await res.json();
             const results = document.getElementById('search-results');
-            results.innerHTML = '検索中...';
-
-            try {
-                const res = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&type=video&maxResults=24&key=${API_KEY}`);
-                const data = await res.json();
-                results.innerHTML = '';
-                data.items.forEach(item => {
-                    const card = document.createElement('div');
-                    card.className = 'video-card';
-                    card.onclick = () => {
-                        const videoId = item.id.videoId;
-                        document.getElementById('view-home').style.display = 'none';
-                        document.getElementById('view-player').style.display = 'flex';
-                        document.getElementById('player-title').innerText = item.snippet.title;
-                        
-                        // ✅ だいきが見つけた ssルートを適用
-                        const ssUrl = `https://www.ssyoutube.com/watch?v=${videoId}`;
-                        
-                        document.getElementById('player-container').innerHTML = `
-                            <iframe src="${ssUrl}" allowfullscreen></iframe>
-                        `;
-                    };
-                    card.innerHTML = `<img src="${item.snippet.thumbnails.high.url}"><h3>${item.snippet.title}</h3>`;
-                    results.appendChild(card);
-                });
-            } catch (e) { results.innerHTML = 'エラーが発生しました'; }
-        }
-
-        function goBack() {
-            document.getElementById('view-home').style.display = 'block';
-            document.getElementById('view-player').style.display = 'none';
-            document.getElementById('player-container').innerHTML = '';
+            results.innerHTML = '';
+            
+            data.items.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'video-card';
+                card.onclick = () => {
+                    // ✅ Yahoo! ニュースの動画ページを経由しているように偽装してダウンローダーへ
+                    const targetUrl = `https://www.ssyoutube.com/watch?v=${item.id.videoId}`;
+                    
+                    // 新しいウィンドウを開く際、リファラ情報を操作（ブラウザに依存するが）
+                    const win = window.open('', '_blank');
+                    win.opener = null;
+                    win.location.href = targetUrl;
+                };
+                card.innerHTML = `<img src="${item.snippet.thumbnails.high.url}"><h3>${item.snippet.title}</h3>`;
+                results.appendChild(card);
+            });
         }
     </script>
 </body>
