@@ -6,41 +6,33 @@
     <title>kick tube</title>
     <link rel="stylesheet" href="style.css">
 </head>
-<body style="background-color: #111; color: white; transition: background-color 0.2s;">
+<body style="background: #111; color: white; transition: background 0.3s;">
 
     <aside id="sidebar">
         <div class="logo">kick tube</div>
-        <nav id="channel-list"></nav>
     </aside>
 
     <main id="main-content">
         <header id="search-header">
-            <form id="search-form" onsubmit="return false;" class="search-container" style="display:flex; gap:10px; padding:10px;">
-                <input type="text" id="search-input" placeholder="動画を検索..." style="flex:1; padding:10px; border-radius:5px; border:none;">
-                <button id="search-button" type="submit" style="padding:10px 20px; background:red; color:white; border:none; border-radius:5px; font-weight:bold;">検索</button>
+            <form id="search-form" class="search-container" style="display:flex; gap:10px; padding:20px;">
+                <input type="text" id="search-input" placeholder="動画を検索..." style="flex:1; padding:15px; font-size:16px;">
+                <button id="search-button" type="submit" style="padding:15px 30px; background:red; color:white; font-weight:bold; border:none; border-radius:8px;">検索</button>
             </form>
         </header>
 
-        <section id="view-home" class="view">
+        <section id="view-home">
             <div id="search-results" class="video-grid">
-                <div style="text-align:center; padding:50px; color:#888;">検索ワードを入れてね</div>
-            </div>
-        </section>
-
-        <section id="view-player" class="view" style="display: none;">
-            <div id="player-container"></div>
-            <div id="video-controls" style="text-align:center; padding:20px;">
-                <button id="back-to-home" class="btn">⬅️ 戻る</button>
+                <div style="text-align:center; padding:50px; color:#888;">検索ワードを入力してね</div>
             </div>
         </section>
     </main>
 
-    <script type="module" src="js/config.js?v=5.0"></script>
-    <script type="module" src="js/ui-switcher.js?v=5.0"></script>
-    <script type="module" src="js/search-engine.js?v=5.0"></script>
-    <script type="module" src="js/thumbnail-list.js?v=5.0"></script>
-    <script type="module" src="js/player.js?v=5.0"></script>
-    <script type="module" src="js/main.js?v=5.0"></script>
+    <script src="js/config.js?v=6.0"></script>
+    <script src="js/ui-switcher.js?v=6.0"></script>
+    <script src="js/search-engine.js?v=6.0"></script>
+    <script src="js/thumbnail-list.js?v=6.0"></script>
+    <script src="js/player.js?v=6.0"></script>
+    <script src="js/main.js?v=6.0"></script>
 
 </body>
 </html>
