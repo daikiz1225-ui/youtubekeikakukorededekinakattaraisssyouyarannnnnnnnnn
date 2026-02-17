@@ -1,4 +1,4 @@
 // exportを使わず、windowに直接入れる
 window.CONFIG = {
-    PIPED_DOMAIN: "pipedapi.wireway.ch"
+    PIPED_DOMAIN: "pipedapi.kavin.rocks"
 };
