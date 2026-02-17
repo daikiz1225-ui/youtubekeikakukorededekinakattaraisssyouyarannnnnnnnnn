@@ -1,6 +1,6 @@
 /**
- * app.js - 司令塔（現場監督）
- * 画面の切り替え、APIの呼び出し、UIのレンダリングをすべて制御する。
+ * app.js - 司令塔（完全版）
+ * 起動時のAPI消費をカットし、履歴・登録チャンネル・チャンネルページを統括する。
  */
 
 const Actions = {
@@ -24,7 +24,7 @@ const Actions = {
                 maxResults: 24 
             });
             this.currentList = data.items;
-            this.showView('grid-view'); // グリッド表示に切り替え
+            this.showView('grid-view');
             this.renderGrid(this.currentList, 'view-container');
         } catch (e) {
             console.error("検索エラー:", e);
@@ -37,7 +37,6 @@ const Actions = {
         this.showView('channel-view');
         const container = document.getElementById('view-container');
         
-        // チャンネルページのヘッダー構築
         container.innerHTML = `
             <div class="ch-info">
                 <div class="ch-icon-small" style="width:80px; height:80px;">
@@ -60,7 +59,6 @@ const Actions = {
         this.loadChannelVideos(id, 'date');
     },
 
-    // チャンネル専用の動画取得
     async loadChannelVideos(channelId, order) {
         const data = await YT.fetchAPI('search', { 
             channelId, 
@@ -92,7 +90,7 @@ const Actions = {
     renderGrid(items, targetId) {
         const container = document.getElementById(targetId);
         if (!items || items.length === 0) {
-            container.innerHTML = "<p>動画が見つかりませんでした。</p>";
+            container.innerHTML = "<p style='padding:20px;'>動画が見つかりませんでした。</p>";
             return;
         }
 
@@ -136,7 +134,6 @@ const Actions = {
             thumb: video.snippet.thumbnails.medium.url 
         });
 
-        // 再生画面レイアウトを構築
         document.getElementById('view-container').innerHTML = `
             <div class="watch-layout">
                 <div class="player-area">
@@ -160,7 +157,6 @@ const Actions = {
             </div>
         `;
 
-        // サイドバーに関連動画（現在のリストの他動画）を表示
         const sideContainer = document.getElementById('side-list');
         sideContainer.innerHTML = this.currentList.map((v, i) => {
             if (i === index) return '';
@@ -181,7 +177,7 @@ const Actions = {
     // --- 6. ユーティリティ ---
     showView(mode) {
         const container = document.getElementById('view-container');
-        container.innerHTML = ""; // 初期化
+        container.innerHTML = "";
         window.scrollTo(0, 0);
     },
 
@@ -190,44 +186,64 @@ const Actions = {
             document.getElementById('search-input').value = "";
             this.currentQuery = "";
         }
-        this.search("教育"); // デフォルトのホーム画面表示
+        
+        const history = Storage.getHistory();
+        if (history.length > 0) {
+            // APIを叩かず、ローカルの履歴を表示
+            console.log("API節約モード: 履歴を表示します");
+            this.currentList = history.map(h => ({ 
+                id: h.id, 
+                snippet: { 
+                    title: h.title, 
+                    channelTitle: h.channel || "再生済み", 
+                    thumbnails: { high: { url: h.thumb || `https://img.youtube.com/vi/${h.id}/hqdefault.jpg` } },
+                    channelId: "" 
+                } 
+            }));
+            this.renderGrid(this.currentList, 'view-container');
+        } else {
+            document.getElementById('view-container').innerHTML = `
+                <div style="text-align:center; margin-top:100px; color:#aaa;">
+                    <h1 style="font-size:40px;">▶ YouTube Education</h1>
+                    <p style="font-size:20px;">上の検索バーから動画を探そうぜ、だいき！</p>
+                </div>
+            `;
+        }
     },
 
     showHistory() {
-        const history = Storage.getHistory();
-        this.currentList = history.map(h => ({ 
-            id: h.id, 
-            snippet: { 
-                title: h.title, 
-                channelTitle: h.channel || "履歴", 
-                thumbnails: { high: { url: h.thumb || `https://img.youtube.com/vi/${h.id}/hqdefault.jpg` } } 
-            } 
-        }));
-        this.renderGrid(this.currentList, 'view-container');
+        this.goHome(false);
     },
 
     showSubs() {
         const subs = Storage.getSubs();
         if (subs.length === 0) {
-            document.getElementById('view-container').innerHTML = "<h2>登録チャンネルがありません</h2>";
+            document.getElementById('view-container').innerHTML = "<h2 style='padding:20px;'>登録チャンネルがありません</h2>";
             return;
         }
         const html = subs.map(s => `
-            <div class="nav-item" style="background:var(--hover-bg); margin-bottom:8px;" onclick="Actions.openChannel('${s.id}', '${s.name}')">
-                <div class="ch-icon-small">
+            <div class="nav-item" style="background:var(--hover-bg); margin-bottom:8px; padding:20px;" onclick="Actions.openChannel('${s.id}', '${s.name}')">
+                <div class="ch-icon-small" style="width:40px; height:40px;">
                     <img src="https://ui-avatars.com/api/?name=${encodeURIComponent(s.name)}&background=random">
                 </div>
-                <span>${s.name}</span>
+                <span style="font-size:18px;">${s.name}</span>
             </div>
         `).join('');
-        document.getElementById('view-container').innerHTML = `<h2>登録中のチャンネル</h2><div style="margin-top:20px;">${html}</div>`;
+        document.getElementById('view-container').innerHTML = `
+            <div style="padding:20px;">
+                <h2 style="margin-bottom:20px;">登録中のチャンネル</h2>
+                <div>${html}</div>
+            </div>`;
     },
 
     updateSidebarSubs() {
         const list = document.getElementById('sub-sidebar-list');
         if (!list) return;
         const subs = Storage.getSubs();
-        list.innerHTML = subs.slice(0, 10).map(s => `
+        list.innerHTML = `
+            <div class="nav-sep"></div>
+            <div style="padding:10px 16px; font-size:12px; color:#aaa;">登録チャンネル</div>
+            ` + subs.slice(0, 15).map(s => `
             <div class="nav-item" onclick="Actions.openChannel('${s.id}', '${s.name}')">
                 <div class="ch-icon-small" style="width:24px; height:24px;">
                     <img src="https://ui-avatars.com/api/?name=${encodeURIComponent(s.name)}&background=random">
@@ -235,11 +251,18 @@ const Actions = {
                 <span style="font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${s.name}</span>
             </div>
         `).join('');
+    },
+
+    setMode(mode) {
+        this.currentMode = mode;
+        const q = document.getElementById('search-input').value;
+        if(q) this.search(q);
+        else alert(mode === 'shorts' ? "ショート動画モードになりました。検索してくれ！" : "通常動画モードになりました。");
     }
 };
 
 // --- 初期化 ---
 window.onload = () => {
     Actions.updateSidebarSubs();
-    Actions.goHome(); // 起動時にホーム画面を表示
+    Actions.goHome(); // 起動時は履歴を表示（API消費なし）
 };
