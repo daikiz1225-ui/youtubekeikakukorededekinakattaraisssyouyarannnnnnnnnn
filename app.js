@@ -7,23 +7,28 @@ const YT = {
         "AIzaSyBL38iyqeiaKHoKqhloSnhG590DfJ35vC"
     ],
     currentKeyIndex: 0,
-    EDU_TOKEN: "", // ここに Kahoot のキーが入る
+    EDU_TOKEN: "",
 
-    // Kahootからキーを抜いて変数に叩き込む
+    // サイトの「中身」をそのまま引っこ抜く関数
     async getEducationKey() {
         try {
-            const res = await fetch('https://apis.kahoot.it/media-api/youtube/key');
-            const data = await res.json();
+            // mode: 'cors' を明示して、テキストとして取得を試みる
+            const res = await fetch('https://apis.kahoot.it/media-api/youtube/key', {
+                mode: 'cors'
+            });
+            const text = await res.text();
             
-            // data.key にあの長い文字列が入っているはず
-            if (data && data.key) {
-                this.EDU_TOKEN = data.key;
-                console.log("Token Acquired:", this.EDU_TOKEN);
+            // 取得したテキストから "key":"..." の部分だけを抜き出す
+            // 正規表現で「"key":"」と「"」に挟まれた部分を抽出
+            const match = text.match(/"key":"([^"]+)"/);
+            if (match && match[1]) {
+                this.EDU_TOKEN = match[1];
+                console.log("Education Key Captured:", this.EDU_TOKEN);
                 return true;
             }
             return false;
         } catch (e) {
-            console.error("Fetch Error:", e);
+            console.error("Fetch failed, check CORS settings:", e);
             return false;
         }
     },
@@ -47,11 +52,9 @@ const YT = {
         }
     },
 
-    // 確実に current token を使う埋め込みURL生成
+    // 抽出した生キーをURLにガチでぶち込む
     getEmbedUrl(id) {
-        // 変数の中身を直接埋め込む
         const url = `https://www.youtubeeducation.com/embed/${id}?edufilter=${this.EDU_TOKEN}&autoplay=1`;
-        console.log("Final URL:", url);
         return url;
     }
 };
@@ -74,22 +77,17 @@ const Storage = {
 
 const Actions = {
     currentList: [], 
-    relatedList: [], 
     nextToken: "", 
     isShortsMode: false,
     searchQuery: "",
 
     async init() {
         this.renderSidebar();
-        // ここでキーが取れるまで確実に待つ
-        const success = await YT.getEducationKey();
-        if (success) {
-            this.goHome();
-        } else {
-            document.getElementById('view-container').innerHTML = "認証キーの取得に失敗しました。";
-        }
+        // 起動時に「読み込むだけでコードになる」そのサイトから抜き取る
+        await YT.getEducationKey();
+        this.goHome();
         
-        // iPad Enter制御
+        // iPad対応 Enterキー
         document.getElementById('search-input').addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
@@ -127,17 +125,9 @@ const Actions = {
         if (data && data.items) {
             this.nextToken = data.nextPageToken || "";
             this.currentList = isMore ? [...this.currentList, ...data.items] : data.items;
-            if (this.isShortsMode) {
-                this.relatedList = this.currentList;
-                this.renderShortsGrid(this.currentList, 'view-container');
-            } else {
-                this.renderGrid(this.currentList, 'view-container');
-            }
+            this.renderGrid(this.currentList, 'view-container');
         }
-        document.getElementById('load-more').style.display = this.nextToken ? 'block' : 'none';
     },
-
-    loadMore() { this.search(this.searchQuery, true); },
 
     renderGrid(items, targetId) {
         const html = items.map((item, i) => `
@@ -148,18 +138,8 @@ const Actions = {
         document.getElementById(targetId).innerHTML = `<div class="grid">${html}</div>`;
     },
 
-    renderShortsGrid(items, targetId) {
-        const html = items.map((item, i) => `
-            <div class="v-card" onclick="Actions.playShort(${i})">
-                <div class="thumb-container" style="aspect-ratio:9/16;"><img src="${item.snippet.thumbnails.high.url}" class="main-thumb"></div>
-                <div class="v-text"><h3>${item.snippet.title}</h3></div>
-            </div>`).join('');
-        document.getElementById(targetId).innerHTML = `<div class="grid" style="grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));">${html}</div>`;
-    },
-
     async play(video) {
         const vId = video.id.videoId || video.id;
-        // 生成されたURLを直接使用
         const embedUrl = YT.getEmbedUrl(vId);
         
         document.getElementById('view-container').innerHTML = `
@@ -174,23 +154,6 @@ const Actions = {
     },
 
     playFromList(i) { this.play(this.currentList[i]); },
-
-    async playShort(i) {
-        const v = this.relatedList[i];
-        const vId = v.id.videoId;
-        const embedUrl = YT.getEmbedUrl(vId);
-        document.getElementById('view-container').innerHTML = `
-            <div class="shorts-container">
-                <div class="shorts-wrapper">
-                    <iframe src="${embedUrl}&loop=1&playlist=${vId}" style="width:100%;height:100%;border:none;"></iframe>
-                </div>
-                <div class="shorts-right-controls">
-                    <button class="short-action-btn" onclick="Actions.playShort(${i-1})">▲</button>
-                    <button class="short-action-btn" onclick="Actions.playShort(${i+1})">▼</button>
-                </div>
-            </div>`;
-    },
-
     showShortsFeed() { this.isShortsMode = true; this.search(""); },
     showHistory() { this.isShortsMode = false; this.renderGrid(Storage.getHistory().map(x => ({id:x.id, snippet:{title:x.title, channelTitle:x.channelTitle, thumbnails:{high:{url:x.thumb}}}})), 'view-container'); },
     showLiked() { this.isShortsMode = false; this.renderGrid(Storage.getLiked().map(x => ({id:x.id, snippet:{title:x.title, channelTitle:x.channelTitle, thumbnails:{high:{url:x.thumb}}}})), 'view-container'); },
@@ -198,9 +161,7 @@ const Actions = {
         const v = this.currentList.find(x => (x.id.videoId||x.id) === id);
         if(v) Storage.toggleLike({id, title: v.snippet.title, thumb: v.snippet.thumbnails.high.url, channelTitle: v.snippet.channelTitle});
     },
-    toggleTheme() {
-        const next = document.body.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
-        document.body.setAttribute('data-theme', next);
-    }
+    toggleTheme() { document.body.setAttribute('data-theme', document.body.getAttribute('data-theme') === 'light' ? 'dark' : 'light'); }
 };
+
 window.onload = () => Actions.init();
