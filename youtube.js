@@ -14,8 +14,11 @@ const YT = {
             const data = await res.json();
             if (data && data.key) {
                 this.currentEduKey = data.key;
+                console.log("Key updated successfully");
             }
-        } catch (e) { console.error("Backup key used"); }
+        } catch (e) {
+            console.error("Using backup key due to fetch error");
+        }
     },
 
     getCurrentKey() {
@@ -26,6 +29,7 @@ const YT = {
     async fetchAPI(endpoint, params) {
         const queryParams = new URLSearchParams({ ...params, key: this.getCurrentKey() });
         const res = await fetch(`https://www.googleapis.com/youtube/v3/${endpoint}?${queryParams}`);
+        
         if (res.status === 403) {
             let next = (parseInt(localStorage.getItem('yt_key_index')) || 0) + 1;
             if (next < this.keys.length) {
@@ -33,6 +37,7 @@ const YT = {
                 return this.fetchAPI(endpoint, params);
             }
         }
+        if (!res.ok) throw new Error("API Limit or Error");
         return await res.json();
     },
 
