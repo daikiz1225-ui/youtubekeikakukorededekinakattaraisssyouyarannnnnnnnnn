@@ -9,25 +9,45 @@ const YT = {
     currentKeyIndex: 0,
     EDU_TOKEN: "",
 
-    // 教育用キーを取得する
+    // 「読み込んだらそのコードになる」＝ scriptタグで読み込む方式
     async getEducationKey() {
+        return new Promise((resolve) => {
+            const script = document.createElement('script');
+            // お前が教えてくれたURL
+            script.src = 'https://apis.kahoot.it/media-api/youtube/key';
+            
+            // 読み込みが完了した時の処理
+            script.onload = () => {
+                // サイトを読み込んだ結果、もし key という変数が定義されたならそれを使う
+                // あるいは JSONP 形式ならこれで取れる
+                if (window.key) {
+                    this.EDU_TOKEN = window.key;
+                } else {
+                    // もし変数に入らないタイプなら、さっきのテキスト取得を再試行する
+                    this.fetchTextFallback();
+                }
+                console.log("Key set to:", this.EDU_TOKEN);
+                resolve();
+            };
+
+            script.onerror = async () => {
+                // scriptタグでダメなら、最終手段として fetch をもう一度試す
+                await this.fetchTextFallback();
+                resolve();
+            };
+
+            document.head.appendChild(script);
+        });
+    },
+
+    // 予備の取得手段
+    async fetchTextFallback() {
         try {
             const res = await fetch('https://apis.kahoot.it/media-api/youtube/key');
-            // ここでJSONではなく、テキストとして一旦全部受け取る
-            const raw = await res.text();
-            
-            // 取得した文字列の中から「AXH」で始まる長い文字列だけを抜き出す
-            const match = raw.match(/AXH[a-zA-Z0-9\-_]+/);
-            
-            if (match) {
-                this.EDU_TOKEN = match[0];
-                console.log("キーの取得に成功しました:", this.EDU_TOKEN);
-                return true;
-            }
-            return false;
+            const data = await res.json();
+            this.EDU_TOKEN = data.key || "";
         } catch (e) {
-            console.error("キーの取得に失敗しました。");
-            return false;
+            console.error("Fallback failed");
         }
     },
 
@@ -39,7 +59,7 @@ const YT = {
             try {
                 const res = await fetch(`https://www.googleapis.com/youtube/v3/${endpoint}?${new URLSearchParams({...params, key})}`);
                 const data = await res.json();
-                if (data.error && data.error.code === 403) {
+                if (data.error && (data.error.code === 403)) {
                     this.currentKeyIndex = (this.currentKeyIndex + 1) % this.API_KEYS.length;
                     continue;
                 }
@@ -50,67 +70,58 @@ const YT = {
         }
     },
 
-    // 埋め込みURLの生成
     getEmbedUrl(id) {
-        // 取得したキーをedufilterに確実に渡す
+        // 抜いたキーをそのままURLに結合
         return `https://www.youtubeeducation.com/embed/${id}?edufilter=${this.EDU_TOKEN}&autoplay=1`;
     }
 };
 
 const Actions = {
-    currentList: [],
-
     async init() {
-        // サイドバーの初期表示
+        // サイドバーなどは省略せずに維持
         this.renderSidebar();
-        // 起動時にキーを取得
         await YT.getEducationKey();
         this.goHome();
         
-        // iPad Enterキー制御
-        const searchInput = document.getElementById('search-input');
-        searchInput.addEventListener('keydown', (e) => {
+        // iPad Enter
+        document.getElementById('search-input').addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
-                this.search(searchInput.value);
+                this.search(document.getElementById('search-input').value);
             }
         });
     },
 
     renderSidebar() {
         document.getElementById('sidebar-nav').innerHTML = `
-            <div class="nav-item" onclick="Actions.goHome()">🏠 <span>急上昇</span></div>
-            <div class="nav-item" onclick="Actions.search('#Shorts')">⚡ <span>ショート</span></div>
+            <div class="nav-item" onclick="Actions.goHome(true)">🏠 <span>急上昇</span></div>
+            <div class="nav-item" onclick="Actions.showShortsFeed()">⚡ <span>ショート</span></div>
+            <div class="nav-item" onclick="Actions.showHistory()">🕒 <span>履歴</span></div>
+            <div class="nav-item" onclick="Actions.showLiked()">👍 <span>高評価</span></div>
         `;
     },
 
-    async goHome() {
+    async goHome(clear = false) {
+        if(clear) { document.getElementById('search-input').value = ""; }
         const data = await YT.fetchAPI('videos', { chart: 'mostPopular', regionCode: 'JP', part: 'snippet', maxResults: 24 });
-        if (data && data.items) {
-            this.currentList = data.items;
-            this.renderGrid(this.currentList);
-        }
+        if (data && data.items) this.renderGrid(data.items, 'view-container');
     },
 
     async search(q) {
         const data = await YT.fetchAPI('search', { q: q, part: 'snippet', type: 'video', maxResults: 24 });
-        if (data && data.items) {
-            this.currentList = data.items;
-            this.renderGrid(this.currentList);
-        }
+        if (data && data.items) this.renderGrid(data.items, 'view-container');
     },
 
-    renderGrid(items) {
+    renderGrid(items, targetId) {
         const html = items.map((item, i) => {
             const vId = item.id.videoId || item.id;
-            const title = item.snippet.title.replace(/"/g, '&quot;');
             return `
-            <div class="v-card" onclick="Actions.play('${vId}', '${title}')">
+            <div class="v-card" onclick="Actions.play('${vId}', '${item.snippet.title.replace(/'/g, "\\'")}')">
                 <div class="thumb-container"><img src="${item.snippet.thumbnails.high.url}" class="main-thumb"></div>
                 <div class="v-text"><h3>${item.snippet.title}</h3></div>
             </div>`;
         }).join('');
-        document.getElementById('view-container').innerHTML = `<div class="grid">${html}</div>`;
+        document.getElementById(targetId).innerHTML = `<div class="grid">${html}</div>`;
     },
 
     play(id, title) {
