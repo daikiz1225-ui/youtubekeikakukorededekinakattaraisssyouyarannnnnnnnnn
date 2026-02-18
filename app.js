@@ -1,5 +1,4 @@
 const YT = {
-    // だいきの5つのAPIキー
     API_KEYS: [
         "AIzaSyBfCvyZ_J9mJiMFNYB6WfcuLyvf9zDdcUU",
         "AIzaSyCgVn-JWHKT_z6EC73Z6Vlex0F_d-BP_fY",
@@ -10,18 +9,22 @@ const YT = {
     currentKeyIndex: 0,
     EDU_TOKEN: '',
 
-    // Kahootから長いキー(AXH...)を抜く
+    // 教育用認証キーを取得し、Cookieにセットする
     async getEducationKey() {
         try {
             const res = await fetch('https://apis.kahoot.it/media-api/youtube/key');
             const data = await res.json();
             this.EDU_TOKEN = data.key;
+
+            // 重要：ここでCookieをセットしないとブロックが解除されない
+            // youtubeeducation.com 用の認証クッキーを書き込む
+            document.cookie = `youtube_education_id=${this.EDU_TOKEN}; domain=.youtubeeducation.com; path=/; SameSite=None; Secure`;
+            console.log("Education Key Applied to Cookie");
         } catch (e) {
             console.error("Education Key Error");
         }
     },
 
-    // 5つのキーを回してAPIを叩く
     async fetchAPI(endpoint, params) {
         if (!this.EDU_TOKEN) await this.getEducationKey();
         
@@ -31,7 +34,6 @@ const YT = {
                 const res = await fetch(`https://www.googleapis.com/youtube/v3/${endpoint}?${new URLSearchParams({...params, key})}`);
                 const data = await res.json();
                 
-                // 403(制限超え)なら次へ
                 if (data.error && (data.error.code === 403 || data.error.code === 400)) {
                     this.currentKeyIndex = (this.currentKeyIndex + 1) % this.API_KEYS.length;
                     continue;
@@ -43,8 +45,8 @@ const YT = {
         }
     },
 
-    // 正しい教育用ドメイン + edufilter パラメータ
     getEmbedUrl(id) {
+        // Cookieとパラメータの両方で攻める
         return `https://www.youtubeeducation.com/embed/${id}?edufilter=${this.EDU_TOKEN}`;
     }
 };
@@ -62,7 +64,6 @@ const Storage = {
         const idx = l.findIndex(x => x.id === v.id);
         if (idx > -1) l.splice(idx, 1); else l.unshift(v);
         localStorage.setItem('yt_liked', JSON.stringify(l));
-        return idx === -1;
     }
 };
 
@@ -75,9 +76,10 @@ const Actions = {
 
     async init() {
         this.renderSidebar();
-        await YT.getEducationKey();
+        await YT.getEducationKey(); // 起動時にキーを取得してCookieに焼く
         this.goHome();
-        // iPad Enter制御
+        
+        // iPad対応: Enterキーで検索
         document.getElementById('search-input').addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
@@ -119,7 +121,6 @@ const Actions = {
         } else {
             this.renderGrid(this.currentList, 'view-container');
         }
-        document.getElementById('load-more').style.display = this.nextToken ? 'block' : 'none';
     },
 
     loadMore() { this.search(this.searchQuery, true); },
@@ -151,7 +152,7 @@ const Actions = {
                     <iframe src="${embedUrl}&autoplay=1" style="width:100%;height:100%;border:none;" allowfullscreen></iframe>
                 </div>
                 <h2>${video.snippet.title}</h2>
-                <button class="btn" onclick="Actions.handleLike('${vId}')">👍 高評価</button>
+                <button class="btn" onclick="Actions.handleLike('${vId}')">👍 高評価保存</button>
             </div>`;
         Storage.addHistory({ id: vId, title: video.snippet.title, thumb: video.snippet.thumbnails.high.url, channelTitle: video.snippet.channelTitle });
     },
