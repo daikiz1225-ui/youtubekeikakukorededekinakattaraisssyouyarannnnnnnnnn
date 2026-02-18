@@ -12,13 +12,8 @@ const YT = {
         try {
             const res = await fetch('https://apis.kahoot.it/media-api/youtube/key');
             const data = await res.json();
-            if (data && data.key) {
-                this.currentEduKey = data.key;
-                console.log("Key updated successfully");
-            }
-        } catch (e) {
-            console.error("Using backup key due to fetch error");
-        }
+            if (data && data.key) this.currentEduKey = data.key;
+        } catch (e) { console.error("Key error"); }
     },
 
     getCurrentKey() {
@@ -29,7 +24,6 @@ const YT = {
     async fetchAPI(endpoint, params) {
         const queryParams = new URLSearchParams({ ...params, key: this.getCurrentKey() });
         const res = await fetch(`https://www.googleapis.com/youtube/v3/${endpoint}?${queryParams}`);
-        
         if (res.status === 403) {
             let next = (parseInt(localStorage.getItem('yt_key_index')) || 0) + 1;
             if (next < this.keys.length) {
@@ -37,20 +31,15 @@ const YT = {
                 return this.fetchAPI(endpoint, params);
             }
         }
-        if (!res.ok) throw new Error("API Limit or Error");
         return await res.json();
     },
 
     getEmbedUrl(id) {
-        const baseUrl = `https://www.youtubeeducation.com/embed/${id}`;
         const params = new URLSearchParams({
-            autoplay: 1,
-            origin: "https://create.kahoot.it",
+            autoplay: 1, origin: "https://create.kahoot.it",
             embed_config: JSON.stringify({ enc: this.currentEduKey, hideTitle: true }),
-            rel: 0,
-            modestbranding: 1,
-            enablejsapi: 1
+            rel: 0, modestbranding: 1, enablejsapi: 1
         });
-        return `${baseUrl}?${params.toString()}`;
+        return `https://www.youtubeeducation.com/embed/${id}?${params.toString()}`;
     }
 };
