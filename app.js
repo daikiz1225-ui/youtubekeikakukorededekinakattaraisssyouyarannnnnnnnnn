@@ -7,36 +7,29 @@ const YT = {
         "AIzaSyBL38iyqeiaKHoKqhloSnhG590DfJ35vC"
     ],
     currentKeyIndex: 0,
-    EDU_TOKEN: '',
+    EDU_TOKEN: "", // ここに Kahoot のキーが入る
 
+    // Kahootからキーを抜いて変数に叩き込む
     async getEducationKey() {
-        console.log("Fetching Education Key...");
         try {
-            // ここでコケている可能性があるため、no-corsは使わず、エラーを詳細にログに出す
             const res = await fetch('https://apis.kahoot.it/media-api/youtube/key');
-            if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
-            
             const data = await res.json();
+            
+            // data.key にあの長い文字列が入っているはず
             if (data && data.key) {
                 this.EDU_TOKEN = data.key;
-                // Cookieをセット
-                document.cookie = `youtube_education_id=${this.EDU_TOKEN}; domain=.youtubeeducation.com; path=/; SameSite=None; Secure`;
-                console.log("Success! Key acquired:", this.EDU_TOKEN);
+                console.log("Token Acquired:", this.EDU_TOKEN);
                 return true;
             }
+            return false;
         } catch (e) {
-            console.error("Critical: Education Key Fetch Failed.", e);
-            alert("教育用キーの取得に失敗しました。KahootのAPIがブロックされている可能性があります。");
+            console.error("Fetch Error:", e);
             return false;
         }
     },
 
     async fetchAPI(endpoint, params) {
-        // キーがなければその場でもう一度取得を試みる
-        if (!this.EDU_TOKEN) {
-            const success = await this.getEducationKey();
-            if (!success) return { error: { message: "No EDU Key" } };
-        }
+        if (!this.EDU_TOKEN) await this.getEducationKey();
         
         for (let i = 0; i < this.API_KEYS.length; i++) {
             const key = this.API_KEYS[this.currentKeyIndex];
@@ -54,13 +47,12 @@ const YT = {
         }
     },
 
+    // 確実に current token を使う埋め込みURL生成
     getEmbedUrl(id) {
-        // ここでチェックを厳しくする。TOKENが空なら警告を出す
-        if (!this.EDU_TOKEN) {
-            alert("キーが空です。リロードしてください。");
-            return "";
-        }
-        return `https://www.youtubeeducation.com/embed/${id}?edufilter=${this.EDU_TOKEN}`;
+        // 変数の中身を直接埋め込む
+        const url = `https://www.youtubeeducation.com/embed/${id}?edufilter=${this.EDU_TOKEN}&autoplay=1`;
+        console.log("Final URL:", url);
+        return url;
     }
 };
 
@@ -89,17 +81,15 @@ const Actions = {
 
     async init() {
         this.renderSidebar();
-        document.getElementById('view-container').innerHTML = "<h1>認証キーを取得中...</h1>";
-        
-        // 確実にキーが取れるまで待つ
-        const hasKey = await YT.getEducationKey();
-        
-        if (hasKey) {
+        // ここでキーが取れるまで確実に待つ
+        const success = await YT.getEducationKey();
+        if (success) {
             this.goHome();
         } else {
-            document.getElementById('view-container').innerHTML = "<h1 style='color:red;'>認証キーの取得に失敗しました。フィルタの影響かもしれません。</h1>";
+            document.getElementById('view-container').innerHTML = "認証キーの取得に失敗しました。";
         }
         
+        // iPad Enter制御
         document.getElementById('search-input').addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
@@ -144,6 +134,7 @@ const Actions = {
                 this.renderGrid(this.currentList, 'view-container');
             }
         }
+        document.getElementById('load-more').style.display = this.nextToken ? 'block' : 'none';
     },
 
     loadMore() { this.search(this.searchQuery, true); },
@@ -168,17 +159,16 @@ const Actions = {
 
     async play(video) {
         const vId = video.id.videoId || video.id;
-        const embedUrl = YT.getEmbedUrl(vId); 
+        // 生成されたURLを直接使用
+        const embedUrl = YT.getEmbedUrl(vId);
         
-        if (!embedUrl) return; // キーがない場合は何もしない
-
         document.getElementById('view-container').innerHTML = `
             <div style="padding:20px;">
                 <div style="aspect-ratio:16/9; background:#000; border-radius:12px; overflow:hidden;">
-                    <iframe src="${embedUrl}&autoplay=1" style="width:100%;height:100%;border:none;" allowfullscreen></iframe>
+                    <iframe src="${embedUrl}" style="width:100%;height:100%;border:none;" allowfullscreen></iframe>
                 </div>
                 <h2>${video.snippet.title}</h2>
-                <button class="btn" onclick="Actions.handleLike('${vId}')">👍 高評価保存</button>
+                <button class="btn" onclick="Actions.handleLike('${vId}')">👍 保存</button>
             </div>`;
         Storage.addHistory({ id: vId, title: video.snippet.title, thumb: video.snippet.thumbnails.high.url, channelTitle: video.snippet.channelTitle });
     },
@@ -189,12 +179,10 @@ const Actions = {
         const v = this.relatedList[i];
         const vId = v.id.videoId;
         const embedUrl = YT.getEmbedUrl(vId);
-        if (!embedUrl) return;
-
         document.getElementById('view-container').innerHTML = `
             <div class="shorts-container">
                 <div class="shorts-wrapper">
-                    <iframe src="${embedUrl}&autoplay=1&loop=1&playlist=${vId}" style="width:100%;height:100%;border:none;"></iframe>
+                    <iframe src="${embedUrl}&loop=1&playlist=${vId}" style="width:100%;height:100%;border:none;"></iframe>
                 </div>
                 <div class="shorts-right-controls">
                     <button class="short-action-btn" onclick="Actions.playShort(${i-1})">▲</button>
