@@ -1,13 +1,32 @@
-body { margin: 0; font-family: sans-serif; background: #0f0f0f; color: #fff; overflow: hidden; }
-.app-container { display: flex; height: 100vh; }
-.sidebar { width: 240px; background: #0f0f0f; padding: 12px; }
-main { flex: 1; overflow-y: auto; padding: 20px; }
-.top-bar { display: flex; gap: 10px; margin-bottom: 20px; position: sticky; top: 0; background: #0f0f0f; z-index: 10; padding-bottom: 10px; }
-#search-input { flex: 1; padding: 10px; border-radius: 20px; border: 1px solid #333; background: #121212; color: #fff; }
-.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
-.v-card { cursor: pointer; transition: 0.2s; }
-.v-card:active { transform: scale(0.95); } /* iPadのタップ感 */
-.v-card img { width: 100%; border-radius: 12px; }
-.nav-item { padding: 12px; cursor: pointer; border-radius: 10px; }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #0f0f0f; color: #fff; height: 100vh; overflow: hidden; }
+
+.app-container { display: flex; height: 100vh; width: 100vw; }
+
+.sidebar { width: 240px; background: #0f0f0f; border-right: 1px solid #222; padding: 10px; flex-shrink: 0; z-index: 10; }
+.nav-item { padding: 15px; cursor: pointer; border-radius: 10px; margin-bottom: 5px; display: flex; align-items: center; gap: 15px; font-size: 16px; }
+.nav-item:active { background: #333; }
 .nav-item:hover { background: rgba(255,255,255,0.1); }
-@media (max-width: 768px) { .sidebar { width: 70px; } .nav-item span { display: none; } } /* iPad縦持ち対応 */
+
+main { flex-grow: 1; overflow-y: auto; background: #0f0f0f; position: relative; }
+
+.top-bar { display: flex; gap: 10px; padding: 10px 15px; background: #0f0f0f; position: sticky; top: 0; z-index: 100; border-bottom: 1px solid #222; }
+#search-input { flex: 1; padding: 10px 20px; border-radius: 25px; border: 1px solid #333; background: #121212; color: #fff; font-size: 16px; outline: none; }
+#search-input:focus { border-color: #555; }
+.search-btn { background: #333; color: white; border: none; padding: 0 20px; border-radius: 20px; cursor: pointer; font-weight: bold; }
+
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; padding: 20px; }
+.v-card { cursor: pointer; display: flex; flex-direction: column; gap: 10px; }
+.v-card img { width: 100%; border-radius: 12px; aspect-ratio: 16/9; object-fit: cover; background: #222; }
+.v-card h3 { font-size: 14px; margin: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.4; }
+
+.watch-layout { width: 100%; max-width: 1200px; margin: 0 auto; }
+.player-box { width: 100%; aspect-ratio: 16/9; background: #000; }
+.video-details { padding: 20px; }
+.sub-btn { background: #cc0000; color: #fff; border: none; padding: 10px 20px; border-radius: 20px; font-weight: bold; cursor: pointer; margin-top: 15px; }
+
+@media (max-width: 768px) {
+    .sidebar { width: 72px; }
+    .sidebar span { display: none; }
+    .nav-item { justify-content: center; padding: 20px 0; }
+}
