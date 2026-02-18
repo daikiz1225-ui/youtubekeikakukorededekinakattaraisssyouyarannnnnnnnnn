@@ -23,13 +23,11 @@ const Actions = {
         if (!q) return;
         const data = await YT.fetchAPI('search', { q, part: 'snippet', type: 'video', maxResults: 24, pageToken: isMore ? this.nextToken : "" });
         this.nextToken = data.nextPageToken || "";
-        
         const chIds = [...new Set(data.items.map(i => i.snippet.channelId))].join(',');
         await this.fetchChannelIcons(chIds);
 
         if (isMore) this.currentList.push(...data.items); 
         else { this.currentList = data.items; this.showView(); }
-        
         this.renderGrid(this.currentList, 'view-container');
         document.getElementById('load-more').style.display = this.nextToken ? 'block' : 'none';
     },
@@ -44,55 +42,80 @@ const Actions = {
         const container = document.getElementById(targetId);
         container.innerHTML = `<div class="grid">` + items.map((item, i) => {
             const chId = item.snippet.channelId;
-            const icon = this.channelIcons[chId] || '';
             return `
-            <div class="v-card">
-                <img src="${item.snippet.thumbnails.high.url}" onclick="Actions.play(${i})">
+            <div class="v-card" onclick="Actions.playFromList(${i}, '${targetId}')">
+                <img src="${item.snippet.thumbnails.high.url}">
                 <div class="v-info">
-                    <img src="${icon}" class="ch-icon-img" onclick="Actions.openChannel('${chId}', '${item.snippet.channelTitle}')">
+                    <img src="${this.channelIcons[chId] || ''}" class="ch-icon-img">
                     <div class="v-text">
-                        <h3 onclick="Actions.play(${i})">${item.snippet.title}</h3>
-                        <p onclick="Actions.openChannel('${chId}', '${item.snippet.channelTitle}')">${item.snippet.channelTitle}</p>
+                        <h3>${item.snippet.title}</h3>
+                        <p>${item.snippet.channelTitle}</p>
                     </div>
                 </div>
             </div>`;
         }).join('') + `</div>`;
     },
 
-    // 💡 再生画面を昨日のシンプル版（+登録ボタン）に固定！
-    async play(index) {
-        const video = this.currentList[index];
+    // リストから再生する用のラッパー
+    playFromList(index, targetId) {
+        // もしサイドバー（関連動画）から選んだ場合はそのリストを使う
+        const list = targetId === 'related-list' ? this.relatedList : this.currentList;
+        this.play(list[index]);
+    },
+
+    relatedList: [],
+    async play(video) {
         const videoId = video.id.videoId || (video.id.resourceId ? video.id.resourceId.videoId : video.id);
         await YT.refreshEduKey();
         this.showView();
         
+        // 1. 再生画面の枠組みを作る
         document.getElementById('view-container').innerHTML = `
-            <div class="watch-layout">
-                <div class="player-box" style="aspect-ratio:16/9; width:100%; background:#000;">
-                    <iframe src="${YT.getEmbedUrl(videoId)}" style="width:100%; height:100%; border:none;" allow="autoplay; fullscreen" allowfullscreen></iframe>
-                </div>
-                <div style="padding:20px;">
-                    <h2 style="font-size:18px;">${video.snippet.title}</h2>
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px;">
-                        <p style="margin:0; color:#aaa; cursor:pointer;" onclick="Actions.openChannel('${video.snippet.channelId}', '${video.snippet.channelTitle}')">${video.snippet.channelTitle}</p>
-                        <button class="sub-btn" id="sub-btn" onclick="Actions.handleSub('${video.snippet.channelId}', '${video.snippet.channelTitle}')">チャンネル登録</button>
+            <div class="watch-container">
+                <div class="player-main">
+                    <div style="aspect-ratio:16/9; background:#000; border-radius:12px; overflow:hidden;">
+                        <iframe src="${YT.getEmbedUrl(videoId)}" style="width:100%; height:100%; border:none;" allowfullscreen></iframe>
+                    </div>
+                    <div style="padding:15px 0;">
+                        <h2 style="font-size:18px; margin:0;">${video.snippet.title}</h2>
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px;">
+                            <div style="display:flex; align-items:center; gap:10px; cursor:pointer;" onclick="Actions.openChannel('${video.snippet.channelId}', '${video.snippet.channelTitle}')">
+                                <img src="${this.channelIcons[video.snippet.channelId] || ''}" style="width:32px; height:32px; border-radius:50%; aspect-ratio:1/1;">
+                                <p style="margin:0; font-size:14px; font-weight:bold;">${video.snippet.channelTitle}</p>
+                            </div>
+                            <button class="sub-btn" id="sub-btn" onclick="Actions.handleSub('${video.snippet.channelId}', '${video.snippet.channelTitle}')">チャンネル登録</button>
+                        </div>
                     </div>
                 </div>
+                <div class="related-side" id="related-list">
+                    <p style="margin:0; font-size:14px; font-weight:bold; color:#aaa;">関連動画</p>
+                    </div>
             </div>`;
-        
+
         this.updateSubButton(video.snippet.channelId);
         Storage.addHistory({ id: videoId, title: video.snippet.title, thumb: video.snippet.thumbnails.medium.url, channelId: video.snippet.channelId, channelTitle: video.snippet.channelTitle });
         document.getElementById('load-more').style.display = 'none';
+
+        // 2. 関連動画を取得して表示
+        const relData = await YT.fetchAPI('search', { relatedToVideoId: videoId, part: 'snippet', type: 'video', maxResults: 15 });
+        this.relatedList = relData.items;
+        document.getElementById('related-list').innerHTML += this.relatedList.map((v, i) => `
+            <div class="side-card" onclick="Actions.playFromList(${i}, 'related-list')">
+                <img src="${v.snippet.thumbnails.medium.url}">
+                <div class="side-text">
+                    <h4>${v.snippet.title}</h4>
+                    <p>${v.snippet.channelTitle}</p>
+                </div>
+            </div>`).join('');
     },
 
     async openChannel(id, name, order = 'date', type = 'video') {
         this.showView();
         await this.fetchChannelIcons(id);
         const icon = this.channelIcons[id] || '';
-        
         document.getElementById('view-container').innerHTML = `
             <div class="channel-header">
-                <img src="${icon}">
+                <img src="${icon}" style="aspect-ratio:1/1; object-fit:cover;">
                 <div style="flex:1;">
                     <h2 style="margin:0;">${name}</h2>
                     <button class="sub-btn" id="sub-btn" style="margin-top:8px;" onclick="Actions.handleSub('${id}', '${name}')">チャンネル登録</button>
@@ -104,7 +127,6 @@ const Actions = {
                 <div class="tab ${type==='playlist'?'active':''}" onclick="Actions.openChannel('${id}','${name}','date','playlist')">再生リスト</div>
             </div>
             <div id="ch-grid"></div>`;
-        
         this.updateSubButton(id);
         const params = { channelId: id, part: 'snippet', maxResults: 30 };
         if (type === 'video') { params.type = 'video'; params.order = order; }
@@ -126,12 +148,11 @@ const Actions = {
     showSubs() {
         this.showView();
         const s = Storage.getSubs();
-        const container = document.getElementById('view-container');
-        if (s.length === 0) { container.innerHTML = `<h2 style="text-align:center; padding:50px;">登録なし</h2>`; return; }
-        container.innerHTML = `<div style="padding:20px;"><h1>登録チャンネル</h1>` + s.map(ch => `
+        if (s.length === 0) { document.getElementById('view-container').innerHTML = `<h2 style="text-align:center; padding:50px;">登録なし</h2>`; return; }
+        document.getElementById('view-container').innerHTML = `<div style="padding:20px;"><h1>登録チャンネル</h1>` + s.map(ch => `
             <div class="nav-item" style="background:#222; margin-bottom:10px; justify-content:space-between;" onclick="Actions.openChannel('${ch.id}', '${ch.name}')">
                 <div style="display:flex; align-items:center; gap:10px;">
-                    <img src="${this.channelIcons[ch.id] || ''}" style="width:30px; height:30px; border-radius:50%;">
+                    <img src="${this.channelIcons[ch.id] || ''}" style="width:30px; height:30px; border-radius:50%; aspect-ratio:1/1;">
                     <h3>${ch.name}</h3>
                 </div>
                 <span>➔</span>
