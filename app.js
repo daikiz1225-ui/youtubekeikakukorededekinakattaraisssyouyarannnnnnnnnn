@@ -9,26 +9,17 @@ const YT = {
     currentKeyIndex: 0,
     EDU_TOKEN: "",
 
-    // サイトの「中身」をそのまま引っこ抜く関数
+    // 指示通り、ただサイトからキーを抜く
     async getEducationKey() {
         try {
-            // mode: 'cors' を明示して、テキストとして取得を試みる
-            const res = await fetch('https://apis.kahoot.it/media-api/youtube/key', {
-                mode: 'cors'
-            });
-            const text = await res.text();
-            
-            // 取得したテキストから "key":"..." の部分だけを抜き出す
-            // 正規表現で「"key":"」と「"」に挟まれた部分を抽出
-            const match = text.match(/"key":"([^"]+)"/);
-            if (match && match[1]) {
-                this.EDU_TOKEN = match[1];
-                console.log("Education Key Captured:", this.EDU_TOKEN);
+            const res = await fetch('https://apis.kahoot.it/media-api/youtube/key');
+            const data = await res.json();
+            if (data && data.key) {
+                this.EDU_TOKEN = data.key;
                 return true;
             }
             return false;
         } catch (e) {
-            console.error("Fetch failed, check CORS settings:", e);
             return false;
         }
     },
@@ -52,26 +43,9 @@ const YT = {
         }
     },
 
-    // 抽出した生キーをURLにガチでぶち込む
+    // 抜いたキーをURLに結合する
     getEmbedUrl(id) {
-        const url = `https://www.youtubeeducation.com/embed/${id}?edufilter=${this.EDU_TOKEN}&autoplay=1`;
-        return url;
-    }
-};
-
-const Storage = {
-    getHistory() { return JSON.parse(localStorage.getItem('yt_history')) || []; },
-    addHistory(v) {
-        let h = this.getHistory();
-        h = [v, ...h.filter(x => x.id !== v.id)].slice(0, 50);
-        localStorage.setItem('yt_history', JSON.stringify(h));
-    },
-    getLiked() { return JSON.parse(localStorage.getItem('yt_liked')) || []; },
-    toggleLike(v) {
-        let l = this.getLiked();
-        const idx = l.findIndex(x => x.id === v.id);
-        if (idx > -1) l.splice(idx, 1); else l.unshift(v);
-        localStorage.setItem('yt_liked', JSON.stringify(l));
+        return `https://www.youtubeeducation.com/embed/${id}?edufilter=${this.EDU_TOKEN}&autoplay=1`;
     }
 };
 
@@ -83,11 +57,11 @@ const Actions = {
 
     async init() {
         this.renderSidebar();
-        // 起動時に「読み込むだけでコードになる」そのサイトから抜き取る
+        // キーを取得してから進む
         await YT.getEducationKey();
         this.goHome();
         
-        // iPad対応 Enterキー
+        // iPad対応: Enterで検索 (検索ボタンへのフォーカス移動なし)
         document.getElementById('search-input').addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
@@ -141,26 +115,19 @@ const Actions = {
     async play(video) {
         const vId = video.id.videoId || video.id;
         const embedUrl = YT.getEmbedUrl(vId);
-        
         document.getElementById('view-container').innerHTML = `
             <div style="padding:20px;">
                 <div style="aspect-ratio:16/9; background:#000; border-radius:12px; overflow:hidden;">
                     <iframe src="${embedUrl}" style="width:100%;height:100%;border:none;" allowfullscreen></iframe>
                 </div>
                 <h2>${video.snippet.title}</h2>
-                <button class="btn" onclick="Actions.handleLike('${vId}')">👍 保存</button>
             </div>`;
-        Storage.addHistory({ id: vId, title: video.snippet.title, thumb: video.snippet.thumbnails.high.url, channelTitle: video.snippet.channelTitle });
     },
 
     playFromList(i) { this.play(this.currentList[i]); },
     showShortsFeed() { this.isShortsMode = true; this.search(""); },
-    showHistory() { this.isShortsMode = false; this.renderGrid(Storage.getHistory().map(x => ({id:x.id, snippet:{title:x.title, channelTitle:x.channelTitle, thumbnails:{high:{url:x.thumb}}}})), 'view-container'); },
-    showLiked() { this.isShortsMode = false; this.renderGrid(Storage.getLiked().map(x => ({id:x.id, snippet:{title:x.title, channelTitle:x.channelTitle, thumbnails:{high:{url:x.thumb}}}})), 'view-container'); },
-    handleLike(id) { 
-        const v = this.currentList.find(x => (x.id.videoId||x.id) === id);
-        if(v) Storage.toggleLike({id, title: v.snippet.title, thumb: v.snippet.thumbnails.high.url, channelTitle: v.snippet.channelTitle});
-    },
+    showHistory() { /* 履歴 */ },
+    showLiked() { /* 高評価 */ },
     toggleTheme() { document.body.setAttribute('data-theme', document.body.getAttribute('data-theme') === 'light' ? 'dark' : 'light'); }
 };
 
