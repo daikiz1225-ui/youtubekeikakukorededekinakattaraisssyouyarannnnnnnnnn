@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Study Portal Pro</title>
+    <title>Study Portal Pro v4</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -13,11 +13,16 @@
         <main id="main-content">
             <header class="top-bar">
                 <input type="text" id="search-input" placeholder="動画を検索..." onkeydown="if(event.key==='Enter') Actions.search()">
-                <button onclick="Actions.search()" class="search-btn">検索</button>
+                <div style="display:flex; gap:10px; align-items:center;">
+                    <button onclick="Actions.search()" class="search-btn">検索</button>
+                    <button onclick="Theme.toggle()" id="theme-toggle" class="theme-btn">🌙</button>
+                </div>
             </header>
+            
             <div id="view-container"></div>
-            <div id="pagination" style="text-align:center; padding: 20px;">
-                <button id="load-more" onclick="Actions.loadMore()" style="display:none; background:#333; color:white; border:none; padding:10px 20px; border-radius:20px; cursor:pointer;">さらに読み込む</button>
+            
+            <div id="pagination">
+                <button id="load-more" onclick="Actions.loadMore()" style="display:none;">さらに読み込む</button>
             </div>
         </main>
     </div>
