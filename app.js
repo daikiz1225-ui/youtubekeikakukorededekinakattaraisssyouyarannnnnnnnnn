@@ -9,17 +9,28 @@ const YT = {
     currentKeyIndex: 0,
     EDU_TOKEN: "",
 
-    // 指示通り、ただサイトからキーを抜く
+    // JSONだと思わずに、サイトに書いてある文字をそのまま抜く
     async getEducationKey() {
         try {
             const res = await fetch('https://apis.kahoot.it/media-api/youtube/key');
-            const data = await res.json();
-            if (data && data.key) {
-                this.EDU_TOKEN = data.key;
+            // テキストとして丸ごと読み込む
+            const rawText = await res.text();
+            
+            // もしJSON形式だったとしても、生テキストだったとしても、
+            // 「AXH」から始まる長い英数字の部分だけを抜き出す（安全策）
+            const match = rawText.match(/AXH[a-zA-Z0-9\-_]+/);
+            
+            if (match) {
+                this.EDU_TOKEN = match[0];
+                console.log("Raw Key Captured:", this.EDU_TOKEN);
+                return true;
+            } else {
+                // 正規表現に引っかからなければ、最悪読み込んだ文字をそのまま使う
+                this.EDU_TOKEN = rawText.trim();
                 return true;
             }
-            return false;
         } catch (e) {
+            console.error("Fetch Error");
             return false;
         }
     },
@@ -43,7 +54,7 @@ const YT = {
         }
     },
 
-    // 抜いたキーをURLに結合する
+    // 抜いたテキストをそのまま edufilter にぶち込む
     getEmbedUrl(id) {
         return `https://www.youtubeeducation.com/embed/${id}?edufilter=${this.EDU_TOKEN}&autoplay=1`;
     }
@@ -57,11 +68,11 @@ const Actions = {
 
     async init() {
         this.renderSidebar();
-        // キーを取得してから進む
+        // サイトの文字を抜き終わるまで待機
         await YT.getEducationKey();
         this.goHome();
         
-        // iPad対応: Enterで検索 (検索ボタンへのフォーカス移動なし)
+        // iPad Enterキー制御
         document.getElementById('search-input').addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
