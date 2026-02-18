@@ -23,14 +23,12 @@ const Actions = {
     isShortsMode: false,
     currentShortIndex: 0,
 
-    // 💡 検索：通常とショートモードを自動切り替え
     async search(q = document.getElementById('search-input').value, isMore = false) {
         if (!q) return;
         this.isHome = false;
         let params = { q, part: 'snippet', type: 'video', maxResults: 30, pageToken: isMore ? this.nextToken : "" };
 
         if (this.isShortsMode) {
-            // ショートモード検索
             params.q = q + " #Shorts";
             const data = await YT.fetchAPI('search', params);
             this.relatedList = isMore ? [...this.relatedList, ...data.items] : data.items;
@@ -38,7 +36,6 @@ const Actions = {
             document.getElementById('view-container').innerHTML = `<div style="padding:20px;"><h1>⚡ ショート検索: ${q}</h1><div id="shorts-grid" class="grid" style="grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));"></div></div>`;
             this.renderShortsGrid(this.relatedList, 'shorts-grid');
         } else {
-            // 通常検索（ショート除外）
             const data = await YT.fetchAPI('search', params);
             data.items = data.items.filter(item => {
                 const t = item.snippet.title.toLowerCase();
@@ -97,6 +94,7 @@ const Actions = {
         const data = await YT.fetchAPI('search', { q: '#Shorts', part: 'snippet', type: 'video', maxResults: 30 });
         this.relatedList = data.items;
         this.renderShortsGrid(this.relatedList, 'shorts-grid');
+        document.getElementById('load-more').style.display = 'none';
     },
 
     renderShortsGrid(items, targetId) {
@@ -108,7 +106,7 @@ const Actions = {
             </div>`).join('');
     },
 
-    // 💡 ショート再生：超敏感スワイプ
+    // ⚡ ショート再生（自動再生＆超感度スワイプ）
     async playShort(index) {
         this.currentShortIndex = index;
         const video = this.relatedList[index];
@@ -116,16 +114,19 @@ const Actions = {
         await YT.refreshEduKey();
         this.showView();
 
+        // 自動再生(autoplay=1)と消音(mute=1)をセット
+        const embedUrl = `${YT.getEmbedUrl(videoId)}?autoplay=1&mute=1&rel=0&controls=1&loop=1&playlist=${videoId}`;
+
         document.getElementById('view-container').innerHTML = `
             <div class="shorts-container" id="shorts-swipe-zone">
                 <div class="shorts-wrapper">
-                    <iframe src="${YT.getEmbedUrl(videoId)}?autoplay=1&rel=0&controls=0" allow="autoplay"></iframe>
+                    <iframe src="${embedUrl}" allow="autoplay; encrypted-media" allowfullscreen></iframe>
                 </div>
                 <div class="shorts-nav-btn">
                     <button class="s-btn" onclick="Actions.nextShort(-1)">▲</button>
                     <button class="s-btn" onclick="Actions.nextShort(1)">▼</button>
                 </div>
-                <div style="position:absolute; bottom:40px; left:40px; pointer-events:none; text-shadow: 0 2px 8px rgba(0,0,0,1);">
+                <div style="position:absolute; bottom:40px; left:40px; pointer-events:none; text-shadow: 0 2px 8px rgba(0,0,0,1); z-index:10;">
                     <h2 style="margin:0; font-size:20px;">${video.snippet.title}</h2>
                     <p style="margin:8px 0 0 0; color:#fff; font-weight:bold;">@${video.snippet.channelTitle}</p>
                 </div>
@@ -146,7 +147,7 @@ const Actions = {
     },
 
     playFromList(index, targetId) {
-        const list = (targetId === 'related-items' || targetId === 'ch-grid' && this.isShortsMode) ? this.relatedList : this.currentList;
+        const list = (targetId === 'related-items' || (targetId === 'ch-grid' && this.isShortsMode)) ? this.relatedList : this.currentList;
         this.play(list[index]);
     },
 
@@ -174,7 +175,7 @@ const Actions = {
                         </div>
                     </div>
                 </div>
-                <div class="related-side" id="related-items-container">
+                <div class="related-side">
                     <p style="margin-bottom:10px; font-size:14px; font-weight:bold; color:#aaa;">関連動画</p>
                     <div id="related-items"></div>
                 </div>
@@ -193,7 +194,6 @@ const Actions = {
             </div>`).join('');
     },
 
-    // 💡 チャンネル並び替え機能 復活版
     async openChannel(id, name, order = 'date', type = 'video') {
         this.isShortsMode = (type === 'shorts');
         this.showView();
