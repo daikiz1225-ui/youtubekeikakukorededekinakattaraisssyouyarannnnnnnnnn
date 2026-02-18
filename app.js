@@ -9,25 +9,34 @@ const YT = {
     currentKeyIndex: 0,
     EDU_TOKEN: '',
 
-    // 教育用キーを取得してCookieとメモリに保存
     async getEducationKey() {
+        console.log("Fetching Education Key...");
         try {
+            // ここでコケている可能性があるため、no-corsは使わず、エラーを詳細にログに出す
             const res = await fetch('https://apis.kahoot.it/media-api/youtube/key');
+            if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
+            
             const data = await res.json();
-            if (data.key) {
+            if (data && data.key) {
                 this.EDU_TOKEN = data.key;
-                // Cookieをセット（youtubeeducation.com用）
+                // Cookieをセット
                 document.cookie = `youtube_education_id=${this.EDU_TOKEN}; domain=.youtubeeducation.com; path=/; SameSite=None; Secure`;
-                return this.EDU_TOKEN;
+                console.log("Success! Key acquired:", this.EDU_TOKEN);
+                return true;
             }
         } catch (e) {
-            console.error("Education Key Fetch Error:", e);
+            console.error("Critical: Education Key Fetch Failed.", e);
+            alert("教育用キーの取得に失敗しました。KahootのAPIがブロックされている可能性があります。");
+            return false;
         }
     },
 
     async fetchAPI(endpoint, params) {
-        // キーがなければ取得を待つ
-        if (!this.EDU_TOKEN) await this.getEducationKey();
+        // キーがなければその場でもう一度取得を試みる
+        if (!this.EDU_TOKEN) {
+            const success = await this.getEducationKey();
+            if (!success) return { error: { message: "No EDU Key" } };
+        }
         
         for (let i = 0; i < this.API_KEYS.length; i++) {
             const key = this.API_KEYS[this.currentKeyIndex];
@@ -45,12 +54,13 @@ const YT = {
         }
     },
 
-    // 埋め込みURL生成（ここが今回の修正の肝）
     getEmbedUrl(id) {
-        // 万が一空だったら今持ってるトークンを強制的に使う
-        const token = this.EDU_TOKEN;
-        console.log("Applying Token to URL:", token); // デバッグ用
-        return `https://www.youtubeeducation.com/embed/${id}?edufilter=${token}`;
+        // ここでチェックを厳しくする。TOKENが空なら警告を出す
+        if (!this.EDU_TOKEN) {
+            alert("キーが空です。リロードしてください。");
+            return "";
+        }
+        return `https://www.youtubeeducation.com/embed/${id}?edufilter=${this.EDU_TOKEN}`;
     }
 };
 
@@ -79,9 +89,16 @@ const Actions = {
 
     async init() {
         this.renderSidebar();
+        document.getElementById('view-container').innerHTML = "<h1>認証キーを取得中...</h1>";
+        
         // 確実にキーが取れるまで待つ
-        await YT.getEducationKey();
-        this.goHome();
+        const hasKey = await YT.getEducationKey();
+        
+        if (hasKey) {
+            this.goHome();
+        } else {
+            document.getElementById('view-container').innerHTML = "<h1 style='color:red;'>認証キーの取得に失敗しました。フィルタの影響かもしれません。</h1>";
+        }
         
         document.getElementById('search-input').addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
@@ -151,8 +168,10 @@ const Actions = {
 
     async play(video) {
         const vId = video.id.videoId || video.id;
-        const embedUrl = YT.getEmbedUrl(vId); // ここで認証キー付きURLを確実に生成
+        const embedUrl = YT.getEmbedUrl(vId); 
         
+        if (!embedUrl) return; // キーがない場合は何もしない
+
         document.getElementById('view-container').innerHTML = `
             <div style="padding:20px;">
                 <div style="aspect-ratio:16/9; background:#000; border-radius:12px; overflow:hidden;">
@@ -170,6 +189,8 @@ const Actions = {
         const v = this.relatedList[i];
         const vId = v.id.videoId;
         const embedUrl = YT.getEmbedUrl(vId);
+        if (!embedUrl) return;
+
         document.getElementById('view-container').innerHTML = `
             <div class="shorts-container">
                 <div class="shorts-wrapper">
