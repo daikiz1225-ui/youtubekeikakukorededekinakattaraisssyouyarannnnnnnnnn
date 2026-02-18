@@ -1,17 +1,17 @@
 :root {
-    --bg-main: #0f0f0f;
-    --bg-side: #0f0f0f;
-    --text-main: #ffffff;
-    --text-sub: #aaa;
-    --border: #222;
-    --hover: rgba(255,255,255,0.1);
-    --accent: #3ea6ff;
-    --search-bg: #121212;
+    --bg-main: #0f0f0f;
+    --bg-side: #0f0f0f;
+    --text-main: #ffffff;
+    --text-sub: #aaa;
+    --border: #222;
+    --hover: rgba(255,255,255,0.1);
+    --accent: #3ea6ff;
+    --search-bg: #121212;
 }
 [data-theme="light"] {
-    --bg-main: #f9f9f9; --bg-side: #ffffff; --text-main: #0f0f0f;
-    --text-sub: #606060; --border: #e5e5e5; --hover: rgba(0,0,0,0.05);
-    --accent: #065fd4; --search-bg: #eeeeee;
+    --bg-main: #f9f9f9; --bg-side: #ffffff; --text-main: #0f0f0f;
+    --text-sub: #606060; --border: #e5e5e5; --hover: rgba(0,0,0,0.05);
+    --accent: #065fd4; --search-bg: #eeeeee;
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -42,9 +42,9 @@ main { flex-grow: 1; overflow-y: auto; background: var(--bg-main); scroll-behavi
 /* さらに読み込むボタン（固定配置） */
 #pagination { position: fixed; right: 30px; bottom: 100px; z-index: 1000; }
 #load-more { 
-    background: var(--accent); color: white; border: none; padding: 15px 30px; 
-    border-radius: 30px; cursor: pointer; font-weight: bold; 
-    box-shadow: 0 4px 15px rgba(0,0,0,0.4); display: none; 
+    background: var(--accent); color: white; border: none; padding: 15px 30px; 
+    border-radius: 30px; cursor: pointer; font-weight: bold; 
+    box-shadow: 0 4px 15px rgba(0,0,0,0.4); display: none; 
 }
 
 /* ショート動画 */
