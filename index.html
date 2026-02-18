@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="ja" data-theme="dark">
+<html lang="ja">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Study Portal Pro v3</title>
+    <title>Study Portal Pro v2</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -13,10 +13,7 @@
         <main id="main-content">
             <header class="top-bar">
                 <input type="text" id="search-input" placeholder="動画を検索..." onkeydown="if(event.key==='Enter') Actions.search()">
-                <div class="top-btns" style="display:flex; gap:10px;">
-                    <button onclick="Actions.search()" class="btn">検索</button>
-                    <button onclick="Theme.toggle()" id="theme-toggle-btn" class="btn">🌙</button>
-                </div>
+                <button onclick="Actions.search()" class="btn">検索</button>
             </header>
             <div id="view-container"></div>
             <div id="pagination" style="text-align:center; padding: 20px;">
@@ -24,7 +21,6 @@
             </div>
         </main>
     </div>
-    <script src="https://www.youtube.com/iframe_api"></script>
     <script src="youtube.js"></script>
     <script src="app.js"></script>
 </body>
