@@ -3,30 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Study Portal Pro v7 - Trending</title>
+    <title>Study Portal Pro</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="app-container">
-        <nav class="sidebar" id="sidebar-nav"></nav>
+        <aside class="sidebar">
+            <div id="sidebar-nav"></div>
+        </aside>
         
         <main id="main-content">
-            <header class="top-bar">
-                <input type="text" id="search-input" placeholder="動画を検索...">
-                <div style="display:flex; gap:10px; align-items:center;">
-                    <button onclick="Actions.search()" class="search-btn">検索</button>
-                    <button onclick="Theme.toggle()" id="theme-toggle" class="theme-btn">🌙</button>
-                </div>
-            </header>
+            <div class="top-bar">
+                <button id="theme-toggle" onclick="Actions.toggleTheme()">🌓 モード切替</button>
+                <input type="text" id="search-input" placeholder="検索ワードを入力...">
+            </div>
             
             <div id="view-container"></div>
             
             <div id="pagination">
-                <button id="load-more" onclick="Actions.loadMore()" style="display:none;">さらに読み込む</button>
+                <button id="load-more" onclick="Actions.loadMore()">さらに読み込む</button>
             </div>
         </main>
     </div>
-    <script src="youtube.js"></script>
+
+    <script src="api.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
