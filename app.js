@@ -9,23 +9,24 @@ const YT = {
     currentKeyIndex: 0,
     EDU_TOKEN: '',
 
-    // 教育用認証キーを取得し、Cookieにセットする
+    // 教育用キーを取得してCookieとメモリに保存
     async getEducationKey() {
         try {
             const res = await fetch('https://apis.kahoot.it/media-api/youtube/key');
             const data = await res.json();
-            this.EDU_TOKEN = data.key;
-
-            // 重要：ここでCookieをセットしないとブロックが解除されない
-            // youtubeeducation.com 用の認証クッキーを書き込む
-            document.cookie = `youtube_education_id=${this.EDU_TOKEN}; domain=.youtubeeducation.com; path=/; SameSite=None; Secure`;
-            console.log("Education Key Applied to Cookie");
+            if (data.key) {
+                this.EDU_TOKEN = data.key;
+                // Cookieをセット（youtubeeducation.com用）
+                document.cookie = `youtube_education_id=${this.EDU_TOKEN}; domain=.youtubeeducation.com; path=/; SameSite=None; Secure`;
+                return this.EDU_TOKEN;
+            }
         } catch (e) {
-            console.error("Education Key Error");
+            console.error("Education Key Fetch Error:", e);
         }
     },
 
     async fetchAPI(endpoint, params) {
+        // キーがなければ取得を待つ
         if (!this.EDU_TOKEN) await this.getEducationKey();
         
         for (let i = 0; i < this.API_KEYS.length; i++) {
@@ -33,7 +34,6 @@ const YT = {
             try {
                 const res = await fetch(`https://www.googleapis.com/youtube/v3/${endpoint}?${new URLSearchParams({...params, key})}`);
                 const data = await res.json();
-                
                 if (data.error && (data.error.code === 403 || data.error.code === 400)) {
                     this.currentKeyIndex = (this.currentKeyIndex + 1) % this.API_KEYS.length;
                     continue;
@@ -45,9 +45,12 @@ const YT = {
         }
     },
 
+    // 埋め込みURL生成（ここが今回の修正の肝）
     getEmbedUrl(id) {
-        // Cookieとパラメータの両方で攻める
-        return `https://www.youtubeeducation.com/embed/${id}?edufilter=${this.EDU_TOKEN}`;
+        // 万が一空だったら今持ってるトークンを強制的に使う
+        const token = this.EDU_TOKEN;
+        console.log("Applying Token to URL:", token); // デバッグ用
+        return `https://www.youtubeeducation.com/embed/${id}?edufilter=${token}`;
     }
 };
 
@@ -76,10 +79,10 @@ const Actions = {
 
     async init() {
         this.renderSidebar();
-        await YT.getEducationKey(); // 起動時にキーを取得してCookieに焼く
+        // 確実にキーが取れるまで待つ
+        await YT.getEducationKey();
         this.goHome();
         
-        // iPad対応: Enterキーで検索
         document.getElementById('search-input').addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
@@ -101,8 +104,10 @@ const Actions = {
         if(clear) { document.getElementById('search-input').value = ""; this.searchQuery = ""; }
         this.isShortsMode = false;
         const data = await YT.fetchAPI('videos', { chart: 'mostPopular', regionCode: 'JP', part: 'snippet', maxResults: 24 });
-        this.currentList = data.items;
-        this.renderGrid(this.currentList, 'view-container');
+        if (data && data.items) {
+            this.currentList = data.items;
+            this.renderGrid(this.currentList, 'view-container');
+        }
     },
 
     async search(q, isMore = false) {
@@ -112,14 +117,15 @@ const Actions = {
             part: 'snippet', type: 'video', maxResults: 24, pageToken: this.nextToken 
         };
         const data = await YT.fetchAPI('search', params);
-        this.nextToken = data.nextPageToken || "";
-        this.currentList = isMore ? [...this.currentList, ...data.items] : data.items;
-        
-        if (this.isShortsMode) {
-            this.relatedList = this.currentList;
-            this.renderShortsGrid(this.currentList, 'view-container');
-        } else {
-            this.renderGrid(this.currentList, 'view-container');
+        if (data && data.items) {
+            this.nextToken = data.nextPageToken || "";
+            this.currentList = isMore ? [...this.currentList, ...data.items] : data.items;
+            if (this.isShortsMode) {
+                this.relatedList = this.currentList;
+                this.renderShortsGrid(this.currentList, 'view-container');
+            } else {
+                this.renderGrid(this.currentList, 'view-container');
+            }
         }
     },
 
@@ -145,7 +151,8 @@ const Actions = {
 
     async play(video) {
         const vId = video.id.videoId || video.id;
-        const embedUrl = YT.getEmbedUrl(vId);
+        const embedUrl = YT.getEmbedUrl(vId); // ここで認証キー付きURLを確実に生成
+        
         document.getElementById('view-container').innerHTML = `
             <div style="padding:20px;">
                 <div style="aspect-ratio:16/9; background:#000; border-radius:12px; overflow:hidden;">
@@ -162,10 +169,11 @@ const Actions = {
     async playShort(i) {
         const v = this.relatedList[i];
         const vId = v.id.videoId;
+        const embedUrl = YT.getEmbedUrl(vId);
         document.getElementById('view-container').innerHTML = `
             <div class="shorts-container">
                 <div class="shorts-wrapper">
-                    <iframe src="${YT.getEmbedUrl(vId)}&autoplay=1&loop=1&playlist=${vId}" style="width:100%;height:100%;border:none;"></iframe>
+                    <iframe src="${embedUrl}&autoplay=1&loop=1&playlist=${vId}" style="width:100%;height:100%;border:none;"></iframe>
                 </div>
                 <div class="shorts-right-controls">
                     <button class="short-action-btn" onclick="Actions.playShort(${i-1})">▲</button>
@@ -179,7 +187,7 @@ const Actions = {
     showLiked() { this.isShortsMode = false; this.renderGrid(Storage.getLiked().map(x => ({id:x.id, snippet:{title:x.title, channelTitle:x.channelTitle, thumbnails:{high:{url:x.thumb}}}})), 'view-container'); },
     handleLike(id) { 
         const v = this.currentList.find(x => (x.id.videoId||x.id) === id);
-        Storage.toggleLike({id, title: v.snippet.title, thumb: v.snippet.thumbnails.high.url, channelTitle: v.snippet.channelTitle});
+        if(v) Storage.toggleLike({id, title: v.snippet.title, thumb: v.snippet.thumbnails.high.url, channelTitle: v.snippet.channelTitle});
     },
     toggleTheme() {
         const next = document.body.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
