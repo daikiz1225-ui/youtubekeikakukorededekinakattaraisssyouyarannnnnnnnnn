@@ -1,7 +1,8 @@
 /**
- * youtube.js - Educationキー自動更新 & APIローテーション
+ * youtube.js - Educationキー自動収集 & API管理
  */
 const YT = {
+    // データ取得用APIキー（だいきの5つ）
     keys: [
         "AIzaSyBfCvyZ_J9mJiMFNYB6WfcuLyvf9zDdcUU",
         "AIzaSyCgVn-JWHKT_z6EC73Z6Vlex0F_d-BP_fY",
@@ -10,20 +11,20 @@ const YT = {
         "AIzaSyBL38iyqeiaKHoKqhloSnhG590DfJ35vCE"
     ],
     
-    // 💡 取得した最新のEducationキーを保持する場所
+    // 写真から抜いた最新キー（サイトから取れなかった時のバックアップ）
     currentEduKey: "AXH1ezm-TdFofe0cZEIyT5D-ZlyaXT8az20UGmK_8TRbbl7-MJkqQiDn89vv-Kx83auqjnc7WreI4HeppaSKfC0XpFV0BvqF3llcrWUQtfrIeuuX8ALKwU5iNjS56Z545ilryvxnkk2BGKeZvaLB6tiu1GwH4Npdfw==",
 
-    // 💡 画像のURLから最新のキーを自動で取ってくる関数
+    // 💡 サイトから最新キーを自動で取ってくる「ハンター」
     async refreshEduKey() {
         try {
             const res = await fetch('https://apis.kahoot.it/media-api/youtube/key');
             const data = await res.json();
             if (data && data.key) {
                 this.currentEduKey = data.key;
-                console.log("Education Key Updated!");
+                console.log("Education Key Synced.");
             }
         } catch (e) {
-            console.error("Key refresh failed, using backup.", e);
+            console.error("Using backup key.", e);
         }
     },
 
@@ -50,30 +51,19 @@ const YT = {
         } catch (e) { throw e; }
     },
 
+    // 💡 教育用ドメイン + 収集した最新キーでURL作成（昨日の安定版構成）
     getEmbedUrl(id) {
         const baseUrl = `https://www.youtubeeducation.com/embed/${id}`;
         const params = new URLSearchParams({
             autoplay: 1,
-            mute: 0,
-            controls: 1,
-            start: 0,
             origin: "https://create.kahoot.it",
-            playsinline: 1,
-            showinfo: 0,
-            rel: 0,
-            iv_load_policy: 3,
-            modestbranding: 1,
-            fs: 1,
-            cc_load_policy: 0,
-            // 💡 常に最新の currentEduKey を使う
             embed_config: JSON.stringify({
                 enc: this.currentEduKey,
                 hideTitle: true
             }),
-            enablejsapi: 1,
-            widgetid: 1,
-            forigin: "https://create.kahoot.it/learner/cb8cb5ae-d835-4c4a-bc2d-9cc78519d646/course/6fba06e3-1f76-47a8-9a4a-53c53eb86286/0",
-            aoriginsup: 1
+            rel: 0,
+            modestbranding: 1,
+            enablejsapi: 1
         });
         return `${baseUrl}?${params.toString()}`;
     }
