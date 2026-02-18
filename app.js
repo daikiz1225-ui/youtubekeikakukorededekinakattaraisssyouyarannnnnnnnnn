@@ -9,28 +9,24 @@ const YT = {
     currentKeyIndex: 0,
     EDU_TOKEN: "",
 
-    // JSONだと思わずに、サイトに書いてある文字をそのまま抜く
+    // 教育用キーを取得する
     async getEducationKey() {
         try {
             const res = await fetch('https://apis.kahoot.it/media-api/youtube/key');
-            // テキストとして丸ごと読み込む
-            const rawText = await res.text();
+            // ここでJSONではなく、テキストとして一旦全部受け取る
+            const raw = await res.text();
             
-            // もしJSON形式だったとしても、生テキストだったとしても、
-            // 「AXH」から始まる長い英数字の部分だけを抜き出す（安全策）
-            const match = rawText.match(/AXH[a-zA-Z0-9\-_]+/);
+            // 取得した文字列の中から「AXH」で始まる長い文字列だけを抜き出す
+            const match = raw.match(/AXH[a-zA-Z0-9\-_]+/);
             
             if (match) {
                 this.EDU_TOKEN = match[0];
-                console.log("Raw Key Captured:", this.EDU_TOKEN);
-                return true;
-            } else {
-                // 正規表現に引っかからなければ、最悪読み込んだ文字をそのまま使う
-                this.EDU_TOKEN = rawText.trim();
+                console.log("キーの取得に成功しました:", this.EDU_TOKEN);
                 return true;
             }
+            return false;
         } catch (e) {
-            console.error("Fetch Error");
+            console.error("キーの取得に失敗しました。");
             return false;
         }
     },
@@ -43,7 +39,7 @@ const YT = {
             try {
                 const res = await fetch(`https://www.googleapis.com/youtube/v3/${endpoint}?${new URLSearchParams({...params, key})}`);
                 const data = await res.json();
-                if (data.error && (data.error.code === 403 || data.error.code === 400)) {
+                if (data.error && data.error.code === 403) {
                     this.currentKeyIndex = (this.currentKeyIndex + 1) % this.API_KEYS.length;
                     continue;
                 }
@@ -54,92 +50,79 @@ const YT = {
         }
     },
 
-    // 抜いたテキストをそのまま edufilter にぶち込む
+    // 埋め込みURLの生成
     getEmbedUrl(id) {
+        // 取得したキーをedufilterに確実に渡す
         return `https://www.youtubeeducation.com/embed/${id}?edufilter=${this.EDU_TOKEN}&autoplay=1`;
     }
 };
 
 const Actions = {
-    currentList: [], 
-    nextToken: "", 
-    isShortsMode: false,
-    searchQuery: "",
+    currentList: [],
 
     async init() {
+        // サイドバーの初期表示
         this.renderSidebar();
-        // サイトの文字を抜き終わるまで待機
+        // 起動時にキーを取得
         await YT.getEducationKey();
         this.goHome();
         
         // iPad Enterキー制御
-        document.getElementById('search-input').addEventListener('keydown', (e) => {
+        const searchInput = document.getElementById('search-input');
+        searchInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
-                this.search(document.getElementById('search-input').value);
+                this.search(searchInput.value);
             }
         });
     },
 
     renderSidebar() {
         document.getElementById('sidebar-nav').innerHTML = `
-            <div class="nav-item" onclick="Actions.goHome(true)">🏠 <span>急上昇</span></div>
-            <div class="nav-item" onclick="Actions.showShortsFeed()">⚡ <span>ショート</span></div>
-            <div class="nav-item" onclick="Actions.showHistory()">🕒 <span>履歴</span></div>
-            <div class="nav-item" onclick="Actions.showLiked()">👍 <span>高評価</span></div>
+            <div class="nav-item" onclick="Actions.goHome()">🏠 <span>急上昇</span></div>
+            <div class="nav-item" onclick="Actions.search('#Shorts')">⚡ <span>ショート</span></div>
         `;
     },
 
-    async goHome(clear = false) {
-        if(clear) { document.getElementById('search-input').value = ""; this.searchQuery = ""; }
-        this.isShortsMode = false;
+    async goHome() {
         const data = await YT.fetchAPI('videos', { chart: 'mostPopular', regionCode: 'JP', part: 'snippet', maxResults: 24 });
         if (data && data.items) {
             this.currentList = data.items;
-            this.renderGrid(this.currentList, 'view-container');
+            this.renderGrid(this.currentList);
         }
     },
 
-    async search(q, isMore = false) {
-        if (!isMore) { this.searchQuery = q; this.nextToken = ""; }
-        const params = { 
-            q: this.isShortsMode ? `#Shorts ${this.searchQuery}` : this.searchQuery, 
-            part: 'snippet', type: 'video', maxResults: 24, pageToken: this.nextToken 
-        };
-        const data = await YT.fetchAPI('search', params);
+    async search(q) {
+        const data = await YT.fetchAPI('search', { q: q, part: 'snippet', type: 'video', maxResults: 24 });
         if (data && data.items) {
-            this.nextToken = data.nextPageToken || "";
-            this.currentList = isMore ? [...this.currentList, ...data.items] : data.items;
-            this.renderGrid(this.currentList, 'view-container');
+            this.currentList = data.items;
+            this.renderGrid(this.currentList);
         }
     },
 
-    renderGrid(items, targetId) {
-        const html = items.map((item, i) => `
-            <div class="v-card" onclick="Actions.playFromList(${i})">
+    renderGrid(items) {
+        const html = items.map((item, i) => {
+            const vId = item.id.videoId || item.id;
+            const title = item.snippet.title.replace(/"/g, '&quot;');
+            return `
+            <div class="v-card" onclick="Actions.play('${vId}', '${title}')">
                 <div class="thumb-container"><img src="${item.snippet.thumbnails.high.url}" class="main-thumb"></div>
-                <div class="v-text"><h3>${item.snippet.title}</h3><p>${item.snippet.channelTitle}</p></div>
-            </div>`).join('');
-        document.getElementById(targetId).innerHTML = `<div class="grid">${html}</div>`;
+                <div class="v-text"><h3>${item.snippet.title}</h3></div>
+            </div>`;
+        }).join('');
+        document.getElementById('view-container').innerHTML = `<div class="grid">${html}</div>`;
     },
 
-    async play(video) {
-        const vId = video.id.videoId || video.id;
-        const embedUrl = YT.getEmbedUrl(vId);
+    play(id, title) {
+        const embedUrl = YT.getEmbedUrl(id);
         document.getElementById('view-container').innerHTML = `
             <div style="padding:20px;">
                 <div style="aspect-ratio:16/9; background:#000; border-radius:12px; overflow:hidden;">
                     <iframe src="${embedUrl}" style="width:100%;height:100%;border:none;" allowfullscreen></iframe>
                 </div>
-                <h2>${video.snippet.title}</h2>
+                <h2>${title}</h2>
             </div>`;
-    },
-
-    playFromList(i) { this.play(this.currentList[i]); },
-    showShortsFeed() { this.isShortsMode = true; this.search(""); },
-    showHistory() { /* 履歴 */ },
-    showLiked() { /* 高評価 */ },
-    toggleTheme() { document.body.setAttribute('data-theme', document.body.getAttribute('data-theme') === 'light' ? 'dark' : 'light'); }
+    }
 };
 
 window.onload = () => Actions.init();
