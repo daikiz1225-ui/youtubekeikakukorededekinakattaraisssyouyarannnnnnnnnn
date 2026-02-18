@@ -8,12 +8,8 @@
 </head>
 <body>
     <div class="app-container">
-        <nav class="sidebar">
-            <div class="nav-item" onclick="Actions.goHome(true)">🏠 <span>ホーム</span></div>
-            <div class="nav-item" onclick="Actions.showShortsFeed()">⚡ <span>ショート</span></div>
-            <div class="nav-item" onclick="Actions.showSubs()">🔔 <span>登録チャンネル</span></div>
-            <div class="nav-item" onclick="Actions.showHistory()">🕒 <span>履歴</span></div>
-        </nav>
+        <nav class="sidebar" id="sidebar-nav"></nav>
+        
         <main id="main-content">
             <header class="top-bar">
                 <input type="text" id="search-input" placeholder="動画を検索..." onkeydown="if(event.key==='Enter') Actions.search()">
