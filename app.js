@@ -13,7 +13,7 @@ const YT = {
             const res = await fetch('https://apis.kahoot.it/media-api/youtube/key');
             const data = await res.json();
             if (data?.key) this.currentEduKey = data.key;
-        } catch (e) { console.warn("EduKey Refresh Failed"); }
+        } catch (e) { console.log("Key Refresh failed"); }
     },
 
     getCurrentKey() {
@@ -83,7 +83,6 @@ const Actions = {
         this.renderSidebar();
         YT.refreshEduKey().then(() => this.goHome());
 
-        // 検索イベント
         const searchInput = document.getElementById('search-input');
         searchInput.onkeydown = (e) => {
             if (e.key === 'Enter') { e.preventDefault(); this.search(); searchInput.blur(); }
@@ -91,9 +90,9 @@ const Actions = {
         document.getElementById('search-btn').onclick = () => this.search();
         document.getElementById('theme-toggle-btn').onclick = () => this.toggleTheme();
         
-        // 💡 プレイリスト作成ボタンを確実にバインド
+        // 💡 作成ボタンのバインド
         const createBtn = document.getElementById('create-playlist-btn');
-        if (createBtn) createBtn.addEventListener('click', () => this.createNewPlaylist());
+        if (createBtn) createBtn.onclick = () => this.createNewPlaylist();
     },
 
     applyTheme() {
@@ -170,6 +169,7 @@ const Actions = {
 
         const html = this.currentList.map((item, i) => {
             const snip = item.snippet;
+            if(!snip) return '';
             return `
             <div class="v-card" onclick="Actions.play(Actions.currentList[${i}])">
                 <div class="thumb-container">
@@ -249,7 +249,6 @@ const Actions = {
             </div>`).join('');
     },
 
-    // --- 登録チャンネル表示 ---
     showSubs() {
         const subs = Storage.get('yt_subs');
         const html = subs.map(ch => `
@@ -266,7 +265,6 @@ const Actions = {
         if (this.currentPlayVideo) this.play(this.currentPlayVideo);
     },
 
-    // --- プレイリスト・いいね機能 ---
     openPlaylistModal() {
         document.getElementById('modal-overlay').style.display = 'flex';
         const p = Storage.get('yt_playlists');
