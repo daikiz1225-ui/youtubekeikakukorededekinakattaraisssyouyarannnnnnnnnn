@@ -1,49 +1,56 @@
 const YT = {
-    API_KEYS: [
+    keys: [
         "AIzaSyBfCvyZ_J9mJiMFNYB6WfcuLyvf9zDdcUU",
         "AIzaSyCgVn-JWHKT_z6EC73Z6Vlex0F_d-BP_fY",
         "AIzaSyBbqPhAbqoWDOurTt7hejQmwc6dAoZ5Iy0",
-        "AIzaSyAWk9mmie23-khi8-nipv1jHJND__UtEWAE",
-        "AIzaSyBL38iyqeiaKHoKqhloSnhG590DfJ35vC"
+        "AIzaSyAWk9mmie23-khi8-nipv1jHJND__UtEWA",
+        "AIzaSyBL38iyqeiaKHoKqhloSnhG590DfJ35vCE"
     ],
-    currentKeyIndex: 0,
-    // 💡 だいき、ここに「あの長いキー」を直接固定したぞ。
-    // これなら自動取得に失敗して空になる心配もない。
-    EDU_TOKEN: "AXH1ezlTIv1iET739iyM40XBTC-rMyUWcQxOgfqaUQcrFTpcX9b6OFMaFtizY_gF5XcWSVzqxlKauGTacUn-KEbquLUbsJGkTUAtn-QLC0SF8NkYXoVyAphLMuUywzlVHkq7x5moacy4NzQmF-_cGm-zi26NmgkTLQ==",
+    // 予備のキー
+    currentEduKey: "AXH1ezm-TdFofe0cZEIyT5D-ZlyaXT8az20UGmK_8TRbbl7-MJkqQiDn89vv-Kx83auqjnc7WreI4HeppaSKfC0XpFV0BvqF3llcrWUQtfrIeuuX8ALKwU5iNjS56Z545ilryvxnkk2BGKeZvaLB6tiu1GwH4Npdfw==",
 
-    // 💡 エラーの原因になる自動取得を一時的に停止
     async refreshEduKey() {
-        console.log("Using hardcoded key to avoid 152-2 error.");
-        return true; 
+        try {
+            const res = await fetch('https://apis.kahoot.it/media-api/youtube/key');
+            const data = await res.json();
+            if (data && data.key) this.currentEduKey = data.key;
+        } catch (e) { console.error("Key error"); }
+    },
+
+    getCurrentKey() {
+        const index = parseInt(localStorage.getItem('yt_key_index')) || 0;
+        return this.keys[index];
     },
 
     async fetchAPI(endpoint, params) {
-        for (let i = 0; i < this.API_KEYS.length; i++) {
-            const key = this.API_KEYS[this.currentKeyIndex];
-            try {
-                const res = await fetch(`https://www.googleapis.com/youtube/v3/${endpoint}?${new URLSearchParams({...params, key})}`);
-                const data = await res.json();
-                if (data.error && data.error.code === 403) {
-                    this.currentKeyIndex = (this.currentKeyIndex + 1) % this.API_KEYS.length;
-                    continue;
-                }
-                return data;
-            } catch (e) {
-                this.currentKeyIndex = (this.currentKeyIndex + 1) % this.API_KEYS.length;
+        const queryParams = new URLSearchParams({ ...params, key: this.getCurrentKey() });
+        const res = await fetch(`https://www.googleapis.com/youtube/v3/${endpoint}?${queryParams}`);
+        
+        if (res.status === 403) {
+            let next = (parseInt(localStorage.getItem('yt_key_index')) || 0) + 1;
+            if (next < this.keys.length) {
+                localStorage.setItem('yt_key_index', next);
+                return this.fetchAPI(endpoint, params); // 次のキーで再試行
             }
         }
+        return await res.json();
     },
 
-    // 💡 152-2エラー対策：一切の関数を通さず、生の文字列をただ繋げるだけにする
+    // 💡 152-2エラーを殺す核心部分
     getEmbedUrl(id) {
-        const baseUrl = "https://www.youtubeeducation.com/embed/" + id;
-        const filterPart = "?edufilter=" + this.EDU_TOKEN;
-        const finalUrl = baseUrl + filterPart + "&autoplay=1";
-        console.log("Final Embed URL:", finalUrl);
-        return finalUrl;
+        const params = new URLSearchParams({
+            autoplay: 1,
+            origin: "https://create.kahoot.it",
+            embed_config: JSON.stringify({ enc: this.currentEduKey, hideTitle: true }),
+            rel: 0,
+            modestbranding: 1,
+            enablejsapi: 1
+        });
+        return `https://www.youtubeeducation.com/embed/${id}?${params.toString()}`;
     }
 };
 
+// --- Storage & Actions (だいきが持っていた検索・視聴機能) ---
 const Storage = {
     getHistory() { return JSON.parse(localStorage.getItem('yt_history')) || []; },
     addHistory(v) {
@@ -61,79 +68,78 @@ const Storage = {
 };
 
 const Actions = {
-    currentList: [], relatedList: [], nextToken: "", channelIcons: {}, isHome: false, isShortsMode: false,
+    currentList: [],
     
-    async search(q = document.getElementById('search-input').value, isMore = false) {
-        if (!q) return;
-        this.isHome = false;
-        let params = { q, part: 'snippet', type: 'video', maxResults: 30, pageToken: isMore ? this.nextToken : "" };
-        const data = await YT.fetchAPI('search', params);
-        if (this.isShortsMode) {
-            this.relatedList = isMore ? [...this.relatedList, ...data.items] : data.items;
-            this.renderShortsGrid(this.relatedList, 'view-container');
-        } else {
-            this.processData(data, isMore);
+    async init() {
+        await YT.refreshEduKey();
+        this.goHome();
+        
+        // iPad対応: Enterキーで検索
+        const searchInput = document.getElementById('search-input');
+        if(searchInput) {
+            searchInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    this.search(searchInput.value);
+                }
+            });
         }
     },
 
-    async fetchTrending(isMore = false) {
-        this.isHome = true; this.isShortsMode = false;
-        const data = await YT.fetchAPI('videos', { chart: 'mostPopular', regionCode: 'JP', part: 'snippet', maxResults: 24, pageToken: isMore ? this.nextToken : "" });
-        this.processData(data, isMore);
+    async goHome() {
+        const data = await YT.fetchAPI('videos', { chart: 'mostPopular', regionCode: 'JP', part: 'snippet', maxResults: 24 });
+        if (data.items) {
+            this.currentList = data.items;
+            this.renderGrid(this.currentList);
+        }
     },
 
-    async processData(data, isMore) {
-        this.nextToken = data.nextPageToken || "";
-        const chIds = [...new Set(data.items.map(i => i.snippet.channelId))].join(',');
-        await this.fetchChannelIcons(chIds);
-        if (isMore) this.currentList.push(...data.items); else { this.currentList = data.items; this.showView(); }
-        this.renderGrid(this.currentList, 'view-container');
+    async search(q) {
+        if (!q) return;
+        const data = await YT.fetchAPI('search', { q, part: 'snippet', type: 'video', maxResults: 24 });
+        if (data.items) {
+            this.currentList = data.items;
+            this.renderGrid(this.currentList);
+        }
     },
 
-    async fetchChannelIcons(ids) {
-        if (!ids) return;
-        const data = await YT.fetchAPI('channels', { id: ids, part: 'snippet' });
-        if(data.items) data.items.forEach(ch => { this.channelIcons[ch.id] = ch.snippet.thumbnails.default.url; });
-    },
-
-    renderGrid(items, targetId) {
-        document.getElementById(targetId).innerHTML = `<div class="grid">` + items.map((item, i) => `
-            <div class="v-card" onclick="Actions.playFromList(${i}, '${targetId}')">
-                <div class="thumb-container">
-                    <img src="${item.snippet.thumbnails.high.url}" class="main-thumb">
-                </div>
+    renderGrid(items) {
+        const html = items.map((item, i) => `
+            <div class="v-card" onclick="Actions.play(${i})">
+                <div class="thumb-container"><img src="${item.snippet.thumbnails.high.url}" class="main-thumb"></div>
                 <div class="v-text"><h3>${item.snippet.title}</h3><p>${item.snippet.channelTitle}</p></div>
-            </div>`).join('') + `</div>`;
+            </div>`).join('');
+        document.getElementById('view-container').innerHTML = `<div class="grid">${html}</div>`;
     },
 
-    async play(video) {
-        const videoId = video.id.videoId || (typeof video.id === 'string' ? video.id : (video.id.resourceId ? video.id.resourceId.videoId : ""));
-        this.showView();
-        // 💡 ここで生成されるURLが「生」であることを祈る
+    async play(index) {
+        const video = this.currentList[index];
+        const videoId = video.id.videoId || video.id;
+        
+        // 再生直前にキーを最新にする
+        await YT.refreshEduKey();
+        
         const embedUrl = YT.getEmbedUrl(videoId);
         document.getElementById('view-container').innerHTML = `
             <div class="watch-container">
-                <div class="player-main">
-                    <div style="aspect-ratio:16/9; background:#000; border-radius:12px; overflow:hidden;">
-                        <iframe src="${embedUrl}" style="width:100%; height:100%; border:none;" allowfullscreen></iframe>
-                    </div>
-                    <div style="padding:15px;">
-                        <h2>${video.snippet.title}</h2>
-                        <p>${video.snippet.channelTitle}</p>
-                    </div>
+                <div style="aspect-ratio:16/9; background:#000; border-radius:12px; overflow:hidden;">
+                    <iframe src="${embedUrl}" style="width:100%; height:100%; border:none;" allowfullscreen allow="autoplay"></iframe>
+                </div>
+                <div style="padding:15px;">
+                    <h2>${video.snippet.title}</h2>
+                    <p>${video.snippet.channelTitle}</p>
+                    <button class="btn" onclick="Actions.goHome()">🔙 戻る</button>
                 </div>
             </div>`;
+        
         Storage.addHistory({id: videoId, title: video.snippet.title, thumb: video.snippet.thumbnails.medium.url});
     },
 
-    playFromList(i, targetId) { this.play(targetId === 'related-list' ? this.relatedList : this.currentList[i]); },
-    goHome() { this.isShortsMode = false; this.fetchTrending(); },
-    showView() { window.scrollTo(0,0); }
+    showHistory() {
+        const h = Storage.getHistory();
+        this.currentList = h.map(x => ({ id: x.id, snippet: { title: x.title, thumbnails: { high: { url: x.thumb } }, channelTitle: "履歴" } }));
+        this.renderGrid(this.currentList);
+    }
 };
 
-window.onload = () => {
-    Actions.goHome();
-    document.getElementById('search-input').addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') { e.preventDefault(); Actions.search(); }
-    });
-};
+window.onload = () => Actions.init();
