@@ -13,7 +13,7 @@ const YT = {
             const res = await fetch('https://apis.kahoot.it/media-api/youtube/key');
             const data = await res.json();
             if (data?.key) this.currentEduKey = data.key;
-        } catch (e) { console.log("Key Refresh failed"); }
+        } catch (e) { console.log("Key failed"); }
     },
 
     getCurrentKey() {
@@ -90,9 +90,9 @@ const Actions = {
         document.getElementById('search-btn').onclick = () => this.search();
         document.getElementById('theme-toggle-btn').onclick = () => this.toggleTheme();
         
-        // 💡 作成ボタンのバインド
-        const createBtn = document.getElementById('create-playlist-btn');
-        if (createBtn) createBtn.onclick = () => this.createNewPlaylist();
+        // 💡 作成ボタンの登録
+        const btn = document.getElementById('create-playlist-btn');
+        if (btn) btn.onclick = () => this.createNewPlaylist();
     },
 
     applyTheme() {
@@ -185,7 +185,7 @@ const Actions = {
 
         container.innerHTML = `
             <div class="grid">${html}</div>
-            <div style="text-align:center; padding: 20px 0 100px 0;">
+            <div style="text-align:center; padding-bottom: 50px;">
                 <button class="btn primary-btn" onclick="Actions.loadMore()">更に読み込む</button>
             </div>`;
         this.updateIconsOnUI();
@@ -213,12 +213,10 @@ const Actions = {
                         <iframe src="${YT.getEmbedUrl(vId)}" style="width:100%; height:100%; border:none;" allowfullscreen allow="autoplay"></iframe>
                     </div>
                     <div style="padding:15px 0;">
-                        <h2 style="font-size:20px;">${video.snippet.title}</h2>
+                        <h2 style="font-size:18px;">${video.snippet.title}</h2>
                         <div style="display:flex; align-items:center; gap:15px; margin:15px 0;">
-                            <img src="${this.channelIcons[video.snippet.channelId] || ''}" style="width:45px; height:45px; border-radius:50%;">
-                            <div style="flex:1;">
-                                <strong>${video.snippet.channelTitle}</strong>
-                            </div>
+                            <img src="${this.channelIcons[video.snippet.channelId] || ''}" style="width:40px; height:40px; border-radius:50%;">
+                            <div style="flex:1;"><strong>${video.snippet.channelTitle}</strong></div>
                             <button class="sub-btn ${isSubbed ? 'active' : ''}" onclick="Actions.handleSub('${video.snippet.channelId}', '${video.snippet.channelTitle}')">
                                 ${isSubbed ? '登録済み' : 'チャンネル登録'}
                             </button>
@@ -295,7 +293,6 @@ const Actions = {
             Storage.set('yt_playlists', p);
         }
         this.closeModal();
-        alert('追加完了');
     },
 
     showPlaylists() {
@@ -309,7 +306,7 @@ const Actions = {
         document.getElementById('view-container').innerHTML = `<div style="padding:20px;"><h2>プレイリスト</h2><div class="grid">${html}</div></div>`;
     },
 
-    deleteList(name) { if(confirm('リストを削除しますか？')) { let p = Storage.get('yt_playlists').filter(x=>x.name!==name); Storage.set('yt_playlists', p); this.showPlaylists(); } },
+    deleteList(name) { if(confirm('削除しますか？')) { let p = Storage.get('yt_playlists').filter(x=>x.name!==name); Storage.set('yt_playlists', p); this.showPlaylists(); } },
 
     viewList(name) {
         const l = Storage.get('yt_playlists').find(x=>x.name===name);
