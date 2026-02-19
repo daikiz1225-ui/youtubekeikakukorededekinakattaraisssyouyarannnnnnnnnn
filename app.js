@@ -39,7 +39,7 @@ const YT = {
         return await res.json();
     },
 
-    getEmbedUrl(id) {
+    getEmbedUrl(id, isShort = false) {
         const p = new URLSearchParams({
             autoplay: 1,
             origin: "https://create.kahoot.it",
@@ -48,6 +48,10 @@ const YT = {
             modestbranding: 1,
             enablejsapi: 1
         });
+        if (isShort) {
+            p.append('loop', '1');
+            p.append('playlist', id);
+        }
         return `https://www.youtubeeducation.com/embed/${id}?${p.toString()}`;
     }
 };
@@ -99,6 +103,9 @@ const Actions = {
     channelIcons: {},
     nextToken: "",
     currentView: "home",
+    currentChId: "",
+    currentChTitle: "",
+    currentSearch: "",
     isDarkMode: true,
     currentPlayVideo: null,
 
@@ -117,11 +124,7 @@ const Actions = {
 
         document.getElementById('search-btn').onclick = () => this.search();
         document.getElementById('theme-toggle-btn').onclick = () => this.toggleTheme();
-        
-        const createBtn = document.getElementById('create-playlist-btn');
-        if (createBtn) {
-            createBtn.onclick = () => this.createNewPlaylist();
-        }
+        document.getElementById('create-playlist-btn').onclick = () => this.createNewPlaylist();
 
         YT.refreshEduKey().then(() => {
             this.goHome();
@@ -153,26 +156,37 @@ const Actions = {
 
     async goHome() {
         this.currentView = "home";
+        this.currentSearch = "";
         const data = await YT.fetchAPI('videos', { chart: 'mostPopular', regionCode: 'JP', part: 'snippet', maxResults: 24 });
         this.nextToken = data.nextPageToken;
         this.currentList = data.items || [];
         this.renderGrid();
     },
 
+    async showShorts() {
+        this.currentView = "shorts";
+        this.currentSearch = "#Shorts";
+        const data = await YT.fetchAPI('search', { q: '#Shorts', part: 'snippet', type: 'video', maxResults: 24 });
+        this.nextToken = data.nextPageToken;
+        this.currentList = data.items || [];
+        this.renderGrid();
+    },
+
     async search(isMore = false) {
-        let q = document.getElementById('search-input').value;
+        let q = document.getElementById('search-input').value || this.currentSearch;
         if (!q) return;
-        
-        if (this.currentView === "shorts") {
-            if (!q.includes("#Shorts")) {
-                q += " #Shorts";
-            }
-        } else {
-            if (!isMore) {
+
+        if (this.currentView === "shorts" && !q.includes("#Shorts")) {
+            q += " #Shorts";
+        }
+        this.currentSearch = q;
+
+        if (!isMore) {
+            if (this.currentView !== "shorts") {
                 this.currentView = "search";
             }
         }
-        
+
         const params = {
             q: q,
             part: 'snippet',
@@ -192,18 +206,85 @@ const Actions = {
         this.renderGrid();
     },
 
-    async showShorts() {
-        this.currentView = "shorts";
-        const data = await YT.fetchAPI('search', { q: '#Shorts', part: 'snippet', type: 'video', maxResults: 24 });
-        this.currentList = data.items || [];
-        this.renderGrid();
+    async loadMore() {
+        if (this.currentView === "home") {
+            const data = await YT.fetchAPI('videos', { chart: 'mostPopular', regionCode: 'JP', part: 'snippet', maxResults: 24, pageToken: this.nextToken });
+            this.nextToken = data.nextPageToken;
+            this.currentList.push(...data.items);
+            this.renderGrid();
+        } else if (this.currentView === "search" || this.currentView === "shorts") {
+            this.search(true);
+        } else if (this.currentView === "channel") {
+            const params = { channelId: this.currentChId, part: 'snippet', maxResults: 24, type: 'video', pageToken: this.nextToken };
+            const data = await YT.fetchAPI('search', params);
+            this.nextToken = data.nextPageToken;
+            this.currentList.push(...data.items);
+            this.renderGrid();
+        }
     },
 
-    async showChannel(channelId, channelTitle) {
+    async showChannel(id, title, type = 'date') {
         this.currentView = "channel";
-        const data = await YT.fetchAPI('search', { channelId: channelId, part: 'snippet', type: 'video', order: 'date', maxResults: 24 });
+        this.currentChId = id;
+        this.currentChTitle = title;
+        
+        let params = {
+            channelId: id,
+            part: 'snippet',
+            maxResults: 24,
+            type: 'video'
+        };
+        
+        if (type === 'viewCount') {
+            params.order = 'viewCount';
+        } else {
+            params.order = 'date';
+        }
+        
+        const data = await YT.fetchAPI('search', params);
+        this.nextToken = data.nextPageToken;
         this.currentList = data.items || [];
-        this.renderGrid(`<h2>${channelTitle} の動画</h2>`);
+        
+        const headerHtml = `
+            <div class="channel-header">
+                <h2>${title}</h2>
+                <div class="tab-bar">
+                    <div class="tab-item ${type === 'date' ? 'active' : ''}" onclick="Actions.showChannel('${id}', '${title}', 'date')">最新順</div>
+                    <div class="tab-item ${type === 'viewCount' ? 'active' : ''}" onclick="Actions.showChannel('${id}', '${title}', 'viewCount')">人気順</div>
+                    <div class="tab-item" onclick="Actions.showChannelPlaylists('${id}')">再生リスト</div>
+                </div>
+            </div>`;
+        this.renderGrid(headerHtml);
+    },
+
+    async showChannelPlaylists(id) {
+        const data = await YT.fetchAPI('playlists', { channelId: id, part: 'snippet', maxResults: 24 });
+        const playlists = data.items || [];
+        
+        const html = playlists.map(p => `
+            <div class="v-card" onclick="Actions.viewExternalList('${p.id}', '${p.snippet.title.replace(/'/g, "\\'")}')">
+                <div class="thumb-container">
+                    <img src="${p.snippet.thumbnails.high.url}" class="main-thumb">
+                </div>
+                <div class="v-text">
+                    <h3>${p.snippet.title}</h3>
+                </div>
+            </div>`).join('');
+        
+        document.getElementById('view-container').innerHTML = `
+            <div class="channel-header">
+                <h2>${this.currentChTitle} - 再生リスト</h2>
+                <div class="tab-bar">
+                    <div class="tab-item" onclick="Actions.showChannel('${id}', '${this.currentChTitle}', 'date')">動画に戻る</div>
+                </div>
+            </div>
+            <div class="grid">${html}</div>`;
+    },
+
+    async viewExternalList(listId, title) {
+        const data = await YT.fetchAPI('playlistItems', { playlistId: listId, part: 'snippet', maxResults: 50 });
+        this.currentList = data.items || [];
+        this.renderGrid(`<h2>再生リスト: ${title}</h2>`);
     },
 
     async fetchChannelIcons(ids) {
@@ -240,7 +321,7 @@ const Actions = {
             <div class="v-card">
                 <div class="thumb-container">
                     <img src="${snip.thumbnails.high.url}" class="main-thumb" onclick="Actions.play(Actions.currentList[${i}])">
-                    <img src="${this.channelIcons[snip.channelId] || ''}" class="ch-icon-img" data-chid="${snip.channelId}" onclick="event.stopPropagation(); Actions.showChannel('${snip.channelId}', '${snip.channelTitle}')">
+                    <img src="${this.channelIcons[snip.channelId] || ''}" class="ch-icon-img" data-chid="${snip.channelId}" onclick="event.stopPropagation(); Actions.showChannel('${snip.channelId}', '${snip.channelTitle.replace(/'/g, "\\'")}')">
                 </div>
                 <div class="v-text" onclick="Actions.play(Actions.currentList[${i}])">
                     <h3>${snip.title}</h3>
@@ -250,7 +331,7 @@ const Actions = {
         }).join('');
 
         container.innerHTML = `
-            <div style="padding: 20px 20px 0 20px;">${headerHtml}</div>
+            <div style="padding: 10px 20px 0 20px;">${headerHtml}</div>
             <div class="grid">${html}</div>
             <div style="text-align:center; padding-bottom: 50px;">
                 <button class="btn primary-btn" onclick="Actions.loadMore()">更に読み込む</button>
@@ -258,21 +339,17 @@ const Actions = {
         this.updateIconsOnUI();
     },
 
-    async loadMore() {
-        if (this.currentView === "home" || this.currentView === "search" || this.currentView === "shorts") {
-            this.search(true);
-        }
-    },
-
-    async play(video) {
+    play(video) {
         if (!video) return;
         this.currentPlayVideo = video;
         const vId = (typeof video.id === 'string') ? video.id : (video.id.videoId || video.id.resourceId?.videoId);
         if (!vId) return;
 
-        await YT.refreshEduKey();
+        if (this.currentView === "shorts") {
+            return this.playShort(vId);
+        }
+
         window.scrollTo(0, 0);
-        
         const isLiked = Storage.get('yt_likes').some(x => x.id === vId);
         const isSubbed = Storage.get('yt_subs').some(x => x.id === video.snippet.channelId);
 
@@ -285,11 +362,11 @@ const Actions = {
                     <div style="padding:15px 0;">
                         <h2 style="font-size:18px;">${video.snippet.title}</h2>
                         <div style="display:flex; align-items:center; gap:15px; margin:15px 0;">
-                            <img src="${this.channelIcons[video.snippet.channelId] || ''}" style="width:45px; height:45px; border-radius:50%; cursor:pointer;" onclick="Actions.showChannel('${video.snippet.channelId}', '${video.snippet.channelTitle}')">
+                            <img src="${this.channelIcons[video.snippet.channelId] || ''}" style="width:45px; height:45px; border-radius:50%; cursor:pointer;" onclick="Actions.showChannel('${video.snippet.channelId}', '${video.snippet.channelTitle.replace(/'/g, "\\'")}')">
                             <div style="flex:1;">
                                 <strong>${video.snippet.channelTitle}</strong>
                             </div>
-                            <button class="sub-btn ${isSubbed ? 'active' : ''}" onclick="Actions.handleSub('${video.snippet.channelId}', '${video.snippet.channelTitle}')">
+                            <button class="sub-btn ${isSubbed ? 'active' : ''}" onclick="Actions.handleSub('${video.snippet.channelId}', '${video.snippet.channelTitle.replace(/'/g, "\\'")}')">
                                 ${isSubbed ? '登録済み' : 'チャンネル登録'}
                             </button>
                         </div>
@@ -319,6 +396,19 @@ const Actions = {
         this.loadRelated(video.snippet.title);
     },
 
+    playShort(id) {
+        document.getElementById('view-container').innerHTML = `
+            <div class="shorts-container">
+                <div class="shorts-wrapper">
+                    <iframe src="${YT.getEmbedUrl(id, true)}" style="width:100%; height:100%; border:none; border-radius:15px;" allowfullscreen allow="autoplay"></iframe>
+                    <div style="position:absolute; bottom:20px; right:-60px; display:flex; flex-direction:column; gap:20px;">
+                        <button class="btn" style="border-radius:50%; width:50px; height:50px; padding:0;" onclick="Actions.handleLike()">❤️</button>
+                        <button class="btn" style="border-radius:50%; width:50px; height:50px; padding:0;" onclick="Actions.openPlaylistModal()">➕</button>
+                    </div>
+                </div>
+            </div>`;
+    },
+
     async loadRelated(q) {
         const data = await YT.fetchAPI('search', { q: q.substring(0, 15), part: 'snippet', type: 'video', maxResults: 15 });
         this.relatedList = data.items || [];
@@ -336,12 +426,13 @@ const Actions = {
     },
 
     showSubs() {
+        this.currentView = "subs";
         const subs = Storage.get('yt_subs');
         const html = subs.map(ch => `
             <div class="v-card" style="padding:20px; text-align:center;">
-                <img src="${this.channelIcons[ch.id] || ''}" style="width:80px; height:80px; border-radius:50%; margin-bottom:10px; cursor:pointer;" onclick="Actions.showChannel('${ch.id}', '${ch.name}')">
+                <img src="${this.channelIcons[ch.id] || ''}" style="width:80px; height:80px; border-radius:50%; margin-bottom:10px; cursor:pointer;" onclick="Actions.showChannel('${ch.id}', '${ch.name.replace(/'/g, "\\'")}')">
                 <h3>${ch.name}</h3>
-                <button class="sub-btn active" onclick="Actions.handleSub('${ch.id}', '${ch.name}'); Actions.showSubs();">
+                <button class="sub-btn active" onclick="Actions.handleSub('${ch.id}', '${ch.name.replace(/'/g, "\\'")}')">
                     登録済み
                 </button>
             </div>`).join('');
@@ -355,16 +446,19 @@ const Actions = {
 
     handleSub(id, name) {
         Storage.toggleSub({ id, name });
-        if (this.currentPlayVideo && this.currentPlayVideo.snippet.channelId === id) {
+        if (this.currentView === "subs") {
+            this.showSubs();
+        } else if (this.currentPlayVideo && this.currentPlayVideo.snippet.channelId === id) {
             this.play(this.currentPlayVideo);
         }
     },
 
     showPlaylists() {
+        this.currentView = "playlists";
         const p = Storage.get('yt_playlists');
         const html = p.map(l => `
-            <div class="v-card" style="padding:20px; text-align:center;" onclick="Actions.viewList('${l.name}')">
-                <span class="delete-tag" onclick="event.stopPropagation(); Actions.deleteList('${l.name}')">削除</span>
+            <div class="v-card" style="padding:20px; text-align:center;" onclick="Actions.viewList('${l.name.replace(/'/g, "\\'")}')">
+                <span class="delete-tag" onclick="event.stopPropagation(); Actions.deleteList('${l.name.replace(/'/g, "\\'")}')">削除</span>
                 <div style="font-size:60px;">📁</div>
                 <h3>${l.name}</h3>
                 <p>${l.videos.length}本の動画</p>
@@ -383,8 +477,8 @@ const Actions = {
         if (!list) return;
 
         const html = list.videos.map((v, i) => `
-            <div class="v-card" onclick="Actions.playPlaylistVideo('${name}', ${i})">
-                <span class="delete-tag" onclick="event.stopPropagation(); Actions.removeVideo('${name}', '${v.id}')">✖</span>
+            <div class="v-card" onclick="Actions.playPlaylistVideo('${name.replace(/'/g, "\\'")}', ${i})">
+                <span class="delete-tag" onclick="event.stopPropagation(); Actions.removeVideo('${name.replace(/'/g, "\\'")}', '${v.id}')">✖</span>
                 <div class="thumb-container">
                     <img src="${v.thumb}" class="main-thumb">
                 </div>
@@ -441,7 +535,7 @@ const Actions = {
         const selector = document.getElementById('playlist-selector');
         
         selector.innerHTML = playlists.map(l => `
-            <div class="p-item" onclick="Actions.addCurrentToList('${l.name}')">${l.name}</div>
+            <div class="p-item" onclick="Actions.addCurrentToList('${l.name.replace(/'/g, "\\'")}')">${l.name}</div>
         `).join('') || '<p style="padding:15px;">プレイリストがありません</p>';
     },
 
@@ -486,6 +580,7 @@ const Actions = {
 
     handleLike() {
         const v = this.currentPlayVideo;
+        if (!v) return;
         const vId = (typeof v.id === 'string') ? v.id : (v.id.videoId || v.id.resourceId?.videoId);
         
         Storage.toggleLike({
@@ -503,6 +598,7 @@ const Actions = {
     },
 
     showLikes() {
+        this.currentView = "likes";
         const likes = Storage.get('yt_likes');
         this.currentList = likes.map(x => ({
             id: x.id,
@@ -512,10 +608,11 @@ const Actions = {
                 channelTitle: x.channelTitle
             }
         }));
-        this.renderGrid();
+        this.renderGrid("<h2>いいねした動画</h2>");
     },
 
     showHistory() {
+        this.currentView = "history";
         const history = Storage.get('yt_history');
         this.currentList = history.map(x => ({
             id: x.id,
@@ -525,7 +622,7 @@ const Actions = {
                 channelTitle: x.channelTitle
             }
         }));
-        this.renderGrid();
+        this.renderGrid("<h2>再生履歴</h2>");
     }
 };
 
