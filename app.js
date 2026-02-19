@@ -1,7 +1,6 @@
 /**
  * YouTube Client Premium - app.js
- * 自作プレイリスト機能およびサイドバーの「リスト」項目を完全削除。
- * チャンネル公式再生リスト、ショート移動、iPad最適化を維持。
+ * 省略なしの最終形態
  */
 
 const YT = {
@@ -115,7 +114,6 @@ const Actions = {
 
     init() {
         const searchInput = document.getElementById('search-input');
-        // iPad等のEnterキーで検索実行
         searchInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
@@ -176,8 +174,6 @@ const Actions = {
             this.nextToken = data.nextPageToken || "";
             this.currentList.push(...data.items);
             this.renderGrid();
-        } else if (this.currentView === "channel") {
-            this.showChannel(this.currentChId, this.currentChTitle, 'date', true);
         } else {
             this.search(true);
         }
@@ -298,7 +294,6 @@ const Actions = {
         if (!video) return;
         this.currentPlayVideo = video;
         const vId = (typeof video.id === 'string') ? video.id : (video.id.videoId || video.id.resourceId?.videoId);
-        
         if (this.currentView === "shorts") return this.playShort(vId);
 
         window.scrollTo(0, 0);
@@ -331,7 +326,6 @@ const Actions = {
                 </div>
                 <div class="related-area"><h3>関連動画</h3><div id="related-list"></div></div>
             </div>`;
-        
         Storage.addHistory({ id: vId, title: video.snippet.title, thumb: video.snippet.thumbnails.high.url, channelTitle: video.snippet.channelTitle });
         this.loadRelated(video.snippet.title);
     },
@@ -339,22 +333,16 @@ const Actions = {
     playShort(id) {
         const video = this.currentList[this.currentShortIndex];
         const vId = id || (typeof video.id === 'string' ? video.id : video.id.videoId);
-
         document.getElementById('view-container').innerHTML = `
             <div class="shorts-container">
                 <div class="shorts-wrapper">
                     <iframe src="${YT.getEmbedUrl(vId, true)}" style="width:100%; height:100%; border:none; border-radius:15px;" allowfullscreen allow="autoplay"></iframe>
-                    
-                    <div class="shorts-nav" style="position:absolute; top:50%; left:-70px; transform:translateY(-50%); display:flex; flex-direction:column; gap:20px;">
-                        <button class="short-btn" onclick="Actions.prevShort()">▲</button>
-                        <button class="short-btn" onclick="Actions.nextShort()">▼</button>
-                    </div>
-
-                    <div class="shorts-actions">
+                    <div class="shorts-nav">
+                        <div class="short-btn" onclick="Actions.prevShort()">▲</div>
+                        <div class="short-btn" onclick="Actions.nextShort()">▼</div>
                         <div class="short-btn" onclick="Actions.handleLike()">❤️</div>
                         <div class="short-btn" onclick="Actions.showShorts()">⚡</div>
                     </div>
-
                     <div style="position:absolute; bottom:25px; left:20px; right:70px; pointer-events:none;">
                         <h3 style="font-size:15px; margin:0; text-shadow:1px 1px 3px #000;">${video.snippet.title}</h3>
                         <p style="font-size:13px; margin:5px 0 0 0; font-weight:bold;">@${video.snippet.channelTitle}</p>
@@ -368,8 +356,6 @@ const Actions = {
         if (this.currentShortIndex < this.currentList.length - 1) {
             this.currentShortIndex++;
             this.playVideoByIndex(this.currentShortIndex);
-        } else if (this.nextToken) {
-            this.loadMore().then(() => { this.currentShortIndex++; this.playVideoByIndex(this.currentShortIndex); });
         }
     },
     prevShort() {
@@ -387,8 +373,8 @@ const Actions = {
         if (container) {
             container.innerHTML = this.relatedList.map((v, i) => `
                 <div class="side-card" onclick="Actions.play(Actions.relatedList[${i}])">
-                    <img src="${v.snippet.thumbnails.medium.url}">
-                    <div class="side-card-info"><h4>${v.snippet.title}</h4><p>${v.snippet.channelTitle}</p></div>
+                    <img src="${v.snippet.thumbnails.medium.url}" style="width:120px; border-radius:8px;">
+                    <div style="margin-left:10px;"><h4>${v.snippet.title}</h4><p>${v.snippet.channelTitle}</p></div>
                 </div>`).join('');
         }
     },
@@ -415,8 +401,8 @@ const Actions = {
         const subs = Storage.get('yt_subs');
         const html = subs.map(ch => `
             <div class="v-card" style="padding:20px; text-align:center; background:var(--card-bg);">
-                <img src="${this.channelIcons[ch.id] || ''}" style="width:100px; height:100px; border-radius:50%; cursor:pointer;" onclick="Actions.showChannel('${ch.id}', '${ch.name.replace(/'/g, "\\'")}')">
-                <h3 style="margin:15px 0 10px 0;">${ch.name}</h3>
+                <img src="${ch.thumb || ''}" style="width:100px; height:100px; border-radius:50%; cursor:pointer;" onclick="Actions.showChannel('${ch.id}', '${ch.name.replace(/'/g, "\\'")}')">
+                <h3>${ch.name}</h3>
                 <button class="btn sub-btn active" style="margin:0 auto;" onclick="Actions.handleSub('${ch.id}', '${ch.name.replace(/'/g, "\\'")}')">解除</button>
             </div>`).join('');
         document.getElementById('view-container').innerHTML = `<div style="padding:20px;"><h2>登録中のチャンネル</h2><div class="grid">${html}</div></div>`;
