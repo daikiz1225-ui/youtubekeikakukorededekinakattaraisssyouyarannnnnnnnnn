@@ -11,19 +11,37 @@
     <header id="main-header">
         <div id="theme-toggle-btn">🌓</div>
         <div class="search-box">
-            <input type="text" id="search-input" placeholder="検索..." autocomplete="off">
+            <input type="text" id="search-input" placeholder="キーワードを入力..." autocomplete="off">
             <button id="search-btn">🔍</button>
         </div>
     </header>
 
     <nav id="sidebar">
         <div id="sidebar-nav">
-            <div class="nav-item" onclick="Actions.goHome()"><div>🏠</div>ホーム</div>
-            <div class="nav-item" onclick="Actions.showShorts()"><div>⚡</div>ショート</div>
-            <div class="nav-item" onclick="Actions.showLikes()"><div>👍</div>いいね</div>
-            <div class="nav-item" onclick="Actions.showPlaylists()"><div>📁</div>リスト</div>
-            <div class="nav-item" onclick="Actions.showSubs()"><div>🔔</div>登録中</div>
-            <div class="nav-item" onclick="Actions.showHistory()"><div>🕒</div>履歴</div>
+            <div class="nav-item" onclick="Actions.goHome()">
+                <div class="nav-icon">🏠</div>
+                <span>ホーム</span>
+            </div>
+            <div class="nav-item" onclick="Actions.showShorts()">
+                <div class="nav-icon">⚡</div>
+                <span>ショート</span>
+            </div>
+            <div class="nav-item" onclick="Actions.showLikes()">
+                <div class="nav-icon">👍</div>
+                <span>いいね</span>
+            </div>
+            <div class="nav-item" onclick="Actions.showPlaylists()">
+                <div class="nav-icon">📁</div>
+                <span>リスト</span>
+            </div>
+            <div class="nav-item" onclick="Actions.showSubs()">
+                <div class="nav-icon">🔔</div>
+                <span>登録中</span>
+            </div>
+            <div class="nav-item" onclick="Actions.showHistory()">
+                <div class="nav-icon">🕒</div>
+                <span>履歴</span>
+            </div>
         </div>
     </nav>
 
@@ -31,14 +49,17 @@
 
     <div id="modal-overlay" style="display:none;" onclick="Actions.closeModalOutside(event)">
         <div id="playlist-modal">
-            <h3>プレイリストに追加</h3>
-            <div id="playlist-selector"></div>
-            <hr style="border:0; border-top:1px solid var(--border-color); margin:15px 0;">
-            <div class="modal-input-group">
-                <input type="text" id="new-playlist-name" placeholder="新しいリスト名">
-                <button type="button" class="btn primary-btn" id="create-playlist-btn">作成</button>
+            <div class="modal-header">
+                <h3>プレイリストに追加</h3>
+                <span class="close-x" onclick="Actions.closeModal()">×</span>
             </div>
-            <button class="btn close-btn" onclick="Actions.closeModal()">閉じる</button>
+            <div id="playlist-selector"></div>
+            <div class="modal-footer">
+                <div class="modal-input-group">
+                    <input type="text" id="new-playlist-name" placeholder="新しいリストの名前...">
+                    <button type="button" class="btn primary-btn" id="create-playlist-btn">作成</button>
+                </div>
+            </div>
         </div>
     </div>
 
