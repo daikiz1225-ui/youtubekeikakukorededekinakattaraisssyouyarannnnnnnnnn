@@ -16,7 +16,7 @@ const YT = {
                 this.currentEduKey = data.key;
             }
         } catch (e) {
-            console.error("Failed to refresh EduKey");
+            console.error("Key refresh failed");
         }
     },
 
@@ -106,7 +106,6 @@ const Actions = {
         this.isDarkMode = localStorage.getItem('yt_theme') !== 'light';
         this.applyTheme();
         
-        // 検索窓のEnterキー動作修正 (iPad対応 & 検索トリガー)
         const searchInput = document.getElementById('search-input');
         searchInput.onkeydown = (e) => {
             if (e.key === 'Enter') {
@@ -119,7 +118,6 @@ const Actions = {
         document.getElementById('search-btn').onclick = () => this.search();
         document.getElementById('theme-toggle-btn').onclick = () => this.toggleTheme();
         
-        // モーダル内作成ボタンのバインド
         const createBtn = document.getElementById('create-playlist-btn');
         if (createBtn) {
             createBtn.onclick = () => this.createNewPlaylist();
@@ -162,11 +160,17 @@ const Actions = {
     },
 
     async search(isMore = false) {
-        const q = document.getElementById('search-input').value;
+        let q = document.getElementById('search-input').value;
         if (!q) return;
         
-        if (!isMore) {
-            this.currentView = "search";
+        if (this.currentView === "shorts") {
+            if (!q.includes("#Shorts")) {
+                q += " #Shorts";
+            }
+        } else {
+            if (!isMore) {
+                this.currentView = "search";
+            }
         }
         
         const params = {
@@ -195,6 +199,13 @@ const Actions = {
         this.renderGrid();
     },
 
+    async showChannel(channelId, channelTitle) {
+        this.currentView = "channel";
+        const data = await YT.fetchAPI('search', { channelId: channelId, part: 'snippet', type: 'video', order: 'date', maxResults: 24 });
+        this.currentList = data.items || [];
+        this.renderGrid(`<h2>${channelTitle} の動画</h2>`);
+    },
+
     async fetchChannelIcons(ids) {
         if (!ids) return;
         const data = await YT.fetchAPI('channels', { id: ids, part: 'snippet' });
@@ -215,7 +226,7 @@ const Actions = {
         });
     },
 
-    renderGrid() {
+    renderGrid(headerHtml = "") {
         const container = document.getElementById('view-container');
         window.scrollTo(0, 0);
 
@@ -226,12 +237,12 @@ const Actions = {
             const snip = item.snippet;
             if (!snip) return '';
             return `
-            <div class="v-card" onclick="Actions.play(Actions.currentList[${i}])">
+            <div class="v-card">
                 <div class="thumb-container">
-                    <img src="${snip.thumbnails.high.url}" class="main-thumb">
-                    <img src="" class="ch-icon-img" data-chid="${snip.channelId}">
+                    <img src="${snip.thumbnails.high.url}" class="main-thumb" onclick="Actions.play(Actions.currentList[${i}])">
+                    <img src="${this.channelIcons[snip.channelId] || ''}" class="ch-icon-img" data-chid="${snip.channelId}" onclick="event.stopPropagation(); Actions.showChannel('${snip.channelId}', '${snip.channelTitle}')">
                 </div>
-                <div class="v-text">
+                <div class="v-text" onclick="Actions.play(Actions.currentList[${i}])">
                     <h3>${snip.title}</h3>
                     <p>${snip.channelTitle}</p>
                 </div>
@@ -239,6 +250,7 @@ const Actions = {
         }).join('');
 
         container.innerHTML = `
+            <div style="padding: 20px 20px 0 20px;">${headerHtml}</div>
             <div class="grid">${html}</div>
             <div style="text-align:center; padding-bottom: 50px;">
                 <button class="btn primary-btn" onclick="Actions.loadMore()">更に読み込む</button>
@@ -247,7 +259,7 @@ const Actions = {
     },
 
     async loadMore() {
-        if (this.currentView === "home" || this.currentView === "search") {
+        if (this.currentView === "home" || this.currentView === "search" || this.currentView === "shorts") {
             this.search(true);
         }
     },
@@ -273,7 +285,7 @@ const Actions = {
                     <div style="padding:15px 0;">
                         <h2 style="font-size:18px;">${video.snippet.title}</h2>
                         <div style="display:flex; align-items:center; gap:15px; margin:15px 0;">
-                            <img src="${this.channelIcons[video.snippet.channelId] || ''}" style="width:45px; height:45px; border-radius:50%;">
+                            <img src="${this.channelIcons[video.snippet.channelId] || ''}" style="width:45px; height:45px; border-radius:50%; cursor:pointer;" onclick="Actions.showChannel('${video.snippet.channelId}', '${video.snippet.channelTitle}')">
                             <div style="flex:1;">
                                 <strong>${video.snippet.channelTitle}</strong>
                             </div>
@@ -327,7 +339,7 @@ const Actions = {
         const subs = Storage.get('yt_subs');
         const html = subs.map(ch => `
             <div class="v-card" style="padding:20px; text-align:center;">
-                <img src="${this.channelIcons[ch.id] || ''}" style="width:80px; height:80px; border-radius:50%; margin-bottom:10px;">
+                <img src="${this.channelIcons[ch.id] || ''}" style="width:80px; height:80px; border-radius:50%; margin-bottom:10px; cursor:pointer;" onclick="Actions.showChannel('${ch.id}', '${ch.name}')">
                 <h3>${ch.name}</h3>
                 <button class="sub-btn active" onclick="Actions.handleSub('${ch.id}', '${ch.name}'); Actions.showSubs();">
                     登録済み
@@ -366,8 +378,8 @@ const Actions = {
     },
 
     viewList(name) {
-        const all = Storage.get('yt_playlists');
-        const list = all.find(x => x.name === name);
+        const allPlaylists = Storage.get('yt_playlists');
+        const list = allPlaylists.find(x => x.name === name);
         if (!list) return;
 
         const html = list.videos.map((v, i) => `
