@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>YouTube Client Premium</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=1.1">
 </head>
 <body>
 
@@ -17,12 +17,19 @@
     </header>
 
     <nav id="sidebar">
-        <div id="sidebar-nav"></div>
+        <div id="sidebar-nav">
+            <div class="nav-item" data-action="home"><div>🏠</div>ホーム</div>
+            <div class="nav-item" data-action="shorts"><div>⚡</div>ショート</div>
+            <div class="nav-item" data-action="likes"><div>👍</div>いいね</div>
+            <div class="nav-item" data-action="playlists"><div>📁</div>リスト</div>
+            <div class="nav-item" data-action="subs"><div>🔔</div>登録中</div>
+            <div class="nav-item" data-action="history"><div>🕒</div>履歴</div>
+        </div>
     </nav>
 
     <main id="view-container"></main>
 
-    <div id="modal-overlay" style="display:none;" onclick="Actions.closeModalOutside(event)">
+    <div id="modal-overlay" style="display:none;">
         <div id="playlist-modal">
             <h3>プレイリストに追加</h3>
             <div id="playlist-selector"></div>
@@ -30,10 +37,10 @@
                 <input type="text" id="new-playlist-name" placeholder="新しいリスト名">
                 <button type="button" class="btn primary-btn" id="create-playlist-btn">作成</button>
             </div>
-            <button class="btn close-btn" onclick="Actions.closeModal()">閉じる</button>
+            <button class="btn close-btn" id="close-modal-btn">閉じる</button>
         </div>
     </div>
 
-    <script src="app.js"></script>
+    <script src="app.js?v=1.1"></script>
 </body>
 </html>
