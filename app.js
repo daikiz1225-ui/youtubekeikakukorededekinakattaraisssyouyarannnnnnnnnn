@@ -13,7 +13,7 @@ const YT = {
             const res = await fetch('https://apis.kahoot.it/media-api/youtube/key');
             const data = await res.json();
             if (data?.key) this.currentEduKey = data.key;
-        } catch (e) { console.log("Key failed"); }
+        } catch (e) { console.log("Key update failed"); }
     },
 
     getCurrentKey() {
@@ -90,7 +90,7 @@ const Actions = {
         document.getElementById('search-btn').onclick = () => this.search();
         document.getElementById('theme-toggle-btn').onclick = () => this.toggleTheme();
         
-        // 💡 作成ボタンの登録
+        // 作成ボタンのバインド
         const btn = document.getElementById('create-playlist-btn');
         if (btn) btn.onclick = () => this.createNewPlaylist();
     },
@@ -133,6 +133,7 @@ const Actions = {
     async search(isMore = false) {
         const q = document.getElementById('search-input').value;
         if (!q) return;
+        // 💡 どの画面からでも検索できるように修正
         if (!isMore) this.currentView = "search";
         const data = await YT.fetchAPI('search', { q, part: 'snippet', type: 'video', maxResults: 24, pageToken: isMore ? this.nextToken : "" });
         this.nextToken = data.nextPageToken;
@@ -215,7 +216,7 @@ const Actions = {
                     <div style="padding:15px 0;">
                         <h2 style="font-size:18px;">${video.snippet.title}</h2>
                         <div style="display:flex; align-items:center; gap:15px; margin:15px 0;">
-                            <img src="${this.channelIcons[video.snippet.channelId] || ''}" style="width:40px; height:40px; border-radius:50%;">
+                            <img src="${this.channelIcons[video.snippet.channelId] || ''}" style="width:45px; height:45px; border-radius:50%;">
                             <div style="flex:1;"><strong>${video.snippet.channelTitle}</strong></div>
                             <button class="sub-btn ${isSubbed ? 'active' : ''}" onclick="Actions.handleSub('${video.snippet.channelId}', '${video.snippet.channelTitle}')">
                                 ${isSubbed ? '登録済み' : 'チャンネル登録'}
@@ -227,10 +228,7 @@ const Actions = {
                         </div>
                     </div>
                 </div>
-                <div class="related-area">
-                    <h3>関連動画</h3>
-                    <div id="related-list"></div>
-                </div>
+                <div class="related-area"><h3>関連動画</h3><div id="related-list"></div></div>
             </div>`;
         
         Storage.addHistory({ id: vId, title: video.snippet.title, thumb: video.snippet.thumbnails.high.url, channelTitle: video.snippet.channelTitle });
@@ -247,6 +245,7 @@ const Actions = {
             </div>`).join('');
     },
 
+    // 💡 チャンネル表示を復活
     showSubs() {
         const subs = Storage.get('yt_subs');
         const html = subs.map(ch => `
@@ -263,11 +262,36 @@ const Actions = {
         if (this.currentPlayVideo) this.play(this.currentPlayVideo);
     },
 
+    // 💡 プレイリスト表示・開けない問題を修正
+    showPlaylists() {
+        const p = Storage.get('yt_playlists');
+        const html = p.map(l => `
+            <div class="v-card" style="padding:20px; text-align:center;" onclick="Actions.viewList('${l.name}')">
+                <span class="delete-tag" onclick="event.stopPropagation(); Actions.deleteList('${l.name}')">削除</span>
+                <div style="font-size:60px;">📁</div>
+                <h3>${l.name}</h3><p>${l.videos.length}本の動画</p>
+            </div>`).join('');
+        document.getElementById('view-container').innerHTML = `<div style="padding:20px;"><h2>マイプレイリスト</h2><div class="grid">${html}</div></div>`;
+    },
+
+    viewList(name) {
+        const l = Storage.get('yt_playlists').find(x=>x.name===name);
+        if(!l) return;
+        const html = l.videos.map((v, i) => `
+            <div class="v-card" onclick="Actions.playPlaylistVideo('${name}', ${i})">
+                <span class="delete-tag" onclick="event.stopPropagation(); Actions.removeVideo('${name}', '${v.id}')">✖</span>
+                <div class="thumb-container"><img src="${v.thumb}" class="main-thumb"></div>
+                <div class="v-text"><h3>${v.title}</h3></div>
+            </div>`).join('');
+        document.getElementById('view-container').innerHTML = `<div style="padding:20px;"><h2>${name}</h2><div class="grid">${html}</div></div>`;
+    },
+
+    // 💡 モーダル・作成ボタン関連
     openPlaylistModal() {
         document.getElementById('modal-overlay').style.display = 'flex';
         const p = Storage.get('yt_playlists');
         document.getElementById('playlist-selector').innerHTML = p.map(l => `
-            <div class="p-item" onclick="Actions.addCurrentToList('${l.name}')">${l.name}</div>
+            <div class="p-item" style="padding:15px; border-bottom:1px solid #333; cursor:pointer;" onclick="Actions.addCurrentToList('${l.name}')">${l.name}</div>
         `).join('') || '<p style="padding:15px;">リストがありません</p>';
     },
     closeModal() { document.getElementById('modal-overlay').style.display = 'none'; },
@@ -295,30 +319,7 @@ const Actions = {
         this.closeModal();
     },
 
-    showPlaylists() {
-        const p = Storage.get('yt_playlists');
-        const html = p.map(l => `
-            <div class="v-card" style="padding:20px; text-align:center;" onclick="Actions.viewList('${l.name}')">
-                <span class="delete-tag" onclick="event.stopPropagation(); Actions.deleteList('${l.name}')">削除</span>
-                <div style="font-size:60px;">📁</div>
-                <h3>${l.name}</h3><p>${l.videos.length}本の動画</p>
-            </div>`).join('');
-        document.getElementById('view-container').innerHTML = `<div style="padding:20px;"><h2>プレイリスト</h2><div class="grid">${html}</div></div>`;
-    },
-
-    deleteList(name) { if(confirm('削除しますか？')) { let p = Storage.get('yt_playlists').filter(x=>x.name!==name); Storage.set('yt_playlists', p); this.showPlaylists(); } },
-
-    viewList(name) {
-        const l = Storage.get('yt_playlists').find(x=>x.name===name);
-        const html = l.videos.map((v, i) => `
-            <div class="v-card" onclick="Actions.playPlaylistVideo('${name}', ${i})">
-                <span class="delete-tag" onclick="event.stopPropagation(); Actions.removeVideo('${name}', '${v.id}')">✖</span>
-                <div class="thumb-container"><img src="${v.thumb}" class="main-thumb"></div>
-                <div class="v-text"><h3>${v.title}</h3></div>
-            </div>`).join('');
-        document.getElementById('view-container').innerHTML = `<div style="padding:20px;"><h2>${name}</h2><div class="grid">${html}</div></div>`;
-    },
-
+    deleteList(name) { if(confirm('リストを削除しますか？')) { let p = Storage.get('yt_playlists').filter(x=>x.name!==name); Storage.set('yt_playlists', p); this.showPlaylists(); } },
     removeVideo(pName, vId) {
         let p = Storage.get('yt_playlists');
         const list = p.find(x => x.name === pName);
@@ -326,7 +327,6 @@ const Actions = {
         Storage.set('yt_playlists', p);
         this.viewList(pName);
     },
-
     playPlaylistVideo(pName, i) {
         const v = Storage.get('yt_playlists').find(x=>x.name===pName).videos[i];
         this.play({ id: v.id, snippet: { title: v.title, thumbnails: { high: { url: v.thumb } }, channelTitle: v.channelTitle, channelId: '' } });
