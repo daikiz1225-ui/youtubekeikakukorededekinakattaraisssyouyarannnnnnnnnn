@@ -65,8 +65,10 @@ const Actions = {
     isShortsMode: false, currentShortIndex: 0, currentPlayVideo: null,
     currentView: "home", 
     currentChannelInfo: null,
+    isDarkMode: true,
 
     async init() {
+        this.loadTheme();
         this.renderSidebar();
         await YT.refreshEduKey();
         this.goHome();
@@ -81,8 +83,39 @@ const Actions = {
                 } 
             };
         }
-        if(document.getElementById('search-btn')) {
-            document.getElementById('search-btn').onclick = () => this.search();
+        const sBtn = document.getElementById('search-btn');
+        if(sBtn) sBtn.onclick = () => this.search();
+
+        const tBtn = document.getElementById('theme-toggle-btn');
+        if(tBtn) tBtn.onclick = () => this.toggleTheme();
+    },
+
+    toggleTheme() {
+        this.isDarkMode = !this.isDarkMode;
+        this.applyTheme();
+        localStorage.setItem('yt_theme', this.isDarkMode ? 'dark' : 'light');
+    },
+
+    loadTheme() {
+        const saved = localStorage.getItem('yt_theme');
+        this.isDarkMode = (saved === null) ? true : (saved === 'dark');
+        this.applyTheme();
+    },
+
+    applyTheme() {
+        const root = document.documentElement;
+        if (this.isDarkMode) {
+            root.style.setProperty('--bg-color', '#0f0f0f');
+            root.style.setProperty('--text-color', '#ffffff');
+            root.style.setProperty('--card-bg', 'rgba(128, 128, 128, 0.1)');
+            root.style.setProperty('--border-color', '#333');
+            root.style.setProperty('--input-bg', 'rgba(128, 128, 128, 0.05)');
+        } else {
+            root.style.setProperty('--bg-color', '#ffffff');
+            root.style.setProperty('--text-color', '#0f0f0f');
+            root.style.setProperty('--card-bg', '#f2f2f2');
+            root.style.setProperty('--border-color', '#ccc');
+            root.style.setProperty('--input-bg', '#eeeeee');
         }
     },
 
@@ -138,14 +171,14 @@ const Actions = {
         const container = document.getElementById('view-container');
         if(!isMore) {
             container.innerHTML = `
-                <div class="channel-header" style="padding:30px 20px; background:#1a1a1a; display:flex; align-items:center; gap:20px;">
+                <div class="channel-header" style="padding:30px 20px; background:var(--card-bg); display:flex; align-items:center; gap:20px;">
                     <img src="${this.channelIcons[id] || ''}" style="width:80px; height:80px; border-radius:50%;">
                     <div><h2 style="margin:0;">${name}</h2><button class="sub-btn" id="sub-btn" onclick="Actions.handleSub('${id}','${name}')" style="margin-top:10px;">登録</button></div>
                 </div>
-                <div class="tabs" style="display:flex; gap:30px; padding:15px 20px; border-bottom:1px solid #333; background:#0f0f0f; position:sticky; top:0; z-index:10;">
-                    <span onclick="Actions.openChannel('${id}','${name}','video','date')" style="cursor:pointer; color:${type==='video'&&order==='date'?'#fff':'#aaa'}">最新</span>
-                    <span onclick="Actions.openChannel('${id}','${name}','video','viewCount')" style="cursor:pointer; color:${order==='viewCount'?'#fff':'#aaa'}">人気</span>
-                    <span onclick="Actions.openChannel('${id}','${name}','playlist')" style="cursor:pointer; color:${type==='playlist'?'#fff':'#aaa'}">リスト</span>
+                <div class="tabs" style="display:flex; gap:30px; padding:15px 20px; border-bottom:1px solid var(--border-color); background:inherit; position:sticky; top:60px; z-index:10;">
+                    <span onclick="Actions.openChannel('${id}','${name}','video','date')" style="cursor:pointer; color:${type==='video'&&order==='date'?'var(--text-color)':'#aaa'}">最新</span>
+                    <span onclick="Actions.openChannel('${id}','${name}','video','viewCount')" style="cursor:pointer; color:${order==='viewCount'?'var(--text-color)':'#aaa'}">人気</span>
+                    <span onclick="Actions.openChannel('${id}','${name}','playlist')" style="cursor:pointer; color:${type==='playlist'?'var(--text-color)':'#aaa'}">リスト</span>
                 </div>
                 <div id="ch-grid-container"></div>`;
             this.updateSubButton(id);
@@ -158,12 +191,9 @@ const Actions = {
         const gridHtml = this.currentList.map((item, i) => `
             <div class="v-card" onclick="${isPlaylist ? `Actions.openPlaylist('${item.id}')` : `Actions.playFromList(${i})`}">
                 <div class="thumb-container"><img src="${item.snippet.thumbnails.high.url}" class="main-thumb"></div>
-                <div class="v-text">
-                    <h3 style="font-size:14px; margin:8px 0;">${item.snippet.title}</h3>
-                    <p style="font-size:12px; color:#aaa;">${item.snippet.channelTitle}</p>
-                </div>
+                <div class="v-text"><h3>${item.snippet.title}</h3><p>${item.snippet.channelTitle}</p></div>
             </div>`).join('');
-        gridContainer.innerHTML = `<div class="grid">${gridHtml}</div><div style="padding: 20px 0 120px 0;"><button class="btn" onclick="Actions.loadMore()" style="padding:10px 20px; background:#333; color:#fff; border:none; border-radius:8px; cursor:pointer;">更に読み込む</button></div>`;
+        gridContainer.innerHTML = `<div class="grid">${gridHtml}</div><div style="padding: 20px 0 120px 0; text-align:center;"><button class="btn" onclick="Actions.loadMore()">更に読み込む</button></div>`;
     },
 
     renderMain() {
@@ -179,7 +209,7 @@ const Actions = {
                 </div>
                 <div class="v-text"><h3>${item.snippet.title}</h3><p>${item.snippet.channelTitle}</p></div>
             </div>`).join('');
-        container.innerHTML = `<div class="grid">${gridHtml}</div><div style="padding: 20px 0 120px 0;"><button class="btn" onclick="Actions.loadMore()" style="padding:10px 20px; background:#333; color:#fff; border:none; border-radius:8px; cursor:pointer;">更に読み込む</button></div>`;
+        container.innerHTML = `<div class="grid">${gridHtml}</div><div style="padding: 20px 0 120px 0; text-align:center;"><button class="btn" onclick="Actions.loadMore()">更に読み込む</button></div>`;
     },
 
     async loadMore() {
@@ -198,8 +228,8 @@ const Actions = {
         await YT.refreshEduKey();
         window.scrollTo(0,0);
         document.getElementById('view-container').innerHTML = `
-            <div class="watch-container" style="display:flex; gap:20px; padding:20px; flex-wrap:wrap;">
-                <div class="player-main" style="flex:3; min-width:360px;">
+            <div class="watch-container">
+                <div class="player-main">
                     <div style="aspect-ratio:16/9; background:#000; border-radius:12px; overflow:hidden;"><iframe src="${YT.getEmbedUrl(videoId)}" style="width:100%; height:100%; border:none;" allowfullscreen allow="autoplay"></iframe></div>
                     <div style="padding:15px 0;">
                         <h2 style="font-size:18px;">${video.snippet.title}</h2>
@@ -214,8 +244,8 @@ const Actions = {
                 </div>
                 <div id="related-side" style="flex:1; min-width:300px;">
                     <p style="font-weight:bold; margin-bottom:10px;">関連動画</p>
-                    <div id="related-list" style="display:flex; flex-direction:column; gap:10px;"></div>
-                    <div style="padding: 15px 0 100px 0;"><button onclick="Actions.loadMoreRelated()" style="background:#222; border:none; color:#fff; padding:8px 15px; border-radius:6px; cursor:pointer;">さらに読み込む</button></div>
+                    <div id="related-list"></div>
+                    <div style="padding: 15px 0 100px 0;"><button onclick="Actions.loadMoreRelated()" class="btn">さらに読み込む</button></div>
                 </div>
             </div>`;
         this.updateSubButton(video.snippet.channelId);
@@ -228,7 +258,7 @@ const Actions = {
         const data = await YT.fetchAPI('search', { q, part: 'snippet', type: 'video', maxResults: 20, pageToken: isNew ? "" : this.nextToken });
         this.nextToken = data.nextPageToken || "";
         if(isNew) this.relatedList = data.items; else this.relatedList.push(...data.items);
-        const html = data.items.map((v, i) => `<div class="side-card" style="display:flex; gap:10px; cursor:pointer;" onclick="Actions.playFromRelated(${isNew ? i : this.relatedList.length - data.items.length + i})"><img src="${v.snippet.thumbnails.medium.url}" style="width:120px; border-radius:8px; aspect-ratio:16/9; object-fit:cover;"><div class="side-text"><h4 style="font-size:13px; margin:0; overflow:hidden;">${v.snippet.title}</h4></div></div>`).join('');
+        const html = data.items.map((v, i) => `<div class="side-card" onclick="Actions.playFromRelated(${isNew ? i : this.relatedList.length - data.items.length + i})"><img src="${v.snippet.thumbnails.medium.url}" style="width:120px; border-radius:8px; aspect-ratio:16/9; object-fit:cover;"><div><h4 style="font-size:13px; margin:0;">${v.snippet.title}</h4></div></div>`).join('');
         const listDiv = document.getElementById('related-list');
         if(isNew) listDiv.innerHTML = html; else listDiv.innerHTML += html;
     },
@@ -261,8 +291,8 @@ const Actions = {
                     <h3 style="font-size:16px; margin:0; line-height:1.4;">${video.snippet.title}</h3>
                 </div>
                 <div style="position:absolute; right:20px; bottom:120px; display:flex; flex-direction:column; gap:20px; z-index:100;">
-                    <button class="s-btn" onclick="Actions.nextShort(-1)" style="padding:15px; border-radius:50%; background:rgba(51,51,51,0.8); color:#fff; border:none;">▲</button>
-                    <button class="s-btn" onclick="Actions.nextShort(1)" style="padding:15px; border-radius:50%; background:rgba(51,51,51,0.8); color:#fff; border:none;">▼</button>
+                    <button class="s-btn" onclick="Actions.nextShort(-1)">▲</button>
+                    <button class="s-btn" onclick="Actions.nextShort(1)">▼</button>
                 </div>
             </div>`;
         this.setupSwipe();
@@ -271,6 +301,7 @@ const Actions = {
 
     setupSwipe() {
         const zone = document.getElementById('shorts-swipe-zone');
+        if(!zone) return;
         let startY = 0;
         zone.ontouchstart = (e) => startY = e.touches[0].clientY;
         zone.ontouchend = (e) => {
@@ -294,8 +325,8 @@ const Actions = {
     showSubs() {
         this.isShortsMode = false;
         const s = Storage.getSubs();
-        document.getElementById('view-container').innerHTML = `<div style="padding:20px;"><h2>登録中のチャンネル</h2><div id="subs-list" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:15px; margin-top:20px;"></div><div style="padding-bottom:120px;"></div></div>`;
-        document.getElementById('subs-list').innerHTML = s.map(ch => `<div class="nav-item" style="background:#222; border-radius:12px; padding:15px; text-align:center; cursor:pointer;" onclick="Actions.openChannel('${ch.id}', '${ch.name}')"><img src="${this.channelIcons[ch.id] || ''}" style="width:60px; height:60px; border-radius:50%; margin-bottom:10px;"><h3 style="font-size:14px;">${ch.name}</h3></div>`).join('');
+        document.getElementById('view-container').innerHTML = `<div style="padding:20px;"><h2>登録中のチャンネル</h2><div id="subs-list" class="grid"></div><div style="padding-bottom:120px;"></div></div>`;
+        document.getElementById('subs-list').innerHTML = s.map(ch => `<div class="v-card" style="padding:15px; text-align:center;" onclick="Actions.openChannel('${ch.id}', '${ch.name}')"><img src="${this.channelIcons[ch.id] || ''}" style="width:80px; height:80px; border-radius:50%; margin-bottom:10px;"><h3>${ch.name}</h3></div>`).join('');
     },
 
     playFromList(i) { this.play(this.currentList[i]); },
