@@ -16,20 +16,19 @@
         </div>
     </header>
 
-    <div id="view-container"></div>
+    <main id="view-container"></main>
 
     <nav id="sidebar">
-        <div id="sidebar-nav">
-            </div>
+        <div id="sidebar-nav"></div>
     </nav>
 
-    <div id="modal-overlay" style="display:none;">
+    <div id="modal-overlay" style="display:none;" onclick="Actions.closeModalOutside(event)">
         <div id="playlist-modal">
             <h3>プレイリストに追加</h3>
             <div id="playlist-selector"></div>
             <div class="modal-input-group">
                 <input type="text" id="new-playlist-name" placeholder="新しいリスト名">
-                <button class="btn primary-btn" onclick="Actions.createNewPlaylist()">作成</button>
+                <button type="button" class="btn primary-btn" id="create-playlist-btn">作成</button>
             </div>
             <button class="btn close-btn" onclick="Actions.closeModal()">閉じる</button>
         </div>
