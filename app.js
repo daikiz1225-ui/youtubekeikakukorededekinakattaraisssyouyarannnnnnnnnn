@@ -1,10 +1,10 @@
 /**
  * YouTube Client Premium - app.js
- * プレイリスト機能を完全削除 / ショート動画移動・iPad最適化を強化
+ * 自作プレイリスト機能のみ削除。
+ * チャンネル詳細の「再生リスト」タブ、およびショート移動・iPad最適化を完全維持。
  */
 
 const YT = {
-    // APIキーのローテーション（5つ）
     keys: [
         "AIzaSyBfCvyZ_J9mJiMFNYB6WfcuLyvf9zDdcUU",
         "AIzaSyCgVn-JWHKT_z6EC73Z6Vlex0F_d-BP_fY",
@@ -12,7 +12,6 @@ const YT = {
         "AIzaSyAWk9mmie23-khi8-nipv1jHJND__UtEWA",
         "AIzaSyBL38iyqeiaKHoKqhloSnhG590DfJ35vCE"
     ],
-    // Kahoot API経由の動的キー
     currentEduKey: "AXH1ezm-TdFofe0cZEIyT5D-ZlyaXT8az20UGmK_8TRbbl7-MJkqQiDn89vv-Kx83auqjnc7WreI4HeppaSKfC0XpFV0BvqF3llcrWUQtfrIeuuX8ALKwU5iNjS56Z545ilryvxnkk2BGKeZvaLB6tiu1GwH4Npdfw==",
 
     async refreshEduKey() {
@@ -89,7 +88,7 @@ const Storage = {
         let subs = this.get('yt_subs');
         const index = subs.findIndex(item => item.id === channel.id);
         if (index > -1) subs.splice(index, 1);
-        else subs.push(channel);
+        else subs.push({ id: channel.id, name: channel.name, thumb: channel.thumb || '' });
         this.set('yt_subs', subs);
     },
     toggleLike(video) {
@@ -99,7 +98,6 @@ const Storage = {
         else likes.push(video);
         this.set('yt_likes', likes);
     }
-    // プレイリスト関連のメソッドはすべて削除しました
 };
 
 const Actions = {
@@ -125,8 +123,6 @@ const Actions = {
             }
         });
         document.getElementById('search-btn').onclick = () => this.search();
-        
-        // プレイリスト作成ボタンなどのイベント設定も削除
         YT.refreshEduKey().then(() => this.goHome());
     },
 
@@ -156,7 +152,6 @@ const Actions = {
         const input = document.getElementById('search-input');
         let q = input.value || this.currentSearchTerm;
         if (!q) return;
-
         if (this.currentView === "shorts" && !q.includes("#Shorts")) q += " #Shorts";
         this.currentSearchTerm = q;
 
@@ -180,6 +175,8 @@ const Actions = {
             this.nextToken = data.nextPageToken || "";
             this.currentList.push(...data.items);
             this.renderGrid();
+        } else if (this.currentView === "channel") {
+            this.showChannel(this.currentChId, this.currentChTitle, 'date', true);
         } else {
             this.search(true);
         }
@@ -207,11 +204,51 @@ const Actions = {
                         <div class="tab-bar">
                             <div class="tab-item ${sortType==='date'?'active':''}" onclick="Actions.showChannel('${id}', '${title.replace(/'/g, "\\'")}', 'date')">最新</div>
                             <div class="tab-item ${sortType==='viewCount'?'active':''}" onclick="Actions.showChannel('${id}', '${title.replace(/'/g, "\\'")}', 'viewCount')">人気</div>
+                            <div class="tab-item" onclick="Actions.showChannelPlaylists('${id}')">再生リスト</div>
                         </div>
                     </div>
                 </div>
             </div>`;
         this.renderGrid(headerHtml);
+    },
+
+    /**
+     * チャンネル公式の再生リスト一覧表示 (復活)
+     */
+    async showChannelPlaylists(id) {
+        const data = await YT.fetchAPI('playlists', { channelId: id, part: 'snippet', maxResults: 50 });
+        const playlists = data.items || [];
+        const html = playlists.map(p => `
+            <div class="v-card" onclick="Actions.viewExternalPlaylist('${p.id}', '${p.snippet.title.replace(/'/g, "\\'")}')">
+                <div class="thumb-container">
+                    <img src="${p.snippet.thumbnails.high.url}" class="main-thumb">
+                    <div style="position:absolute; right:0; top:0; bottom:0; width:45%; background:rgba(0,0,0,0.8); display:flex; justify-content:center; align-items:center;">
+                        <span style="font-size:24px; color:#fff;">≡</span>
+                    </div>
+                </div>
+                <div class="v-text">
+                    <h3>${p.snippet.title}</h3>
+                    <p>再生リスト</p>
+                </div>
+            </div>`).join('');
+
+        document.getElementById('view-container').innerHTML = `
+            <div class="channel-header">
+                <h2>${this.currentChTitle} - 公式再生リスト</h2>
+                <div class="tab-bar">
+                    <div class="tab-item" onclick="Actions.showChannel('${id}', '${this.currentChTitle.replace(/'/g, "\\'")}', 'date')">動画に戻る</div>
+                </div>
+            </div>
+            <div class="grid">${html || '<p>再生リストはありません</p>'}</div>`;
+    },
+
+    /**
+     * 再生リスト内の動画一覧を取得 (復活)
+     */
+    async viewExternalPlaylist(listId, title) {
+        const data = await YT.fetchAPI('playlistItems', { playlistId: listId, part: 'snippet', maxResults: 50 });
+        this.currentList = data.items || [];
+        this.renderGrid(`<h2>再生リスト: ${title}</h2>`);
     },
 
     async fetchMissingIcons(ids) {
@@ -282,7 +319,7 @@ const Actions = {
                     <div class="video-info">
                         <h2>${video.snippet.title}</h2>
                         <div class="channel-row">
-                            <img src="${this.channelIcons[video.snippet.channelId] || ''}" style="width:40px; height:40px; border-radius:50%;">
+                            <img src="${this.channelIcons[video.snippet.channelId] || ''}" style="width:40px; height:40px; border-radius:50%; cursor:pointer;" onclick="Actions.showChannel('${video.snippet.channelId}', '${video.snippet.channelTitle.replace(/'/g, "\\'")}')">
                             <div class="channel-name" style="margin-left:10px; font-weight:bold;">${video.snippet.channelTitle}</div>
                             <button class="btn sub-btn ${isSubbed ? 'active' : ''}" onclick="Actions.handleSub('${video.snippet.channelId}', '${video.snippet.channelTitle.replace(/'/g, "\\'")}')">
                                 ${isSubbed ? '登録済み' : 'チャンネル登録'}
@@ -304,9 +341,6 @@ const Actions = {
         this.loadRelated(video.snippet.title);
     },
 
-    /**
-     * ショート再生：上下移動ボタン付き
-     */
     playShort(id) {
         const video = this.currentList[this.currentShortIndex];
         const vId = id || (typeof video.id === 'string' ? video.id : video.id.videoId);
@@ -317,8 +351,8 @@ const Actions = {
                     <iframe src="${YT.getEmbedUrl(vId, true)}" style="width:100%; height:100%; border:none; border-radius:15px;" allowfullscreen allow="autoplay"></iframe>
                     
                     <div class="shorts-nav" style="position:absolute; top:50%; left:-70px; transform:translateY(-50%); display:flex; flex-direction:column; gap:20px;">
-                        <button class="short-btn" onclick="Actions.prevShort()" style="font-size:24px;">▲</button>
-                        <button class="short-btn" onclick="Actions.nextShort()" style="font-size:24px;">▼</button>
+                        <button class="short-btn" onclick="Actions.prevShort()">▲</button>
+                        <button class="short-btn" onclick="Actions.nextShort()">▼</button>
                     </div>
 
                     <div class="shorts-actions">
@@ -385,12 +419,12 @@ const Actions = {
         this.currentView = "subs";
         const subs = Storage.get('yt_subs');
         const html = subs.map(ch => `
-            <div class="v-card" style="padding:20px; text-align:center;">
-                <img src="${this.channelIcons[ch.id] || ''}" style="width:80px; height:80px; border-radius:50%; cursor:pointer;" onclick="Actions.showChannel('${ch.id}', '${ch.name.replace(/'/g, "\\'")}')">
-                <h3>${ch.name}</h3>
-                <button class="btn sub-btn active" style="margin:10px auto;" onclick="Actions.handleSub('${ch.id}', '${ch.name.replace(/'/g, "\\'")}')">解除</button>
+            <div class="v-card" style="padding:20px; text-align:center; background:var(--card-bg);">
+                <img src="${this.channelIcons[ch.id] || ''}" style="width:100px; height:100px; border-radius:50%; cursor:pointer;" onclick="Actions.showChannel('${ch.id}', '${ch.name.replace(/'/g, "\\'")}')">
+                <h3 style="margin:15px 0 10px 0;">${ch.name}</h3>
+                <button class="btn sub-btn active" style="margin:0 auto;" onclick="Actions.handleSub('${ch.id}', '${ch.name.replace(/'/g, "\\'")}')">解除</button>
             </div>`).join('');
-        document.getElementById('view-container').innerHTML = `<div style="padding:20px;"><h2>登録チャンネル</h2><div class="grid">${html}</div></div>`;
+        document.getElementById('view-container').innerHTML = `<div style="padding:20px;"><h2>登録中のチャンネル</h2><div class="grid">${html}</div></div>`;
     },
 
     handleLike() {
@@ -403,7 +437,8 @@ const Actions = {
 
     handleSub(id, name) {
         Storage.toggleSub({ id, name });
-        if (this.currentView === "subs") this.showSubs(); else if (this.currentPlayVideo?.snippet.channelId === id) this.play(this.currentPlayVideo);
+        if (this.currentView === "subs") this.showSubs(); 
+        else if (this.currentPlayVideo?.snippet.channelId === id) this.play(this.currentPlayVideo);
     }
 };
 
