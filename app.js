@@ -1,6 +1,6 @@
 /**
  * YouTube Client Premium - app.js
- * Live Hub機能搭載・プレイリスト機能削除済み・完全版
+ * Live Hub API修正版 (eventType: live 厳格化)
  */
 
 const YT = {
@@ -18,7 +18,7 @@ const YT = {
             const response = await fetch('https://apis.kahoot.it/media-api/youtube/key');
             const data = await response.json();
             if (data && data.key) this.currentEduKey = data.key;
-        } catch (error) { console.error(error); }
+        } catch (error) { console.error("Key refresh failed"); }
     },
 
     getCurrentKey() {
@@ -79,7 +79,6 @@ const Actions = {
     currentView: "home",
     currentSearchTerm: "",
     currentPlayVideo: null,
-    currentShortIndex: 0,
     scrollPositions: {},
 
     init() {
@@ -90,7 +89,7 @@ const Actions = {
     },
 
     saveScroll() { this.scrollPositions[this.currentView] = window.scrollY; },
-    
+
     async goHome() {
         this.saveScroll();
         this.currentView = "home";
@@ -100,51 +99,69 @@ const Actions = {
     },
 
     /**
-     * Live Hub: 登録チャンネルのライブ ＋ 日本の人気ライブ
+     * Live Hub: 修正版
+     * - eventType: 'live' を type: 'video' と併用
+     * - 人気ライブ取得のクエリを強化
      */
     async showLiveHub() {
         this.saveScroll();
         this.currentView = "live";
         const container = document.getElementById('view-container');
-        container.innerHTML = `<div style="padding:20px;"><h2>Live Hub</h2><p>読み込み中...</p></div>`;
+        container.innerHTML = `<div style="padding:20px;"><h2>Live Hub</h2><p>ライブ配信をスキャン中...</p></div>`;
 
-        // 1. 登録チャンネルのライブ状況を確認
+        // 1. 日本の人気ライブ (クエリを指定して確実に取得)
+        const popularLiveData = await YT.fetchAPI('search', { 
+            q: 'live', 
+            part: 'snippet', 
+            type: 'video', 
+            eventType: 'live', 
+            regionCode: 'JP', 
+            maxResults: 24, 
+            order: 'viewCount' 
+        });
+        const popularLiveItems = popularLiveData.items || [];
+
+        // 2. 登録チャンネルのライブ状況 (個別に確認)
         const subs = Storage.get('yt_subs');
         let subLiveItems = [];
         if (subs.length > 0) {
-            const subIds = subs.map(s => s.id).join(',');
-            const subData = await YT.fetchAPI('search', { channelId: subIds.split(',')[0], part: 'snippet', type: 'video', eventType: 'live', maxResults: 10 });
-            subLiveItems = subData.items || [];
+            // 直近で登録した5チャンネル分をまずチェック (API負荷軽減)
+            for (let ch of subs.slice(0, 5)) {
+                const res = await YT.fetchAPI('search', { channelId: ch.id, part: 'snippet', type: 'video', eventType: 'live', maxResults: 1 });
+                if (res.items && res.items.length > 0) subLiveItems.push(res.items[0]);
+            }
         }
 
-        // 2. 日本の人気ライブを取得
-        const popularLiveData = await YT.fetchAPI('search', { q: '', part: 'snippet', type: 'video', eventType: 'live', regionCode: 'JP', maxResults: 24, order: 'viewCount' });
-        const popularLiveItems = popularLiveData.items || [];
-
-        // 表示用リストの統合
         this.currentList = [...subLiveItems, ...popularLiveItems];
         
-        let html = `<h2>🔴 ライブ配信中</h2>`;
+        let html = `<h2>🔴 Live Hub</h2>`;
         if (subLiveItems.length > 0) {
-            html += `<h3 style="color:var(--live-red); margin-top:30px;">登録チャンネルのライブ</h3>`;
+            html += `<h3 style="color:var(--live-red); margin-top:30px;">登録チャンネルが配信中</h3>`;
             html += `<div class="grid">${this.renderCards(subLiveItems)}</div>`;
         }
         
-        html += `<h3 style="margin-top:40px;">日本の人気ライブ</h3>`;
+        html += `<h3 style="margin-top:40px;">日本の人気ライブ配信</h3>`;
         html += `<div class="grid">${this.renderCards(popularLiveItems)}</div>`;
 
-        container.innerHTML = `<div style="padding:20px;">${html}</div>`;
+        container.innerHTML = `<div style="padding:20px;">${html || '<p>現在、ライブ配信は見つかりませんでした。</p>'}</div>`;
+        
+        // アイコン取得
+        const ids = this.currentList.map(i => i.snippet.channelId).join(',');
+        if (ids) this.fetchMissingIcons(ids);
     },
 
     renderCards(items) {
-        return items.map((item, index) => {
+        return items.map((item) => {
             const snip = item.snippet;
             const vId = item.id.videoId || item.id;
+            // 本当に配信中（live）かチェック。アーカイブ（completed）ならバッジを出さない
+            const isLiveNow = snip.liveBroadcastContent === 'live';
+            
             return `
             <div class="v-card" onclick="Actions.playFromList('${vId}', ${JSON.stringify(item).replace(/"/g, '&quot;')})">
                 <div class="thumb-container">
                     <img src="${snip.thumbnails.high.url}" class="main-thumb">
-                    <div class="live-badge">● LIVE</div>
+                    ${isLiveNow ? '<div class="live-badge">● LIVE</div>' : ''}
                     <img src="${this.channelIcons[snip.channelId] || ''}" class="ch-icon-img" data-chid="${snip.channelId}">
                 </div>
                 <div class="v-text">
@@ -159,9 +176,8 @@ const Actions = {
         const container = document.getElementById('view-container');
         const cards = this.renderCards(this.currentList);
         container.innerHTML = `<div style="padding: 10px 20px;">${headerHtml}</div><div class="grid">${cards}</div>`;
-        
-        const missingIds = [...new Set(this.currentList.map(item => item.snippet?.channelId))].filter(id => id && !this.channelIcons[id]).join(',');
-        if (missingIds) this.fetchMissingIcons(missingIds);
+        const ids = this.currentList.map(i => i.snippet?.channelId).filter(id => id && !this.channelIcons[id]).join(',');
+        if (ids) this.fetchMissingIcons(ids);
     },
 
     playFromList(id, fullData) {
@@ -214,7 +230,9 @@ const Actions = {
                         <div class="channel-row">
                             <img src="${this.channelIcons[video.snippet.channelId] || ''}" style="width:40px; height:40px; border-radius:50%;">
                             <div style="margin-left:10px; font-weight:bold;">${video.snippet.channelTitle}</div>
-                            <button class="btn ${isSubbed?'':'primary-btn'}" onclick="Actions.handleSub('${video.snippet.channelId}', '${video.snippet.channelTitle.replace(/'/g, "\\'")}')">${isSubbed?'登録済み':'チャンネル登録'}</button>
+                            <button class="btn ${isSubbed ? '' : 'primary-btn'}" onclick="Actions.handleSub('${video.snippet.channelId}', '${video.snippet.channelTitle.replace(/'/g, "\\'")}')">
+                                ${isSubbed ? '登録済み' : 'チャンネル登録'}
+                            </button>
                         </div>
                     </div>
                 </div>
