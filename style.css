@@ -1,587 +1,184 @@
-/* =========================================
-   Base Variables
-   ========================================= */
 :root {
     --bg-color: #0f0f0f;
-    --text-color: #ffffff;
     --card-bg: #1e1e1e;
-    --hover-bg: #3f3f3f;
-    --border-color: #333333;
-    --input-bg: #121212;
+    --text-color: #ffffff;
     --accent-red: #ff0000;
-    --sidebar-width: 100px;
-    --header-height: 60px;
-    --font-main: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --sidebar-width: 240px;
+    --header-height: 56px;
 }
 
-/* =========================================
-   Reset & Global
-   ========================================= */
-* {
-    box-sizing: border-box;
-    -webkit-tap-highlight-color: transparent;
-    outline: none;
-}
-
+* { box-sizing: border-box; }
 body {
     margin: 0;
-    padding: 0;
-    font-family: var(--font-main);
+    font-family: "Roboto", Arial, sans-serif;
     background-color: var(--bg-color);
     color: var(--text-color);
     overflow-x: hidden;
-    line-height: 1.5;
 }
 
-/* Scrollbar Customization */
-::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-}
-::-webkit-scrollbar-track {
-    background: var(--bg-color);
-}
-::-webkit-scrollbar-thumb {
-    background: #555;
-    border-radius: 10px;
-}
-::-webkit-scrollbar-thumb:hover {
-    background: #888;
-}
-
-/* =========================================
-   Header
-   ========================================= */
-header {
+/* ヘッダー */
+.header {
     position: fixed;
     top: 0;
-    left: 0;
     width: 100%;
     height: var(--header-height);
     background: var(--bg-color);
     display: flex;
     align-items: center;
-    padding: 0 20px;
-    z-index: 2000;
-    border-bottom: 1px solid var(--border-color);
+    justify-content: space-between;
+    padding: 0 16px;
+    z-index: 1000;
 }
 
-#theme-toggle-btn {
-    font-size: 24px;
+.logo {
+    font-size: 20px;
+    font-weight: bold;
     cursor: pointer;
-    margin-right: 20px;
-    user-select: none;
-    transition: transform 0.2s;
-}
-#theme-toggle-btn:active {
-    transform: scale(0.9);
-}
-
-.search-box {
     display: flex;
-    flex: 1;
-    max-width: 600px;
-    margin: 0 auto;
-    background: var(--input-bg);
-    border-radius: 40px;
-    padding: 5px 20px;
-    border: 1px solid var(--border-color);
     align-items: center;
 }
+.logo-red { color: var(--accent-red); margin-right: 4px; font-size: 24px; }
 
-.search-box input {
+.search-bar {
+    display: flex;
+    flex: 0 1 600px;
+    background: #222;
+    border-radius: 40px;
+    padding: 2px 15px;
+    border: 1px solid #333;
+}
+.search-bar input {
     flex: 1;
     background: transparent;
     border: none;
-    color: inherit;
+    color: white;
+    padding: 8px;
+    outline: none;
     font-size: 16px;
-    height: 36px;
 }
-
-#search-btn {
+.search-bar button {
     background: transparent;
     border: none;
-    color: #aaa;
-    font-size: 18px;
     cursor: pointer;
-    padding: 5px;
+    font-size: 18px;
 }
 
-/* =========================================
-   Sidebar
-   ========================================= */
-#sidebar {
-    position: fixed;
-    top: var(--header-height);
-    left: 0;
+/* レイアウト */
+.main-layout {
+    display: flex;
+    margin-top: var(--header-height);
+}
+
+.sidebar {
     width: var(--sidebar-width);
     height: calc(100vh - var(--header-height));
-    background: var(--bg-color);
-    border-right: 1px solid var(--border-color);
-    z-index: 1000;
+    position: fixed;
+    padding: 12px;
     overflow-y: auto;
 }
 
-#sidebar-nav {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding-top: 15px;
-}
-
 .nav-item {
-    text-align: center;
-    width: 90%;
-    margin: 5px 0;
-    padding: 12px 0;
-    cursor: pointer;
+    padding: 12px;
     border-radius: 10px;
-    transition: background 0.2s;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    font-size: 14px;
 }
+.nav-item:hover { background: #272727; }
+.nav-item span { font-weight: 500; }
+hr { border: 0; border-top: 1px solid #333; margin: 12px 0; }
 
-.nav-item:hover {
-    background: var(--card-bg);
-}
-
-.nav-item:active {
-    background: var(--hover-bg);
-}
-
-.nav-icon {
-    font-size: 24px;
-    margin-bottom: 4px;
-}
-
-.nav-item span {
-    font-size: 10px;
-    display: block;
-}
-
-/* =========================================
-   Main View Container
-   ========================================= */
-#view-container {
+.content {
     margin-left: var(--sidebar-width);
-    padding-top: var(--header-height);
+    flex: 1;
+    padding: 20px;
     min-height: 100vh;
-    transition: margin-left 0.3s;
 }
 
+/* グリッド表示 */
 .grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     gap: 16px;
-    padding: 20px;
 }
 
-/* =========================================
-   Video Cards
-   ========================================= */
-.v-card {
-    background: transparent;
-    border-radius: 12px;
-    overflow: hidden;
-    cursor: pointer;
-    position: relative;
-}
+.v-card { cursor: pointer; border-radius: 12px; overflow: hidden; transition: 0.2s; }
+.v-card:hover { background: #272727; }
 
-.thumb-container {
-    width: 100%;
-    aspect-ratio: 16/9;
-    position: relative;
-    border-radius: 12px;
-    overflow: hidden;
-    background: #222;
-}
-
-.main-thumb {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    transition: opacity 0.3s;
-}
-
-.v-card:hover .main-thumb {
-    opacity: 0.8;
-}
+.thumb-container { position: relative; width: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: 12px; }
+.main-thumb { width: 100%; height: 100%; object-fit: cover; border-radius: 12px; }
 
 .ch-icon-img {
     position: absolute;
-    bottom: 10px;
-    right: 10px;
+    bottom: 8px;
+    right: 8px;
     width: 36px;
     height: 36px;
     border-radius: 50%;
-    border: 1px solid rgba(255,255,255,0.2);
-    background: #000;
-    z-index: 5;
-    object-fit: cover;
+    border: 2px solid #000;
 }
 
-.v-text {
-    padding: 12px 4px;
-}
+.v-text { padding: 12px 0; }
+.v-text h3 { margin: 0; font-size: 16px; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.v-text p { margin: 6px 0 0 0; font-size: 14px; color: #aaa; }
 
-.v-text h3 {
-    font-size: 15px;
-    margin: 0;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-    line-height: 1.4;
-    font-weight: 600;
-}
+/* 動画詳細ページ */
+.watch-layout { display: flex; gap: 24px; flex-wrap: wrap; }
+.player-area { flex: 1; min-width: 600px; }
+.video-wrapper { width: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: 12px; overflow: hidden; }
+.video-info { padding: 20px 0; }
+.channel-row { display: flex; align-items: center; margin: 15px 0; }
+.btn { background: #272727; color: white; border: none; padding: 8px 16px; border-radius: 20px; cursor: pointer; font-weight: bold; margin-right: 8px; }
+.primary-btn { background: white; color: black; }
+.sub-btn.active { background: #333; color: #aaa; }
 
-.v-text p {
-    font-size: 13px;
-    color: #aaa;
-    margin: 6px 0 0 0;
-}
-
-/* =========================================
-   Watch Page (Player)
-   ========================================= */
-.watch-layout {
-    display: flex;
-    flex-direction: row;
-    gap: 24px;
-    padding: 24px;
-    max-width: 1600px;
-    margin: 0 auto;
-}
-
-.player-area {
-    flex: 3;
-    min-width: 0;
-}
-
-.video-wrapper {
-    width: 100%;
-    aspect-ratio: 16/9;
-    background: #000;
-    border-radius: 12px;
-    overflow: hidden;
-}
-
-.video-info {
-    padding: 20px 0;
-}
-
-.video-info h2 {
-    font-size: 20px;
-    margin-bottom: 15px;
-}
-
-.channel-row {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 15px;
-}
-
-.channel-row img {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-}
-
-.channel-name {
-    flex: 1;
-    font-weight: bold;
-    font-size: 16px;
-}
-
-.actions-row {
-    display: flex;
-    gap: 10px;
-}
-
-.related-area {
-    flex: 1.2;
-    min-width: 350px;
-}
-
-.side-card {
-    display: flex;
-    gap: 12px;
-    margin-bottom: 12px;
-    cursor: pointer;
-}
-
-.side-card img {
-    width: 160px;
-    aspect-ratio: 16/9;
-    border-radius: 8px;
-    object-fit: cover;
-}
-
-.side-card-info h4 {
-    font-size: 13px;
-    margin: 0;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-}
-
-.side-card-info p {
-    font-size: 11px;
-    color: #aaa;
-    margin: 4px 0 0 0;
-}
-
-/* =========================================
-   Shorts Mode
-   ========================================= */
+/* ショート動画 */
 .shorts-container {
     display: flex;
     justify-content: center;
     align-items: center;
-    height: calc(100vh - var(--header-height));
-    background: #000;
+    height: calc(100vh - 100px);
 }
-
 .shorts-wrapper {
-    height: 90%;
-    aspect-ratio: 9/16;
     position: relative;
+    width: 360px;
+    height: 640px;
+    background: #000;
+    border-radius: 15px;
 }
 
-.shorts-actions {
+.shorts-nav {
     position: absolute;
-    bottom: 40px;
-    right: -70px;
+    right: -80px;
+    bottom: 100px;
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 15px;
 }
-
 .short-btn {
     width: 50px;
     height: 50px;
-    background: #222;
+    background: #272727;
     border-radius: 50%;
     display: flex;
-    align-items: center;
     justify-content: center;
+    align-items: center;
     cursor: pointer;
     font-size: 20px;
 }
 
-/* =========================================
-   Channel Page
-   ========================================= */
-.channel-header {
-    padding: 30px 20px;
-    border-bottom: 1px solid var(--border-color);
-}
+/* チャンネルヘッダー */
+.channel-header { padding: 20px 0; border-bottom: 1px solid #333; margin-bottom: 20px; }
+.tab-bar { display: flex; gap: 20px; margin-top: 20px; }
+.tab-item { padding: 8px 16px; cursor: pointer; border-bottom: 2px solid transparent; }
+.tab-item.active { border-bottom: 2px solid white; font-weight: bold; }
 
-.tab-bar {
-    display: flex;
-    gap: 30px;
-    margin-top: 20px;
-}
-
-.tab-item {
-    cursor: pointer;
-    padding: 10px 0;
-    font-weight: bold;
-    color: #aaa;
-    position: relative;
-}
-
-.tab-item.active {
-    color: #fff;
-}
-
-.tab-item.active::after {
-    content: '';
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    height: 3px;
-    background: #fff;
-}
-
-/* =========================================
-   Modals
-   ========================================= */
-#modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0,0,0,0.85);
-    z-index: 5000;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
-
-#playlist-modal {
-    background: #282828;
-    width: 90%;
-    max-width: 400px;
-    border-radius: 12px;
-    display: flex;
-    flex-direction: column;
-    max-height: 80vh;
-}
-
-.modal-header {
-    padding: 15px 20px;
-    border-bottom: 1px solid var(--border-color);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.close-x {
-    font-size: 24px;
-    cursor: pointer;
-}
-
-#playlist-selector {
-    flex: 1;
-    overflow-y: auto;
-    padding: 10px 0;
-}
-
-.p-item {
-    padding: 12px 20px;
-    cursor: pointer;
-    font-weight: 500;
-}
-
-.p-item:hover {
-    background: #3f3f3f;
-}
-
-.modal-footer {
-    padding: 20px;
-    border-top: 1px solid var(--border-color);
-}
-
-.modal-input-group {
-    display: flex;
-    gap: 8px;
-}
-
-.modal-input-group input {
-    flex: 1;
-    background: #121212;
-    border: 1px solid var(--border-color);
-    color: #fff;
-    padding: 8px 12px;
-    border-radius: 6px;
-}
-
-/* =========================================
-   Buttons
-   ========================================= */
-.btn {
-    border: none;
-    padding: 10px 18px;
-    border-radius: 20px;
-    font-weight: bold;
-    cursor: pointer;
-    transition: 0.2s;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
-.primary-btn {
-    background: var(--accent-red);
-    color: white;
-}
-
-.sub-btn {
-    background: #fff;
-    color: #000;
-    padding: 8px 16px;
-}
-
-.sub-btn.active {
-    background: #333;
-    color: #fff;
-}
-
-.delete-tag {
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    background: rgba(255,0,0,0.85);
-    color: #fff;
-    padding: 4px 8px;
-    border-radius: 6px;
-    font-size: 11px;
-    z-index: 10;
-}
-
-/* =========================================
-   Responsive (iPad & Mobile)
-   ========================================= */
-
-/* iPad / Tablet (Landscape/Portrait) */
-@media (max-width: 1180px) {
-    .watch-layout {
-        flex-direction: column;
-    }
-    .related-area {
-        min-width: 100%;
-    }
-    .grid {
-        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-    }
-}
-
-/* Smartphone */
-@media (max-width: 600px) {
-    #sidebar {
-        top: auto;
-        bottom: 0;
-        width: 100%;
-        height: 70px;
-        border-right: none;
-        border-top: 1px solid var(--border-color);
-    }
-    #sidebar-nav {
-        flex-direction: row;
-        justify-content: space-around;
-        padding-top: 0;
-        height: 100%;
-    }
-    .nav-item {
-        width: auto;
-        margin: 0;
-    }
-    #view-container {
-        margin-left: 0;
-        padding-bottom: 80px;
-    }
-    .grid {
-        grid-template-columns: 1fr;
-        padding: 10px;
-    }
-    .watch-layout {
-        padding: 10px;
-    }
-    .shorts-actions {
-        right: 10px;
-        bottom: 80px;
-    }
-}
-
-/* iPad Large Specific */
-@media (min-width: 768px) and (max-width: 1024px) {
-    .grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-    .nav-item span {
-        font-size: 12px;
-    }
+/* iPad対応 */
+@media (max-width: 1024px) {
+    .sidebar { width: 80px; }
+    .sidebar span { display: none; }
+    .content { margin-left: 80px; }
+    .player-area { min-width: 100%; }
 }
