@@ -59,7 +59,6 @@ header {
     font-size: 16px;
 }
 
-/* 左サイドバー：iPad/PCで常に左に表示 */
 #sidebar {
     position: fixed;
     top: 60px;
@@ -90,23 +89,15 @@ header {
     transition: background 0.2s;
 }
 
-.nav-item:active {
-    background: var(--card-bg);
-}
+.nav-item:active { background: var(--card-bg); }
+.nav-item div { font-size: 28px; margin-bottom: 5px; }
 
-.nav-item div {
-    font-size: 28px;
-    margin-bottom: 5px;
-}
-
-/* メインコンテンツ：サイドバーの幅100px分を空ける */
 #view-container {
     margin-left: 100px;
     padding-top: 60px;
     min-height: 100vh;
 }
 
-/* グリッドレイアウト */
 .grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -143,188 +134,37 @@ header {
     border-radius: 50%;
     border: 2px solid var(--border-color);
     background: #000;
+    z-index: 5;
 }
 
-.v-text {
-    padding: 12px;
-}
+.v-text { padding: 12px; }
+.v-text h3 { font-size: 14px; margin: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.4; }
+.v-text p { font-size: 12px; color: #aaa; margin: 5px 0 0 0; }
 
-.v-text h3 {
-    font-size: 14px;
-    margin: 0;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-    line-height: 1.4;
-}
+.watch-layout { display: flex; flex-direction: row; gap: 20px; padding: 20px; }
+.player-area { flex: 2.5; min-width: 0; }
+.related-area { flex: 1; min-width: 300px; }
 
-.v-text p {
-    font-size: 12px;
-    color: #aaa;
-    margin: 5px 0 0 0;
-}
-
-/* 再生画面（iPad横画面：動画が左、関連が右） */
-.watch-layout {
-    display: flex;
-    flex-direction: row;
-    gap: 20px;
-    padding: 20px;
-}
-
-.player-area {
-    flex: 2.5;
-    min-width: 0;
-}
-
-.related-area {
-    flex: 1;
-    min-width: 300px;
-}
-
-/* 画面幅が狭い場合のレスポンシブ */
-@media (max-width: 1000px) {
-    .watch-layout {
-        flex-direction: column;
-    }
-}
-
+@media (max-width: 1000px) { .watch-layout { flex-direction: column; } }
 @media (max-width: 600px) {
-    #sidebar {
-        top: auto;
-        bottom: 0;
-        width: 100%;
-        height: 80px;
-        border-right: none;
-        border-top: 1px solid var(--border-color);
-    }
-    #sidebar-nav {
-        flex-direction: row;
-        justify-content: space-around;
-        padding-top: 0;
-    }
-    #view-container {
-        margin-left: 0;
-        padding-bottom: 90px;
-    }
+    #sidebar { top: auto; bottom: 0; width: 100%; height: 80px; border-right: none; border-top: 1px solid var(--border-color); }
+    #sidebar-nav { flex-direction: row; justify-content: space-around; padding-top: 0; }
+    #view-container { margin-left: 0; padding-bottom: 90px; }
 }
 
-/* 関連動画カード */
-.side-card {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 12px;
-    cursor: pointer;
-}
+.side-card { display: flex; gap: 10px; margin-bottom: 12px; cursor: pointer; }
+.side-card img { width: 140px; aspect-ratio: 16/9; border-radius: 8px; object-fit: cover; }
+.side-card h4 { font-size: 12px; margin: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 
-.side-card img {
-    width: 140px;
-    aspect-ratio: 16/9;
-    border-radius: 8px;
-    object-fit: cover;
-}
+#modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); z-index: 3000; display: flex; justify-content: center; align-items: center; }
+#playlist-modal { background: var(--bg-color); padding: 30px; border-radius: 20px; width: 90%; max-width: 400px; border: 1px solid var(--border-color); }
+.modal-input-group { display: flex; gap: 10px; margin: 20px 0; }
+.modal-input-group input { flex: 1; padding: 12px; border-radius: 10px; border: 1px solid var(--border-color); background: var(--input-bg); color: inherit; }
+.p-item { padding: 15px; border-bottom: 1px solid var(--border-color); cursor: pointer; font-weight: bold; }
 
-.side-card h4 {
-    font-size: 12px;
-    margin: 0;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-}
-
-/* モーダル */
-#modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.85);
-    z-index: 3000;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
-
-#playlist-modal {
-    background: var(--bg-color);
-    padding: 30px;
-    border-radius: 20px;
-    width: 90%;
-    max-width: 400px;
-    border: 1px solid var(--border-color);
-}
-
-.modal-input-group {
-    display: flex;
-    gap: 10px;
-    margin: 20px 0;
-}
-
-.modal-input-group input {
-    flex: 1;
-    padding: 12px;
-    border-radius: 10px;
-    border: 1px solid var(--border-color);
-    background: var(--input-bg);
-    color: inherit;
-}
-
-.p-item {
-    padding: 15px;
-    border-bottom: 1px solid var(--border-color);
-    cursor: pointer;
-    font-weight: bold;
-}
-
-.p-item:hover {
-    background: var(--card-bg);
-}
-
-.btn {
-    border: none;
-    padding: 12px 20px;
-    border-radius: 10px;
-    cursor: pointer;
-    font-weight: bold;
-}
-
-.primary-btn {
-    background: var(--accent-red);
-    color: white;
-}
-
-.close-btn {
-    width: 100%;
-    background: #333;
-    color: white;
-    margin-top: 10px;
-}
-
-.sub-btn {
-    background: #fff;
-    color: #000;
-    border-radius: 25px;
-    padding: 8px 16px;
-    font-weight: bold;
-    border: none;
-}
-
-.sub-btn.active {
-    background: #333;
-    color: #fff;
-}
-
-.delete-tag {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    background: rgba(255, 0, 0, 0.9);
-    color: white;
-    padding: 5px 12px;
-    font-size: 12px;
-    border-radius: 8px;
-    z-index: 10;
-}
+.btn { border: none; padding: 12px 20px; border-radius: 10px; cursor: pointer; font-weight: bold; }
+.primary-btn { background: var(--accent-red); color: white; }
+.close-btn { width: 100%; background: #333; color: white; margin-top: 10px; }
+.sub-btn { background: #fff; color: #000; border-radius: 25px; padding: 8px 16px; font-weight: bold; border: none; }
+.sub-btn.active { background: #333; color: #fff; }
+.delete-tag { position: absolute; top: 10px; right: 10px; background: rgba(255, 0, 0, 0.9); color: white; padding: 5px 12px; font-size: 12px; border-radius: 8px; z-index: 10; }
