@@ -14,23 +14,21 @@
 
 body {
     margin: 0; padding: 0;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-family: -apple-system, sans-serif;
     background-color: var(--bg-color);
     color: var(--text-color);
-    transition: background 0.3s, color 0.3s;
-    overflow-x: hidden;
 }
 
 header {
     position: fixed;
-    top: 0; width: 100%; height: 60px;
-    background: inherit;
+    top: 0; left: 0; width: 100%; height: 60px;
+    background: var(--bg-color);
     display: flex; align-items: center;
-    padding: 0 15px; z-index: 1000;
+    padding: 0 15px; z-index: 2000;
     border-bottom: 1px solid var(--border-color);
 }
 
-#theme-toggle-btn { font-size: 26px; cursor: pointer; margin-right: 15px; }
+#theme-toggle-btn { font-size: 24px; cursor: pointer; margin-right: 15px; }
 
 .search-box {
     display: flex; flex: 1;
@@ -45,13 +43,53 @@ header {
     color: inherit; outline: none; font-size: 16px;
 }
 
-#search-btn { background: none; border: none; cursor: pointer; color: inherit; font-size: 18px; }
+/* 💡 サイドバー：左側に完全固定（iPad/PC用） */
+#sidebar {
+    position: fixed;
+    top: 60px;
+    left: 0;
+    width: 100px; /* アイコンが映える幅 */
+    height: calc(100vh - 60px);
+    background: var(--bg-color);
+    border-right: 1px solid var(--border-color);
+    z-index: 1000;
+    padding-top: 10px;
+}
 
-/* メインコンテンツ：サイドバー分（90px）を確実に空ける */
+#sidebar-nav {
+    display: flex;
+    flex-direction: column; /* 縦並び */
+    align-items: center;
+    gap: 20px;
+}
+
+.nav-item {
+    text-align: center;
+    width: 100%;
+    padding: 10px 0;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: bold;
+    color: inherit;
+    transition: background 0.2s;
+}
+.nav-item:active { background: var(--card-bg); }
+.nav-item div { font-size: 28px; margin-bottom: 4px; }
+
+/* 💡 メインコンテンツ：左サイドバーの分だけ右に寄せる */
 #view-container { 
-    margin-top: 60px; 
-    padding-bottom: 110px; 
-    min-height: 100vh;
+    margin-left: 100px;
+    padding-top: 60px;
+}
+
+/* 画面が狭い時（スマホなど）はサイドバーを下に戻すレスポンシブ */
+@media (max-width: 600px) {
+    #sidebar {
+        top: auto; bottom: 0; width: 100%; height: 80px;
+        border-right: none; border-top: 1px solid var(--border-color);
+    }
+    #sidebar-nav { flex-direction: row; gap: 0; }
+    #view-container { margin-left: 0; padding-bottom: 90px; }
 }
 
 /* グリッド */
@@ -77,55 +115,25 @@ header {
 
 .v-text { padding: 12px; }
 .v-text h3 {
-    font-size: 15px; margin: 0 0 5px 0;
+    font-size: 14px; margin: 0;
     display: -webkit-box; -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical; overflow: hidden; line-height: 1.4;
-}
-.v-text p { font-size: 13px; color: #aaa; margin: 0; }
-
-/* 💡 サイドバー：全デバイス共通で下部に固定、デカく */
-#sidebar {
-    position: fixed; 
-    bottom: 0; 
-    left: 0;
-    width: 100%; 
-    height: 90px;
-    background: var(--bg-color);
-    display: flex; 
-    justify-content: space-around; 
-    align-items: center;
-    border-top: 1px solid var(--border-color); 
-    z-index: 2000; /* 最前面 */
+    -webkit-box-orient: vertical; overflow: hidden;
 }
 
-.nav-item {
-    text-align: center; 
-    font-size: 12px; 
-    font-weight: bold;
-    flex: 1; 
-    cursor: pointer; 
-    color: inherit;
-    padding: 10px 0;
-}
-.nav-item div { font-size: 32px; margin-bottom: 4px; }
-
-/* 再生画面：iPad横なら右側に関連動画 */
+/* プレイヤー画面：右側に関連動画 */
 .watch-layout {
-    display: flex; flex-direction: row; gap: 25px; padding: 20px;
+    display: flex; flex-direction: row; gap: 20px; padding: 20px;
 }
 .player-area { flex: 2.5; min-width: 0; }
-.related-area { flex: 1; min-width: 320px; }
+.related-area { flex: 1; min-width: 300px; }
 
-.side-card {
-    display: flex; gap: 10px; margin-bottom: 15px; cursor: pointer;
-}
-.side-card img { width: 150px; aspect-ratio: 16/9; border-radius: 8px; object-fit: cover; }
-.side-card h4 { font-size: 13px; margin: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-
-@media (max-width: 1000px) {
+@media (max-width: 1100px) {
     .watch-layout { flex-direction: column; }
-    .related-area { min-width: 100%; }
 }
+
+.side-card { display: flex; gap: 10px; margin-bottom: 12px; cursor: pointer; }
+.side-card img { width: 140px; aspect-ratio: 16/9; border-radius: 8px; object-fit: cover; }
+.side-card h4 { font-size: 12px; margin: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 
 /* モーダル */
 #modal-overlay {
@@ -142,16 +150,14 @@ header {
     flex: 1; padding: 12px; border-radius: 10px;
     border: 1px solid var(--border-color); background: var(--input-bg); color: inherit;
 }
-.p-item { padding: 15px; border-bottom: 1px solid var(--border-color); cursor: pointer; font-weight: bold; }
-
 .btn { border: none; padding: 12px 20px; border-radius: 10px; cursor: pointer; font-weight: bold; }
 .primary-btn { background: var(--accent-red); color: white; }
 .close-btn { width: 100%; background: #333; color: white; margin-top: 10px; }
-.sub-btn { background: #fff; color: #000; border-radius: 25px; padding: 10px 20px; font-weight: bold; border: none; }
+.sub-btn { background: #fff; color: #000; border-radius: 25px; padding: 8px 16px; font-weight: bold; border: none; }
 .sub-btn.active { background: #333; color: #fff; }
 
 .delete-tag {
     position: absolute; top: 10px; right: 10px;
     background: rgba(255,0,0,0.9); color: white;
-    padding: 5px 12px; font-size: 12px; border-radius: 8px; font-weight: bold;
+    padding: 5px 12px; font-size: 12px; border-radius: 8px;
 }
