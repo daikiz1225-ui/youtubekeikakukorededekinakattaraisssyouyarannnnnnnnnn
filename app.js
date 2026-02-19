@@ -1,7 +1,7 @@
 /**
  * YouTube Client Premium - app.js
- * 自作プレイリスト機能のみ削除。
- * チャンネル詳細の「再生リスト」タブ、およびショート移動・iPad最適化を完全維持。
+ * 自作プレイリスト機能およびサイドバーの「リスト」項目を完全削除。
+ * チャンネル公式再生リスト、ショート移動、iPad最適化を維持。
  */
 
 const YT = {
@@ -115,6 +115,7 @@ const Actions = {
 
     init() {
         const searchInput = document.getElementById('search-input');
+        // iPad等のEnterキーで検索実行
         searchInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
@@ -212,9 +213,6 @@ const Actions = {
         this.renderGrid(headerHtml);
     },
 
-    /**
-     * チャンネル公式の再生リスト一覧表示 (復活)
-     */
     async showChannelPlaylists(id) {
         const data = await YT.fetchAPI('playlists', { channelId: id, part: 'snippet', maxResults: 50 });
         const playlists = data.items || [];
@@ -242,9 +240,6 @@ const Actions = {
             <div class="grid">${html || '<p>再生リストはありません</p>'}</div>`;
     },
 
-    /**
-     * 再生リスト内の動画一覧を取得 (復活)
-     */
     async viewExternalPlaylist(listId, title) {
         const data = await YT.fetchAPI('playlistItems', { playlistId: listId, part: 'snippet', maxResults: 50 });
         this.currentList = data.items || [];
