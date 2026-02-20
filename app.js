@@ -5,7 +5,7 @@ const YT = {
            "AIzaSyBbqPhAbqoWDOurTt7hejQmwc6dAoZ5Iy0",
            "AIzaSyAWk9mmie23-khi8-nipv1jHJND__UtEWA", 
            "AIzaSyBL38iyqeiaKHoKqhloSnhG590DfJ35vCE"],
-    currentEduKey: "AXH1ezm-TdFofe0cZEIyT5D-ZlyaXT8az20UGmK_8TRbbl7-MJkqQiDn89vv-Kx83auqjnc7WreI4HeppaSKfC0XpFV0BvqF3llcrWUQtfrIeuuX8ALKwU5iNjS56Z545ilryvxnkk2BGKeZvaLB6tiu1GwH4Npdfw==",
+    currentEduKey: "AXH1ezlru6on842twPV_V1V5h97poSn1ucvOPWDPMYhThp-LWrcNLhBqdD4OYb3L7YrjAy8eIgJCQG1BdOWX_uYkPmS1yJ1OvYMFvsX1cK2MFku5irpgxfmaekWYXNEjododHfCKfXGA2VkUDS7UvfRK-Pb5rxEggg==",
 
     async refreshEduKey() {
         try {
