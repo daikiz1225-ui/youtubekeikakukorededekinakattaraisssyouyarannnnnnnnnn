@@ -37,9 +37,11 @@ const GameModule = {
                         <h3>2048</h3>
                     </div>
 　　　　　　　　　　　　　<div class="game-card" onclick="TowerDefense.init()">
-             <div class="game-icon">🏰</div>
-             <h3>タワーディフェンス</h3>
-　　　　　　　　　　　　　</div>
+            <div class="game-icon">🏰</div><h3>タワーディフェンス</h3>
+        </div>
+        <div class="game-card" onclick="AirHockey.init()">
+            <div class="game-icon">🏒</div><h3>エアホッケー</h3>
+        </div>
                 </div>
             </div>
 
