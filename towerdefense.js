@@ -1,5 +1,5 @@
 /**
- * towerdefense.js - Blizzard Edition (Ultra Fast Freeze)
+ * towerdefense.js - Absolute Zero Edition
  */
 const TowerDefense = {
     canvas: null, ctx: null,
@@ -13,7 +13,8 @@ const TowerDefense = {
         'normal': { name: '標準', color: '#2196F3', cost: 50, range: 100, cd: 15, damage: 1, slow: 1, splash: 0 },
         'gatling': { name: '連射', color: '#4CAF50', cost: 80, range: 120, cd: 4, damage: 0.3, slow: 1, splash: 0 },
         'sniper': { name: '狙撃', color: '#FF9800', cost: 120, range: 250, cd: 60, damage: 5, slow: 1, splash: 0 },
-        'freeze': { name: '氷結', color: '#00BCD4', cost: 100, range: 90, cd: 1.3, damage: 0.05, slow: 0.3, splash: 0 }, // ガトリングの3倍速！
+        // 氷結：今の2倍速(cd:0.6) / ダメージ1/6(0.008) / 鈍足(0.3)
+        'freeze': { name: '氷結', color: '#00BCD4', cost: 100, range: 100, cd: 0.6, damage: 0.008, slow: 0.3, splash: 0 },
         'bomb': { name: '爆弾', color: '#F44336', cost: 150, range: 110, cd: 45, damage: 2, slow: 1, splash: 50 }
     },
 
@@ -75,7 +76,7 @@ const TowerDefense = {
     update() {
         this.spawnTimer++;
         if (this.spawnTimer > Math.max(8, 40 - (this.wave * 2))) {
-            const hpBase = 3 * Math.pow(1.25, this.wave);
+            const hpBase = 3 * Math.pow(1.3, this.wave); // 少し敵を硬く調整
             this.enemies.push({ pIdx: 0, x: 0, y: 200, hp: hpBase, maxHp: hpBase, speed: 1.5 + (this.wave * 0.1), currentSpeed: 1.5, reward: 10 + this.wave });
             this.spawnTimer = 0;
             this.enemiesInWave++;
@@ -99,14 +100,14 @@ const TowerDefense = {
             if (t.currentCd <= 0) {
                 const target = this.enemies.find(en => Math.hypot(en.x - t.x, en.y - t.y) < t.range);
                 if (target) {
-                    this.bullets.push({ x: t.x, y: t.y, tx: target.x, ty: target.y, life: 8, target, damage: t.damage, slow: t.slow, splash: t.splash, color: t.color });
+                    this.bullets.push({ x: t.x, y: t.y, tx: target.x, ty: target.y, life: 6, target, damage: t.damage, slow: t.slow, splash: t.splash, color: t.color });
                     t.currentCd = t.cd;
                 }
             }
         });
 
         this.bullets.forEach((b, i) => {
-            b.x += (b.tx - b.x) * 0.4; b.y += (b.ty - b.y) * 0.4; b.life--; // 弾速を少しアップ
+            b.x += (b.tx - b.x) * 0.5; b.y += (b.ty - b.y) * 0.5; b.life--; 
             if (b.life <= 0) {
                 if (b.splash > 0) {
                     this.enemies.forEach(en => {
@@ -120,6 +121,7 @@ const TowerDefense = {
                 this.bullets.splice(i, 1);
             }
         });
+
         this.enemies = this.enemies.filter(en => {
             if (en.hp <= 0) { this.money += en.reward; this.score += 50; this.updateUI(); return false; }
             return true;
