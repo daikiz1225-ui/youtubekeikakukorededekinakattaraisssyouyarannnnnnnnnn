@@ -1,5 +1,5 @@
 /**
- * towerdefense.js - Range Display & Advanced Towers Edition
+ * towerdefense.js - Blizzard Edition (Ultra Fast Freeze)
  */
 const TowerDefense = {
     canvas: null, ctx: null,
@@ -13,7 +13,7 @@ const TowerDefense = {
         'normal': { name: '標準', color: '#2196F3', cost: 50, range: 100, cd: 15, damage: 1, slow: 1, splash: 0 },
         'gatling': { name: '連射', color: '#4CAF50', cost: 80, range: 120, cd: 4, damage: 0.3, slow: 1, splash: 0 },
         'sniper': { name: '狙撃', color: '#FF9800', cost: 120, range: 250, cd: 60, damage: 5, slow: 1, splash: 0 },
-        'freeze': { name: '氷結', color: '#00BCD4', cost: 100, range: 90, cd: 25, damage: 0.1, slow: 0.3, splash: 0 },
+        'freeze': { name: '氷結', color: '#00BCD4', cost: 100, range: 90, cd: 1.3, damage: 0.05, slow: 0.3, splash: 0 }, // ガトリングの3倍速！
         'bomb': { name: '爆弾', color: '#F44336', cost: 150, range: 110, cd: 45, damage: 2, slow: 1, splash: 50 }
     },
 
@@ -99,14 +99,14 @@ const TowerDefense = {
             if (t.currentCd <= 0) {
                 const target = this.enemies.find(en => Math.hypot(en.x - t.x, en.y - t.y) < t.range);
                 if (target) {
-                    this.bullets.push({ x: t.x, y: t.y, tx: target.x, ty: target.y, life: 10, target, damage: t.damage, slow: t.slow, splash: t.splash, color: t.color });
+                    this.bullets.push({ x: t.x, y: t.y, tx: target.x, ty: target.y, life: 8, target, damage: t.damage, slow: t.slow, splash: t.splash, color: t.color });
                     t.currentCd = t.cd;
                 }
             }
         });
 
         this.bullets.forEach((b, i) => {
-            b.x += (b.tx - b.x) * 0.3; b.y += (b.ty - b.y) * 0.3; b.life--;
+            b.x += (b.tx - b.x) * 0.4; b.y += (b.ty - b.y) * 0.4; b.life--; // 弾速を少しアップ
             if (b.life <= 0) {
                 if (b.splash > 0) {
                     this.enemies.forEach(en => {
@@ -134,25 +134,18 @@ const TowerDefense = {
 
     draw() {
         this.ctx.clearRect(0, 0, 500, 400);
-        
-        // 道
         this.ctx.strokeStyle = "#333"; this.ctx.lineWidth = 35; this.ctx.lineCap = "round"; this.ctx.beginPath();
         this.ctx.moveTo(this.path[0].x, this.path[0].y); this.path.forEach(p => this.ctx.lineTo(p.x, p.y)); this.ctx.stroke();
 
-        // 範囲表示とタワー本体
         this.towers.forEach(t => {
-            // 範囲サークルを先に描画
             this.ctx.fillStyle = t.color;
-            this.ctx.globalAlpha = 0.1; // 透明度
+            this.ctx.globalAlpha = 0.1;
             this.ctx.beginPath(); this.ctx.arc(t.x, t.y, t.range, 0, Math.PI * 2); this.ctx.fill();
             this.ctx.globalAlpha = 1.0;
-
-            // タワー本体
             this.ctx.beginPath(); this.ctx.arc(t.x, t.y, 12, 0, Math.PI*2); this.ctx.fill();
             this.ctx.strokeStyle = "#fff"; this.ctx.lineWidth = 1; this.ctx.stroke();
         });
 
-        // 敵
         this.enemies.forEach(en => {
             this.ctx.fillStyle = en.currentSpeed < en.speed ? "#00BCD4" : "#F44336";
             this.ctx.fillRect(en.x-10, en.y-10, 20, 20);
@@ -160,10 +153,9 @@ const TowerDefense = {
             this.ctx.fillStyle = "#00ff00"; this.ctx.fillRect(en.x-12, en.y-18, 24 * (en.hp/en.maxHp), 4);
         });
 
-        // 弾
         this.bullets.forEach(b => {
             this.ctx.fillStyle = b.color;
-            this.ctx.beginPath(); this.ctx.arc(b.x, b.y, 4, 0, Math.PI*2); this.ctx.fill();
+            this.ctx.beginPath(); this.ctx.arc(b.x, b.y, 3, 0, Math.PI*2); this.ctx.fill();
         });
     },
 
