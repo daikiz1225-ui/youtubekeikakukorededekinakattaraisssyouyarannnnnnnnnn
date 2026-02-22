@@ -26,7 +26,7 @@ const Shogi = {
     },
 
     init() {
-        GameModule.setupGameCanvas("精密・将棋", "shogi");
+        GameModule.setupGameCanvas("将棋", "shogi");
         this.resetBoard();
         this.render();
     },
