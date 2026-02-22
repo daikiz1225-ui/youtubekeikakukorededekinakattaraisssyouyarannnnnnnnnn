@@ -293,6 +293,15 @@ const Actions = {
         const history = Storage.get('yt_history');
         this.currentList = history.map(x => ({ id: x.id, snippet: { title: x.title, thumbnails: { high: { url: x.thumb } }, channelTitle: x.channelTitle } }));
         this.renderGrid("<h2>履歴</h2>");
+    },
+
+    showGame() {
+        window.scrollTo(0, 0);
+        // ビデオ再生中なら停止させる
+        if (typeof M3U8Player !== 'undefined') M3U8Player.stopPlayer();
+        
+        // game.js の描画機能を呼び出す
+        GameModule.renderGameMenu();
     }
 };
 window.onload = () => Actions.init();
