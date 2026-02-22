@@ -36,6 +36,9 @@ const GameModule = {
                         <div class="game-icon">🔢</div>
                         <h3>2048</h3>
                     </div>
+                    <div class="game-card" onclick="CannonGame.init()">
+                <div class="game-icon">💣</div><h3>大砲バトル</h3>
+            </div>
 　　　　　　　　　　　　　<div class="game-card" onclick="TowerDefense.init()">
             <div class="game-icon">🏰</div><h3>タワーディフェンス</h3>
         </div>
