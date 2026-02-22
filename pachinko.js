@@ -1,5 +1,5 @@
 /**
- * pachinko.js - Triple Fan Fortress Edition
+ * pachinko.js - 10-Fan Chaos Maze Edition
  */
 const Pachinko = {
     canvas: null, ctx: null,
@@ -12,42 +12,46 @@ const Pachinko = {
     hue: 0, fanAngle: 0,
     shooterX: 200, shooterDir: 1,
     vZoneTimer: 0, rushTimer: 0,
-    // ファンの位置データ
+    // 盤面中に配置された10基のファン
     fans: [
-        { x: 200, y: 360, r: 30 }, // 上
-        { x: 160, y: 405, r: 25 }, // 左下
-        { x: 240, y: 405, r: 25 }  // 右下
+        { x: 200, y: 360, r: 25, speed: 1.0 }, // 中央上
+        { x: 165, y: 400, r: 22, speed: -1.2 }, // 中央左下
+        { x: 235, y: 400, r: 22, speed: -1.2 }, // 中央右下
+        { x: 60,  y: 150, r: 20, speed: 1.5 }, // 左上
+        { x: 340, y: 150, r: 20, speed: -1.5 }, // 右上
+        { x: 100, y: 250, r: 25, speed: -0.8 }, // 左中
+        { x: 300, y: 250, r: 25, speed: 0.8 },  // 右中
+        { x: 200, y: 120, r: 18, speed: 2.0 },  // 最上部中央
+        { x: 50,  y: 380, r: 20, speed: 1.1 },  // 左下
+        { x: 350, y: 380, r: 20, speed: -1.1 }  // 右下
     ],
     interval: null,
 
     init() {
-        GameModule.setupGameCanvas("三連ファン・パチンコ", "pachinko");
+        GameModule.setupGameCanvas("十連ファン・パチンコ", "pachinko");
         const container = document.getElementById('pachinko-container');
         container.innerHTML = `
             <style>
                 #pachinko-container, #pk-canvas { -webkit-user-select: none; user-select: none; }
-                @keyframes rainbow {
-                    0% { border-color: red; box-shadow: 0 0 15px red; }
-                    50% { border-color: lime; box-shadow: 0 0 15px lime; }
-                    100% { border-color: blue; box-shadow: 0 0 15px blue; }
+                @keyframes flash {
+                    0% { border-color: #fff; }
+                    50% { border-color: #f0f; }
+                    100% { border-color: #fff; }
                 }
-                .rush-active { animation: rainbow 0.1s linear infinite; border-width: 10px !important; }
+                .rush-active { animation: flash 0.1s linear infinite; border-width: 12px !important; }
             </style>
             <div style="display:flex; justify-content:space-around; color:white; background:#333; padding:10px; border-radius:10px; margin-bottom:10px;">
                 <div style="font-size:20px;">玉数: <span id="pk-score">1000</span></div>
-                <div id="pk-mode" style="font-size:20px; color:#aaa; font-weight:bold;">通常モード</div>
+                <div id="pk-mode" style="font-size:18px; color:#aaa;">カオスモード</div>
             </div>
-            <div id="pk-slot" style="font-size:40px; text-align:center; background:#111; border:4px solid #ffd700; margin-bottom:10px; padding:10px; border-radius:10px; color:white;">
-                ❓ ❓ ❓
-            </div>
-            <canvas id="pk-canvas" width="400" height="500" style="background:#001f3f; border:4px solid #555; border-radius:10px; touch-action:none;"></canvas>
-            <div id="pk-rush-bar" style="width:100%; height:8px; background:#222; margin-top:5px; border-radius:4px; display:none;">
-                <div id="pk-rush-fill" style="width:100%; height:100%; background:linear-gradient(to right, red, lime, blue, magenta);"></div>
+            <div id="pk-slot" style="font-size:40px; text-align:center; background:#111; border:4px solid #ffd700; margin-bottom:10px; padding:10px; border-radius:10px;">❓ ❓ ❓</div>
+            <canvas id="pk-canvas" width="400" height="500" style="background:#000d1a; border:4px solid #555; border-radius:10px; touch-action:none;"></canvas>
+            <div id="pk-rush-bar" style="width:100%; height:12px; background:#222; margin-top:5px; border-radius:6px; display:none; overflow:hidden;">
+                <div id="pk-rush-fill" style="width:100%; height:100%; background:linear-gradient(90deg, #f00, #ff0, #0f0, #0ff, #00f, #f0f);"></div>
             </div>
         `;
         this.canvas = document.getElementById('pk-canvas');
         this.ctx = this.canvas.getContext('2d');
-
         this.setupPins();
         this.setupTouchEvents();
         if(this.interval) clearInterval(this.interval);
@@ -55,12 +59,9 @@ const Pachinko = {
     },
 
     setupPins() {
-        this.pins = []; this.movingPins = [];
-        for (let i = 0; i < 70; i++) {
-            this.pins.push({ x: 15 + Math.random() * 370, y: 60 + Math.random() * 280, r: 3 });
-        }
-        for (let i = 0; i < 5; i++) {
-            this.movingPins.push({ x: 50 + Math.random() * 300, y: 100 + Math.random() * 150, vx: (Math.random() - 0.5) * 6, r: 5 });
+        this.pins = [];
+        for (let i = 0; i < 50; i++) {
+            this.pins.push({ x: 10 + Math.random() * 380, y: 50 + Math.random() * 400, r: 2 });
         }
     },
 
@@ -72,13 +73,13 @@ const Pachinko = {
     shoot() {
         if (this.score <= 0) return;
         this.score--; this.updateUI();
-        this.balls.push({ x: this.shooterX, y: 35, vx: (Math.random() - 0.5) * 2, vy: 2 + Math.random() * 3, r: 5, passedV: false });
+        this.balls.push({ x: this.shooterX, y: 35, vx: (Math.random() - 0.5) * 4, vy: 3, r: 5, passedV: false });
     },
 
     update() {
-        if (this.isPressing && this.shootTimer++ % 6 === 0) this.shoot();
-        this.shooterX += 3.5 * this.shooterDir;
-        if (this.shooterX < 30 || this.shooterX > 370) this.shooterDir *= -1;
+        if (this.isPressing && this.shootTimer++ % 5 === 0) this.shoot();
+        this.shooterX += 4 * this.shooterDir;
+        if (this.shooterX < 40 || this.shooterX > 360) this.shooterDir *= -1;
 
         if (this.isRush) {
             this.rushTimer--;
@@ -86,35 +87,32 @@ const Pachinko = {
             if (this.rushTimer <= 0) { this.isRush = false; this.updateUI(); }
         }
 
-        if (!this.isRush && this.vZoneTimer <= 0 && Math.random() < 0.003) this.vZoneTimer = 180;
+        if (!this.isRush && this.vZoneTimer <= 0 && Math.random() < 0.004) this.vZoneTimer = 180;
         else if (this.vZoneTimer > 0) this.vZoneTimer--;
 
-        this.movingPins.forEach(p => { p.x += p.vx; if (p.x < 40 || p.x > 360) p.vx *= -1; });
-        this.hue = (this.hue + 12) % 360;
-        if (!this.isRush) this.fanAngle += 0.18; else this.fanAngle = 0;
+        this.hue = (this.hue + 15) % 360;
+        if (!this.isRush) this.fanAngle += 0.25; else this.fanAngle = 0;
 
         this.balls.forEach((b, i) => {
-            b.x += b.vx; b.y += b.vy; b.vy += 0.35;
+            b.x += b.vx; b.y += b.vy; b.vy += 0.4;
+            
             if (b.y < b.r) { b.y = b.r; b.vy *= -0.8; }
-            if (b.x < b.r) { b.x = b.r; b.vx *= -0.7; }
-            if (b.x > 400 - b.r) { b.x = 400 - b.r; b.vx *= -0.7; }
+            if (b.x < b.r || b.x > 400 - b.r) { b.vx *= -0.8; b.x = b.x < b.r ? b.r : 400 - b.r; }
 
             this.pins.forEach(p => this.checkCollision(b, p));
-            this.movingPins.forEach(p => this.checkCollision(b, p));
             
-            // 全てのファンとの衝突判定
-            this.fans.forEach((f, idx) => {
+            // 10基のファンとの衝突判定
+            this.fans.forEach((f) => {
                 const dx = b.x - f.x, dy = b.y - f.y, dist = Math.hypot(dx, dy);
                 if (dist < f.r + b.r) {
                     const angleToBall = Math.atan2(dy, dx);
-                    // 上下のファンで回転方向を逆にする
-                    const currentAngle = (idx === 0) ? this.fanAngle : -this.fanAngle;
-                    const relativeAngle = (angleToBall - currentAngle) % (Math.PI / 2);
-                    if (Math.abs(relativeAngle) < 0.25) {
-                        const power = this.isRush ? 2 : 12; // 通常時は激しく弾く
+                    const currentFanAngle = this.fanAngle * f.speed;
+                    const relativeAngle = (angleToBall - currentFanAngle) % (Math.PI / 2);
+                    if (Math.abs(relativeAngle) < 0.3) {
+                        const power = this.isRush ? 3 : 15; // 通常時は「爆発的」に弾く
                         b.vx = Math.cos(angleToBall) * power;
                         b.vy = Math.sin(angleToBall) * power;
-                        if (!this.isRush) b.y -= 5;
+                        if (!this.isRush) { b.x += b.vx; b.y += b.vy; }
                     }
                 }
             });
@@ -137,7 +135,7 @@ const Pachinko = {
     checkCollision(b, p) {
         const dx = b.x - p.x, dy = b.y - p.y, dist = Math.hypot(dx, dy);
         if (dist < b.r + p.r) {
-            const angle = Math.atan2(dy, dx), speed = Math.hypot(b.vx, b.vy) * 0.6;
+            const angle = Math.atan2(dy, dx), speed = Math.hypot(b.vx, b.vy) * 0.7;
             b.vx = Math.cos(angle) * speed + (Math.random() - 0.5);
             b.vy = Math.sin(angle) * speed;
             b.x = p.x + Math.cos(angle) * (b.r + p.r); b.y = p.y + Math.sin(angle) * (b.r + p.r);
@@ -152,7 +150,7 @@ const Pachinko = {
             this.currentSlot = [this.slotSymbols[Math.floor(Math.random()*5)],this.slotSymbols[Math.floor(Math.random()*5)],this.slotSymbols[Math.floor(Math.random()*5)]];
             document.getElementById('pk-slot').innerText = this.currentSlot.join(" ");
             if (++count > 20) { clearInterval(spin); this.checkSlotResult(); this.isSlotSpinning = false; }
-        }, 40);
+        }, 30);
     },
 
     checkSlotResult() {
@@ -160,7 +158,7 @@ const Pachinko = {
             this.currentSlot = ["7️⃣", "7️⃣", "7️⃣"];
             document.getElementById('pk-slot').innerText = this.currentSlot.join(" ");
             this.triggerRush();
-        } else if (this.isRush) this.score += 50;
+        } else if (this.isRush) this.score += 100; // 短いからさらに増やした！
         this.updateUI();
     },
 
@@ -168,12 +166,12 @@ const Pachinko = {
         document.getElementById('pk-score').innerText = this.score;
         const mode = document.getElementById('pk-mode'), canvas = document.getElementById('pk-canvas'), bar = document.getElementById('pk-rush-bar');
         if (this.isRush) {
-            mode.innerText = "🌈 4秒限定 RUSH! 🌈";
+            mode.innerText = "🔥 ULTIMATE RUSH 🔥";
             mode.style.color = `hsl(${this.hue}, 100%, 50%)`;
             canvas.classList.add('rush-active');
             bar.style.display = "block";
         } else {
-            mode.innerText = "通常モード (10%)";
+            mode.innerText = "カオスモード (弾き注意)";
             mode.style.color = "#aaa";
             canvas.classList.remove('rush-active');
             bar.style.display = "none";
@@ -185,16 +183,15 @@ const Pachinko = {
 
         // シューター
         this.ctx.fillStyle = "#fff";
-        this.ctx.beginPath(); this.ctx.moveTo(this.shooterX-15,0); this.ctx.lineTo(this.shooterX+15,0); this.ctx.lineTo(this.shooterX+10,30); this.ctx.lineTo(this.shooterX-10,30); this.ctx.fill();
+        this.ctx.fillRect(this.shooterX - 15, 0, 30, 20);
 
-        // 3つのファン描画
-        this.fans.forEach((f, idx) => {
+        // 10連ファン
+        this.fans.forEach((f) => {
             this.ctx.save();
             this.ctx.translate(f.x, f.y);
-            const currentAngle = (idx === 0) ? this.fanAngle : -this.fanAngle;
-            this.ctx.rotate(currentAngle);
-            this.ctx.strokeStyle = this.isRush ? `hsl(${this.hue}, 100%, 50%)` : (idx === 0 ? "#ff4444" : "#ffaa00");
-            this.ctx.lineWidth = 5;
+            this.ctx.rotate(this.isRush ? 0 : this.fanAngle * f.speed);
+            this.ctx.strokeStyle = this.isRush ? `hsl(${this.hue}, 100%, 50%)` : `hsl(${(this.hue + f.x) % 360}, 70%, 50%)`;
+            this.ctx.lineWidth = 4;
             for (let i = 0; i < 4; i++) {
                 this.ctx.rotate(Math.PI / 2);
                 this.ctx.beginPath(); this.ctx.moveTo(0, 0); this.ctx.lineTo(0, f.r); this.ctx.stroke();
@@ -204,26 +201,24 @@ const Pachinko = {
 
         // Vゾーン
         if (this.vZoneTimer > 0) {
-            this.ctx.strokeStyle = (Math.floor(Date.now()/100)%2) ? "#00ffff" : "#fff";
-            this.ctx.lineWidth = 3; this.ctx.strokeRect(190, 240, 20, 20);
+            this.ctx.shadowBlur = 15; this.ctx.shadowColor = "#0ff";
+            this.ctx.strokeStyle = "#0ff"; this.ctx.lineWidth = 3; this.ctx.strokeRect(190, 240, 20, 20);
+            this.ctx.shadowBlur = 0;
         }
 
-        // 釘と玉
-        this.ctx.fillStyle = "#ffd700";
-        this.pins.forEach(p => { this.ctx.beginPath(); this.ctx.arc(p.x, p.y, p.r, 0, Math.PI*2); this.ctx.fill(); });
-        this.movingPins.forEach(p => {
-            this.ctx.fillStyle = this.isRush ? `hsl(${this.hue}, 100%, 50%)` : "#ff0000";
-            this.ctx.beginPath(); this.ctx.arc(p.x, p.y, p.r, 0, Math.PI*2); this.ctx.fill();
-        });
-
-        this.ctx.fillStyle = this.isRush ? `hsla(${this.hue}, 100%, 50%, 0.3)` : "rgba(255, 215, 0, 0.2)";
+        // ヘソ
+        this.ctx.fillStyle = "rgba(255, 255, 255, 0.1)";
         this.ctx.fillRect(150, 420, 100, 40);
         this.ctx.strokeStyle = this.isRush ? `hsl(${this.hue}, 100%, 50%)` : "#ffd700";
         this.ctx.strokeRect(150, 420, 100, 40);
 
+        // 玉
         this.balls.forEach(b => {
-            this.ctx.fillStyle = b.passedV ? "#00ffff" : "#ccc";
-            if (this.isRush) this.ctx.shadowBlur = 10, this.ctx.shadowColor = `hsl(${this.hue}, 100%, 50%)`;
+            this.ctx.fillStyle = b.passedV ? "#0ff" : "#ddd";
+            if (this.isRush) {
+                this.ctx.shadowBlur = 15;
+                this.ctx.shadowColor = `hsl(${this.hue}, 100%, 50%)`;
+            }
             this.ctx.beginPath(); this.ctx.arc(b.x, b.y, b.r, 0, Math.PI*2); this.ctx.fill();
             this.ctx.shadowBlur = 0;
         });
