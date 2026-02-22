@@ -45,6 +45,9 @@ const GameModule = {
         <div class="game-card" onclick="AirHockey.init()">
             <div class="game-icon">🏒</div><h3>エアホッケー</h3>
         </div>
+        <div class="game-card" onclick="Pachinko.init()">
+    <div class="game-icon">💰</div><h3>パチンコ</h3>
+</div>
                 </div>
             </div>
 
