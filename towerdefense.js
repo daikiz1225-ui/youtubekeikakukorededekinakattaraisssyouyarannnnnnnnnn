@@ -1,5 +1,5 @@
 /**
- * towerdefense.js - Final Evolution (Area Attack & Gatling)
+ * towerdefense.js - Range Display & Advanced Towers Edition
  */
 const TowerDefense = {
     canvas: null, ctx: null,
@@ -13,8 +13,8 @@ const TowerDefense = {
         'normal': { name: '標準', color: '#2196F3', cost: 50, range: 100, cd: 15, damage: 1, slow: 1, splash: 0 },
         'gatling': { name: '連射', color: '#4CAF50', cost: 80, range: 120, cd: 4, damage: 0.3, slow: 1, splash: 0 },
         'sniper': { name: '狙撃', color: '#FF9800', cost: 120, range: 250, cd: 60, damage: 5, slow: 1, splash: 0 },
-        'freeze': { name: '氷結', color: '#00BCD4', cost: 100, range: 90, cd: 25, damage: 0.1, slow: 0.3, splash: 0 }, // 速度30%に
-        'bomb': { name: '爆弾', color: '#F44336', cost: 150, range: 110, cd: 45, damage: 2, slow: 1, splash: 50 } // 範囲50px
+        'freeze': { name: '氷結', color: '#00BCD4', cost: 100, range: 90, cd: 25, damage: 0.1, slow: 0.3, splash: 0 },
+        'bomb': { name: '爆弾', color: '#F44336', cost: 150, range: 110, cd: 45, damage: 2, slow: 1, splash: 50 }
     },
 
     init() {
@@ -30,7 +30,7 @@ const TowerDefense = {
             
             <div id="td-controls" style="display:grid; grid-template-columns: repeat(3, 1fr); gap:8px; margin-top:10px;">
                 <button onclick="TowerDefense.selectTower('normal')" id="btn-normal" class="td-btn active" style="background:#2196F3">標準(50)</button>
-                <button onclick="TowerDefense.selectTower('gatling')" id="btn-gatling" class="td-btn" style="background:#4CAF50">ガトリング(80)</button>
+                <button onclick="TowerDefense.selectTower('gatling')" id="btn-gatling" class="td-btn" style="background:#4CAF50">連射(80)</button>
                 <button onclick="TowerDefense.selectTower('sniper')" id="btn-sniper" class="td-btn" style="background:#FF9800">狙撃(120)</button>
                 <button onclick="TowerDefense.selectTower('freeze')" id="btn-freeze" class="td-btn" style="background:#00BCD4">氷結(100)</button>
                 <button onclick="TowerDefense.selectTower('bomb')" id="btn-bomb" class="td-btn" style="background:#F44336">爆弾(150)</button>
@@ -73,17 +73,15 @@ const TowerDefense = {
     },
 
     update() {
-        // 敵の生成
         this.spawnTimer++;
-        if (this.spawnTimer > Math.max(10, 40 - this.wave)) {
-            const hpBase = 3 * Math.pow(1.2, this.wave);
+        if (this.spawnTimer > Math.max(8, 40 - (this.wave * 2))) {
+            const hpBase = 3 * Math.pow(1.25, this.wave);
             this.enemies.push({ pIdx: 0, x: 0, y: 200, hp: hpBase, maxHp: hpBase, speed: 1.5 + (this.wave * 0.1), currentSpeed: 1.5, reward: 10 + this.wave });
             this.spawnTimer = 0;
             this.enemiesInWave++;
-            if(this.enemiesInWave > 15) { this.wave++; this.enemiesInWave = 0; this.updateUI(); }
+            if(this.enemiesInWave > 12) { this.wave++; this.enemiesInWave = 0; this.updateUI(); }
         }
 
-        // 敵の移動
         this.enemies.forEach((en, i) => {
             const target = this.path[en.pIdx + 1];
             if (!target) {
@@ -93,10 +91,9 @@ const TowerDefense = {
             const dx = target.x - en.x, dy = target.y - en.y, dist = Math.sqrt(dx*dx + dy*dy);
             if (dist < 5) en.pIdx++;
             else { en.x += (dx/dist) * en.currentSpeed; en.y += (dy/dist) * en.currentSpeed; }
-            en.currentSpeed = en.speed; // 毎フレーム速度リセット（氷結で上書きするため）
+            en.currentSpeed = en.speed;
         });
 
-        // タワーの行動
         this.towers.forEach(t => {
             t.currentCd--;
             if (t.currentCd <= 0) {
@@ -108,18 +105,15 @@ const TowerDefense = {
             }
         });
 
-        // 弾の処理
         this.bullets.forEach((b, i) => {
             b.x += (b.tx - b.x) * 0.3; b.y += (b.ty - b.y) * 0.3; b.life--;
             if (b.life <= 0) {
                 if (b.splash > 0) {
-                    // 範囲攻撃（爆弾）
                     this.enemies.forEach(en => {
                         if (Math.hypot(en.x - b.tx, en.y - b.ty) < b.splash) en.hp -= b.damage;
                     });
                     this.drawExplosion(b.tx, b.ty, b.splash);
                 } else {
-                    // 通常攻撃
                     b.target.hp -= b.damage;
                     if (b.slow < 1) b.target.currentSpeed *= b.slow;
                 }
@@ -134,26 +128,39 @@ const TowerDefense = {
     },
 
     drawExplosion(x, y, radius) {
-        this.ctx.fillStyle = "rgba(255, 165, 0, 0.5)";
+        this.ctx.fillStyle = "rgba(255, 165, 0, 0.4)";
         this.ctx.beginPath(); this.ctx.arc(x, y, radius, 0, Math.PI*2); this.ctx.fill();
     },
 
     draw() {
         this.ctx.clearRect(0, 0, 500, 400);
+        
+        // 道
         this.ctx.strokeStyle = "#333"; this.ctx.lineWidth = 35; this.ctx.lineCap = "round"; this.ctx.beginPath();
         this.ctx.moveTo(this.path[0].x, this.path[0].y); this.path.forEach(p => this.ctx.lineTo(p.x, p.y)); this.ctx.stroke();
 
+        // 範囲表示とタワー本体
         this.towers.forEach(t => {
+            // 範囲サークルを先に描画
             this.ctx.fillStyle = t.color;
+            this.ctx.globalAlpha = 0.1; // 透明度
+            this.ctx.beginPath(); this.ctx.arc(t.x, t.y, t.range, 0, Math.PI * 2); this.ctx.fill();
+            this.ctx.globalAlpha = 1.0;
+
+            // タワー本体
             this.ctx.beginPath(); this.ctx.arc(t.x, t.y, 12, 0, Math.PI*2); this.ctx.fill();
+            this.ctx.strokeStyle = "#fff"; this.ctx.lineWidth = 1; this.ctx.stroke();
         });
 
+        // 敵
         this.enemies.forEach(en => {
             this.ctx.fillStyle = en.currentSpeed < en.speed ? "#00BCD4" : "#F44336";
             this.ctx.fillRect(en.x-10, en.y-10, 20, 20);
+            this.ctx.fillStyle = "#000"; this.ctx.fillRect(en.x-12, en.y-18, 24, 4);
             this.ctx.fillStyle = "#00ff00"; this.ctx.fillRect(en.x-12, en.y-18, 24 * (en.hp/en.maxHp), 4);
         });
 
+        // 弾
         this.bullets.forEach(b => {
             this.ctx.fillStyle = b.color;
             this.ctx.beginPath(); this.ctx.arc(b.x, b.y, 4, 0, Math.PI*2); this.ctx.fill();
