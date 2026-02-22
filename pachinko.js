@@ -1,5 +1,5 @@
 /**
- * pachinko.js - Top Moving Shooter Edition
+ * pachinko.js - Rare V-Zone Appearance Edition
  */
 const Pachinko = {
     canvas: null, ctx: null,
@@ -10,12 +10,12 @@ const Pachinko = {
     isSlotSpinning: false,
     shootTimer: 0, isPressing: false,
     hue: 0, fanAngle: 0,
-    shooterX: 200, // 発射台のX座標
-    shooterDir: 1, // 移動方向
+    shooterX: 200, shooterDir: 1,
+    vZoneTimer: 0, // Vゾーンが出現している残り時間
     interval: null,
 
     init() {
-        GameModule.setupGameCanvas("天井移動パチンコ", "pachinko");
+        GameModule.setupGameCanvas("激レアVパチンコ", "pachinko");
         const container = document.getElementById('pachinko-container');
         container.innerHTML = `
             <style>
@@ -35,7 +35,7 @@ const Pachinko = {
                 ❓ ❓ ❓
             </div>
             <canvas id="pk-canvas" width="400" height="500" style="background:#001f3f; border:4px solid #555; border-radius:10px; touch-action:none;"></canvas>
-            <p style="color:#333; font-weight:bold; margin-top:10px; text-align:center;">動く発射台からタイミングよく落とせ！</p>
+            <p id="pk-hint" style="color:#ff00ff; font-weight:bold; margin-top:10px; text-align:center; height:20px;">Vゾーンを狙え！</p>
         `;
         this.canvas = document.getElementById('pk-canvas');
         this.ctx = this.canvas.getContext('2d');
@@ -48,7 +48,6 @@ const Pachinko = {
 
     setupPins() {
         this.pins = []; this.movingPins = [];
-        // 釘を上部からしっかり配置
         for (let i = 0; i < 75; i++) {
             this.pins.push({ x: 20 + Math.random() * 360, y: 60 + Math.random() * 340, r: 3 });
         }
@@ -65,51 +64,46 @@ const Pachinko = {
     shoot() {
         if (this.score <= 0) return;
         this.score--; this.updateUI();
-        // 天井の発射台から射出！
-        this.balls.push({ 
-            x: this.shooterX, 
-            y: 35, 
-            vx: (Math.random() - 0.5) * 2, // わずかに左右に散らす
-            vy: 2 + Math.random() * 3, 
-            r: 5, 
-            passedV: false 
-        });
+        this.balls.push({ x: this.shooterX, y: 35, vx: (Math.random() - 0.5) * 2, vy: 2 + Math.random() * 3, r: 5, passedV: false });
     },
 
     update() {
         if (this.isPressing && this.shootTimer++ % 7 === 0) this.shoot();
         
-        // 発射台の移動ロジック
+        // シューター移動
         this.shooterX += 3 * this.shooterDir;
         if (this.shooterX < 30 || this.shooterX > 370) this.shooterDir *= -1;
 
-        // 動く釘
+        // Vゾーン出現抽選 (通常時のみ、約20秒に1回程度の確率で出現)
+        if (!this.isRush && this.vZoneTimer <= 0) {
+            if (Math.random() < 0.003) {
+                this.vZoneTimer = 180; // 3秒間出現(60fps * 3)
+            }
+        } else if (this.vZoneTimer > 0) {
+            this.vZoneTimer--;
+        }
+
         this.movingPins.forEach(p => { p.x += p.vx; if (p.x < 40 || p.x > 360) p.vx *= -1; });
         this.hue = (this.hue + 5) % 360;
-
-        // 扇風機
         if (!this.isRush) this.fanAngle += 0.15; else this.fanAngle = 0;
 
         this.balls.forEach((b, i) => {
             b.x += b.vx; b.y += b.vy; b.vy += 0.35;
             
-            // 天井・壁反射
             if (b.y < b.r) { b.y = b.r; b.vy *= -0.8; }
             if (b.x < b.r) { b.x = b.r; b.vx *= -0.7; }
             if (b.x > 400 - b.r) { b.x = 400 - b.r; b.vx *= -0.7; }
 
-            // 衝突判定
             this.pins.forEach(p => this.checkCollision(b, p));
             this.movingPins.forEach(p => this.checkCollision(b, p));
             this.checkFanCollision(b);
 
-            // Vゾーン
-            if (b.y > 240 && b.y < 260 && b.x > 195 && b.x < 205 && !b.passedV) {
+            // Vゾーン当たり判定 (出現中のみ)
+            if (this.vZoneTimer > 0 && b.y > 240 && b.y < 260 && b.x > 195 && b.x < 205 && !b.passedV) {
                 b.passedV = true;
-                if (Math.random() < 0.5) { this.isRush = true; this.score += 100; this.updateUI(); }
+                if (Math.random() < 0.5) { this.isRush = true; this.score += 100; this.vZoneTimer = 0; this.updateUI(); }
             }
 
-            // ヘソ
             if (b.y > 420 && b.y < 460 && b.x > 150 && b.x < 250) { this.startSlot(); this.balls.splice(i, 1); return; }
             if (b.y > 500) this.balls.splice(i, 1);
         });
@@ -133,8 +127,7 @@ const Pachinko = {
             const angleToBall = Math.atan2(dy, dx);
             const relativeAngle = (angleToBall - this.fanAngle) % (Math.PI / 2);
             if (Math.abs(relativeAngle) < 0.2) {
-                b.vx = Math.cos(angleToBall) * 10;
-                b.vy = -Math.abs(Math.sin(angleToBall) * 10);
+                b.vx = Math.cos(angleToBall) * 10; b.vy = -Math.abs(Math.sin(angleToBall) * 10);
             }
         }
     },
@@ -165,44 +158,43 @@ const Pachinko = {
 
     updateUI() {
         document.getElementById('pk-score').innerText = this.score;
-        const mode = document.getElementById('pk-mode'), canvas = document.getElementById('pk-canvas');
+        const mode = document.getElementById('pk-mode'), canvas = document.getElementById('pk-canvas'), hint = document.getElementById('pk-hint');
         if (this.isRush) {
             mode.innerText = "🌈 RAINBOW RUSH 🌈";
             mode.style.color = `hsl(${this.hue}, 100%, 50%)`;
             canvas.classList.add('rush-active');
+            hint.innerText = "RUSH中！扇風機停止中！";
         } else {
             mode.innerText = "通常モード (10%)";
             mode.style.color = "#aaa";
             canvas.classList.remove('rush-active');
+            hint.innerText = this.vZoneTimer > 0 ? "🔥 今だ！Vゾーン出現中！ 🔥" : "Vゾーン待機中...";
         }
     },
 
     draw() {
         this.ctx.clearRect(0, 0, 400, 500);
 
-        // 天井の発射台 (シューター)
+        // シューター
         this.ctx.fillStyle = "#fff";
-        this.ctx.beginPath();
-        this.ctx.moveTo(this.shooterX - 15, 0);
-        this.ctx.lineTo(this.shooterX + 15, 0);
-        this.ctx.lineTo(this.shooterX + 10, 30);
-        this.ctx.lineTo(this.shooterX - 10, 30);
-        this.ctx.closePath();
-        this.ctx.fill();
-        this.ctx.strokeStyle = "#ffd700";
-        this.ctx.lineWidth = 2;
-        this.ctx.stroke();
+        this.ctx.beginPath(); this.ctx.moveTo(this.shooterX-15,0); this.ctx.lineTo(this.shooterX+15,0); this.ctx.lineTo(this.shooterX+10,30); this.ctx.lineTo(this.shooterX-10,30); this.ctx.fill();
 
-        // 扇風機役物
+        // Vゾーン (出現中のみ描画)
+        if (this.vZoneTimer > 0) {
+            this.ctx.strokeStyle = (Math.floor(Date.now()/100) % 2) ? "#00ffff" : "#fff"; // 点滅
+            this.ctx.lineWidth = 3;
+            this.ctx.strokeRect(190, 240, 20, 20);
+            this.ctx.fillStyle = "#00ffff";
+            this.ctx.font = "bold 14px Arial";
+            this.ctx.fillText("V", 194, 255);
+        }
+
+        // 扇風機
         this.ctx.save();
-        this.ctx.translate(200, 400);
-        this.ctx.rotate(this.fanAngle);
+        this.ctx.translate(200, 400); this.ctx.rotate(this.fanAngle);
         this.ctx.strokeStyle = this.isRush ? "#00ff00" : "#ffaa00";
         this.ctx.lineWidth = 4;
-        for (let i = 0; i < 4; i++) {
-            this.ctx.rotate(Math.PI / 2);
-            this.ctx.beginPath(); this.ctx.moveTo(0, 0); this.ctx.lineTo(0, 35); this.ctx.stroke();
-        }
+        for (let i = 0; i < 4; i++) { this.ctx.rotate(Math.PI / 2); this.ctx.beginPath(); this.ctx.moveTo(0,0); this.ctx.lineTo(0,35); this.ctx.stroke(); }
         this.ctx.restore();
 
         // 釘
@@ -212,9 +204,6 @@ const Pachinko = {
             this.ctx.fillStyle = this.isRush ? `hsl(${this.hue}, 100%, 50%)` : "#ff0000";
             this.ctx.beginPath(); this.ctx.arc(p.x, p.y, p.r, 0, Math.PI*2); this.ctx.fill();
         });
-
-        // Vゾーン
-        this.ctx.strokeStyle = "#00ffff"; this.ctx.lineWidth = 2; this.ctx.strokeRect(190, 240, 20, 20);
 
         // ヘソ
         this.ctx.fillStyle = this.isRush ? `hsla(${this.hue}, 100%, 50%, 0.3)` : "rgba(255, 215, 0, 0.2)";
