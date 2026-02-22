@@ -1,21 +1,23 @@
 /**
- * pachinko.js - Right-Side Shooter & Huge Goal Edition
+ * pachinko.js - Full-Auto Rapid Fire Edition
  */
 const Pachinko = {
     canvas: null, ctx: null,
     balls: [], pins: [], 
-    score: 100, isRush: false,
+    score: 1000, // 連射するので初期玉数を増やしたぜ！
+    isRush: false,
     slotSymbols: ["🍒", "🍉", "🔔", "🎰", "7️⃣"],
     currentSlot: ["❓", "❓", "❓"],
     isSlotSpinning: false,
+    shootTimer: 0,
+    isPressing: false,
     interval: null,
 
     init() {
-        GameModule.setupGameCanvas("パチンコスロット", "pachinko");
+        GameModule.setupGameCanvas("爆裂パチンコ", "pachinko");
         const container = document.getElementById('pachinko-container');
         container.innerHTML = `
             <style>
-                /* 長押しで青い選択が出ないようにする魔法のコード */
                 #pachinko-container, #pk-canvas {
                     -webkit-user-select: none;
                     -webkit-touch-callout: none;
@@ -23,16 +25,14 @@ const Pachinko = {
                 }
             </style>
             <div style="display:flex; justify-content:space-around; color:white; background:#333; padding:10px; border-radius:10px; margin-bottom:10px;">
-                <div style="font-size:20px;">玉数: <span id="pk-score">100</span></div>
+                <div style="font-size:20px;">玉数: <span id="pk-score">1000</span></div>
                 <div id="pk-mode" style="font-size:20px; color:#aaa;">通常モード</div>
             </div>
             <div id="pk-slot" style="font-size:40px; text-align:center; background:#111; border:4px solid #ffd700; margin-bottom:10px; padding:10px; border-radius:10px; color:white;">
                 ❓ ❓ ❓
             </div>
             <canvas id="pk-canvas" width="400" height="500" style="background:#001f3f; border:4px solid #555; border-radius:10px; touch-action:none;"></canvas>
-            <div id="charge-bar" style="width:100%; height:10px; background:#444; margin-top:5px; border-radius:5px; overflow:hidden;">
-                <div id="charge-fill" style="width:0%; height:100%; background:#00ff00;"></div>
-            </div>
+            <p style="color:#333; font-weight:bold; margin-top:10px; text-align:center;">画面を長押しで【超連射】開始！</p>
         `;
         this.canvas = document.getElementById('pk-canvas');
         this.ctx = this.canvas.getContext('2d');
@@ -45,78 +45,76 @@ const Pachinko = {
 
     setupPins() {
         this.pins = [];
-        // 中央付近にランダムに釘を配置
-        for (let y = 120; y < 400; y += 45) {
-            let offset = (y / 45) % 2 === 0 ? 30 : 50;
-            for (let x = offset; x < 350; x += 50) {
-                this.pins.push({ x: x, y: y, r: 3 });
-            }
+        // 釘をランダムに配置して動きを予測不能にする
+        for (let i = 0; i < 60; i++) {
+            this.pins.push({
+                x: 30 + Math.random() * 320,
+                y: 100 + Math.random() * 300,
+                r: 3
+            });
         }
     },
 
     setupTouchEvents() {
-        let charge = 0;
-        let chargeInterval;
         this.canvas.onmousedown = this.canvas.ontouchstart = (e) => {
             e.preventDefault();
-            if (this.score <= 0) return;
-            charge = 0;
-            chargeInterval = setInterval(() => { 
-                charge = Math.min(charge + 0.4, 25); // パワー上限アップ
-                document.getElementById('charge-fill').style.width = (charge/25)*100 + "%";
-            }, 30);
+            this.isPressing = true;
         };
-        this.canvas.onmouseup = this.canvas.ontouchend = (e) => {
-            clearInterval(chargeInterval);
-            this.shoot(charge);
-            document.getElementById('charge-fill').style.width = "0%";
+        window.onmouseup = window.ontouchend = (e) => {
+            this.isPressing = false;
         };
     },
 
-    shoot(power) {
-        if (power < 5) return; // 弱すぎると打たない
+    shoot() {
+        if (this.score <= 0) return;
         this.score--;
         this.updateUI();
+        // 右打ちレールに乗る絶妙なパワーで発射
         this.balls.push({
             x: 385, y: 480,
-            vx: 0, vy: -power, // 真上に打ち出す！
-            r: 6,
-            inRail: true // 右のレールの中にいるフラグ
+            vx: 0, vy: -18 - (Math.random() * 2), // わずかにバラつかせる
+            r: 5,
+            inRail: true
         });
     },
 
     update() {
+        // 連射処理 (10フレームに1回発射)
+        if (this.isPressing) {
+            this.shootTimer++;
+            if (this.shootTimer % 6 === 0) { // 数値を下げるとさらに速くなるぞ
+                this.shoot();
+            }
+        }
+
         this.balls.forEach((b, i) => {
             b.x += b.vx; b.y += b.vy;
-            b.vy += 0.35; // 重力を少し強くしてスピード感を出す
+            b.vy += 0.35; // 重力
 
-            // 右の打ち出しレール
             if (b.inRail) {
-                if (b.y < 60) { // 一番上まで到達
-                    b.vx = -8; // 左に向かって飛び出す
+                if (b.y < 60) {
+                    b.vx = -7 - (Math.random() * 3);
                     b.inRail = false;
                 }
-                if (b.x < 370) b.x = 380; // レールからはみ出さない
+                if (b.x < 370) b.x = 380;
             } else {
-                // 通常の反射
-                if (b.x < b.r || b.x > 400 - b.r) b.vx *= -0.7;
-                if (b.y < b.r) b.vy *= -0.7;
+                if (b.x < b.r || b.x > 400 - b.r) b.vx *= -0.6;
+                if (b.y < b.r) b.vy *= -0.6;
 
-                // 釘との衝突
                 this.pins.forEach(p => {
                     const dx = b.x - p.x, dy = b.y - p.y;
                     const dist = Math.hypot(dx, dy);
                     if (dist < b.r + p.r) {
                         const angle = Math.atan2(dy, dx);
                         const speed = Math.hypot(b.vx, b.vy) * 0.5;
-                        b.vx = Math.cos(angle) * speed + (Math.random() - 0.5);
+                        b.vx = Math.cos(angle) * speed + (Math.random() - 0.2);
                         b.vy = Math.sin(angle) * speed;
                     }
                 });
             }
 
-            // 巨大ヘソ（入賞口）判定
-            if (b.y > 400 && b.y < 440 && b.x > 150 && b.x < 250) {
+            // 真ん中の巨大ヘソ (入賞口) 判定
+            if (b.y > 420 && b.y < 460 && b.x > 150 && b.x < 250) {
                 this.startSlot();
                 this.balls.splice(i, 1);
                 return;
@@ -139,7 +137,7 @@ const Pachinko = {
             ];
             document.getElementById('pk-slot').innerText = this.currentSlot.join(" ");
             count++;
-            if (count > 25) {
+            if (count > 20) {
                 clearInterval(spin);
                 this.checkSlotResult();
                 this.isSlotSpinning = false;
@@ -152,15 +150,14 @@ const Pachinko = {
         if (s1 === s2 && s2 === s3) {
             if (s1 === "7️⃣") {
                 this.isRush = true;
-                this.score += 77;
-                alert("🎊 超 確 変 突 入 🎊");
+                this.score += 500;
+                alert("🎊 超 確 変 R U S H 突 入 🎊\n500玉獲得！");
             } else {
-                this.score += 30;
-                alert("当たり！30玉ゲット！");
+                this.score += 100;
+                alert("当たり！100玉獲得！");
             }
         } else if (this.isRush) {
-            // 確変中はハズレでも玉が増える
-            this.score += 3;
+            this.score += 10; // 確変中はハズレでもモリモリ増える
         }
         this.updateUI();
     },
@@ -171,23 +168,16 @@ const Pachinko = {
         if (this.isRush) {
             mode.innerText = "🔥 RUSH中 🔥";
             mode.style.color = "#ff0000";
-        } else {
-            mode.innerText = "通常モード";
-            mode.style.color = "#aaa";
         }
     },
 
     draw() {
         this.ctx.clearRect(0, 0, 400, 500);
 
-        // レールの描画
+        // レール
         this.ctx.strokeStyle = "#555";
-        this.ctx.lineWidth = 5;
-        this.ctx.beginPath();
-        this.ctx.moveTo(370, 500);
-        this.ctx.lineTo(370, 80);
-        this.ctx.quadraticCurveTo(370, 30, 320, 30);
-        this.ctx.stroke();
+        this.ctx.lineWidth = 4;
+        this.ctx.strokeRect(375, 80, 20, 420);
 
         // 釘
         this.ctx.fillStyle = "#ffd700";
@@ -195,18 +185,19 @@ const Pachinko = {
             this.ctx.beginPath(); this.ctx.arc(p.x, p.y, p.r, 0, Math.PI*2); this.ctx.fill();
         });
 
-        // 巨大ヘソ（入賞口）
-        this.ctx.fillStyle = "rgba(255, 0, 255, 0.3)";
-        this.ctx.fillRect(150, 410, 100, 30);
-        this.ctx.strokeStyle = "#ff00ff";
+        // ど真ん中の巨大ヘソ
+        this.ctx.fillStyle = "rgba(255, 215, 0, 0.2)";
+        this.ctx.fillRect(150, 420, 100, 40);
+        this.ctx.strokeStyle = "#ffd700";
         this.ctx.lineWidth = 3;
-        this.ctx.strokeRect(150, 410, 100, 30);
+        this.ctx.strokeRect(150, 420, 100, 40);
         this.ctx.fillStyle = "#fff";
-        this.ctx.fillText("CHANCE", 175, 430);
+        this.ctx.font = "bold 14px Arial";
+        this.ctx.fillText("V-CHANCE", 168, 445);
 
         // 玉
         this.balls.forEach(b => {
-            this.ctx.fillStyle = "#ddd";
+            this.ctx.fillStyle = "#ccc";
             this.ctx.beginPath(); this.ctx.arc(b.x, b.y, b.r, 0, Math.PI*2); this.ctx.fill();
             this.ctx.fillStyle = "#fff";
             this.ctx.beginPath(); this.ctx.arc(b.x - 2, b.y - 2, 2, 0, Math.PI*2); this.ctx.fill();
