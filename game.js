@@ -47,10 +47,12 @@ const GameModule = {
         </div>
         <div class="game-card" onclick="Pachinko.init()">
     <div class="game-icon">💰</div><h3>パチンコ</h3>
-</div><div class="game-card" onclick="server.init()">
-                        <div class="game-icon">P</div>
-                        <h3>プロキシ</h3>
-                    </div>
+</div>
+<div class="game-card" onclick="ProxyModule.init()">
+    <div class="game-icon">🌐</div>
+    <h3>プロキシ</h3>
+</div>
+// ...
                 </div>
             </div>
 
