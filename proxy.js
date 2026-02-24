@@ -1,10 +1,11 @@
 /**
- * proxy.js (難読化スクレイピング方式)
+ * proxy.js (文字列受取・大画面表示版)
  */
 const ProxyModule = {
     init() {
         if (typeof GameModule !== 'undefined') {
-            GameModule.setupGameCanvas('攻略データ抽出', 'proxy');
+            // 自作サイトの初期設定を呼び出し
+            GameModule.setupGameCanvas('攻略サイト・リーダー', 'proxy');
             this.render();
         }
     },
@@ -13,19 +14,24 @@ const ProxyModule = {
         const container = document.getElementById('proxy-container');
         if (!container) return;
 
-        // 既存のYouTubeレイアウトを邪魔しないよう、クラスを追加して制御
+        // 🌟 画面を小さくさせないためのスタイル調整
+        container.style.width = "100%";
+        container.style.height = "100%";
+        container.style.padding = "0";
+
         container.innerHTML = `
-            <div id="sc-root" style="display:flex; flex-direction:column; height:100%; background:#000;">
-                <div style="padding:12px; background:#1a1a1a; display:flex; gap:10px; flex-shrink:0;">
-                    <input type="text" id="p-url" placeholder="攻略サイトのURLを入力" 
-                        style="flex:1; height:40px; border-radius:20px; border:none; background:#333; color:#fff; padding:0 15px; font-size:16px; outline:none;">
-                    <button id="p-btn" style="height:40px; padding:0 20px; background:#007AFF; color:#fff; border-radius:20px; border:none; font-weight:bold;">抽出</button>
+            <div id="proxy-app" style="display:flex; flex-direction:column; width:100%; height:100%; background:#000;">
+                <div style="padding:15px; background:#1a1a1a; display:flex; gap:10px; flex-shrink:0;">
+                    <input type="text" id="p-url" placeholder="URLを貼り付けてGo" 
+                        style="flex:1; height:44px; border-radius:22px; border:none; background:#333; color:#fff; padding:0 20px; font-size:16px; outline:none;">
+                    <button id="p-btn" style="width:80px; height:44px; background:#007AFF; color:#fff; border-radius:22px; border:none; font-weight:bold;">Go</button>
                 </div>
-                <div id="p-display" style="flex:1; background:#fff; overflow:hidden; border-radius:15px 15px 0 0; position:relative;">
+                
+                <div id="p-view-area" style="flex:1; width:100%; background:#fff; overflow:hidden; position:relative; border-radius:15px 15px 0 0;">
                     <div id="p-status" style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); color:#999; text-align:center;">
-                        URLを入れて「抽出」を押してください
+                        URLを入力すると、広告なしで記事が表示されます。
                     </div>
-                    <iframe id="p-frame" style="width:100%; height:100%; border:none; display:none;"></iframe>
+                    <iframe id="p-content-frame" style="width:100%; height:100%; border:none; display:none;"></iframe>
                 </div>
             </div>
         `;
@@ -35,41 +41,41 @@ const ProxyModule = {
     bind() {
         const input = document.getElementById('p-url');
         const btn = document.getElementById('p-btn');
-        const frame = document.getElementById('p-frame');
+        const frame = document.getElementById('p-content-frame');
         const status = document.getElementById('p-status');
 
-        const startExtraction = async () => {
+        const executeAction = async () => {
             let url = input.value.trim();
             if (!url) return;
             if (!url.startsWith('http')) url = 'https://' + url;
 
-            status.innerHTML = '🔍 解析中... (アイフィルターを回避しています)';
+            status.innerHTML = '🔄 データを抽出中...';
             status.style.display = 'block';
             frame.style.display = 'none';
 
-            // 🌟 URLをぐっちゃぐちゃにする (Base64 -> 反転)
+            // 🌟 URLをぐっちゃぐちゃに変換（反転Base64）
             const secret = btoa(unescape(encodeURIComponent(url))).split('').reverse().join('');
             
             try {
+                // サーバーからHTML文字列を取得
                 const res = await fetch(`/api/proxy?q=${secret}`);
-                const html = await res.text();
+                if (!res.ok) throw new Error();
+                const htmlString = await res.text();
                 
-                // 取得したHTMLを流し込む
-                frame.srcdoc = html;
-                frame.style.display = 'block';
-                status.style.display = 'none';
-                input.blur();
+                // 🌟 iframeのsrcdocに文字列を直接流し込む（鍵マークが出ない魔法）
+                frame.srcdoc = htmlString;
+                
+                frame.onload = () => {
+                    frame.style.display = 'block';
+                    status.style.display = 'none';
+                };
             } catch (e) {
-                status.innerHTML = '❌ 抽出に失敗しました。';
+                status.innerHTML = '❌ 取得失敗。URLが正しいか確認してください。';
             }
+            input.blur();
         };
 
-        btn.onclick = startExtraction;
-        input.onkeydown = (e) => { 
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                startExtraction();
-            }
-        };
+        btn.onclick = executeAction;
+        input.onkeydown = (e) => { if (e.key === 'Enter') executeAction(); };
     }
 };
