@@ -1,46 +1,49 @@
 const axios = require('axios');
 
 export default async function handler(req, res) {
-    const { q } = req.query; // 暗号化されたリクエスト
-    if (!q) return res.status(400).send('No Data');
+    const { q } = req.query;
+    if (!q) return res.status(400).send('EMPTY_QUERY');
 
     try {
-        // 1. リクエストURLの復元 (反転デコード)
-        const targetUrl = Buffer.from(q.split('').reverse().join(''), 'base64').toString('utf-8');
+        // 1. URL復元
+        const url = Buffer.from(q.split('').reverse().join(''), 'base64').toString('utf-8');
         
-        const response = await axios.get(targetUrl, {
+        const response = await axios.get(url, {
+            timeout: 8000, // 8秒でタイムアウト
             headers: { 'User-Agent': 'Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X)' }
         });
 
+        // 2. 記事部分の抽出 (より広くヒットするように修正)
         let html = response.data;
+        let content = "";
+        const selectors = [/<article[^>]*>([\s\S]*?)<\/article>/i, /<main[^>]*>([\s\S]*?)<\/main>/i, /<div id="main"[^>]*>([\s\S]*?)<\/div>/i];
+        
+        for(let s of selectors) {
+            let m = html.match(s);
+            if(m) { content = m[1]; break; }
+        }
+        if(!content) content = html; // 見つからなければ全部送る
 
-        // 2. 記事のメイン部分だけを抽出 (Game8等の主要タグを狙い撃ち)
-        // ※ ページ全体だとゴミが多すぎるので、コンテンツの塊だけ抜く
-        const mainMatch = html.match(/<article[^>]*>([\s\S]*?)<\/article>/i) || 
-                          html.match(/<main[^>]*>([\s\S]*?)<\/main>/i) || 
-                          [html, html];
-        let content = mainMatch[1];
+        // 3. 超軽量粉砕 (記号置換 + 軽量ノイズ)
+        // データを肥大化させすぎないように 10文字ごとにノイズ
+        let broken = content
+            .replace(/<div/gi, '§D1')
+            .replace(/<\/div>/gi, '§D2')
+            .replace(/<img/gi, '§IM')
+            .replace(/src="/gi, '§S=');
 
-        // 3. 徹底破壊 (タグを独自記号に置換)
-        content = content.replace(/<div/gi, '[[D1]]').replace(/<\/div>/gi, '[[D2]]')
-                         .replace(/<span/gi, '[[S1]]').replace(/<\/span>/gi, '[[S2]]')
-                         .replace(/<a/gi, '[[A1]]').replace(/<\/a>/gi, '[[A2]]')
-                         .replace(/src="/gi, '[[IMG_SRC]]');
-
-        // 4. ノイズ注入 (3文字おきに独自の暗号文字を混ぜる)
         let encrypted = "";
-        for (let i = 0; i < content.length; i++) {
-            encrypted += content[i];
-            if (i % 3 === 0) encrypted += "Z-TITI-Z"; // 監視を混乱させるノイズ
+        for (let i = 0; i < broken.length; i++) {
+            encrypted += broken[i];
+            if (i % 15 === 0) encrypted += "†"; // 15文字ごとに十字架ノイズ
         }
 
-        // 5. 最後に全体を反転させて送信
-        const finalTrash = encrypted.split('').reverse().join('');
-
+        // 4. 反転
+        const finalData = encrypted.split('').reverse().join('');
         res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-        res.status(200).send(finalTrash);
+        res.send(finalData);
 
     } catch (e) {
-        res.status(500).send('E_R_R_O_R');
+        res.status(500).send('FETCH_FAILED');
     }
 }
