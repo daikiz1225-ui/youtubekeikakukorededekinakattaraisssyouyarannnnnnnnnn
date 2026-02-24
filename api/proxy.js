@@ -7,34 +7,33 @@ export default async function handler(req, res) {
     try {
         const url = Buffer.from(q.split('').reverse().join(''), 'base64').toString('utf-8');
         const response = await axios.get(url, {
-            timeout: 7000,
+            timeout: 8000,
             headers: { 'User-Agent': 'Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X)' }
         });
 
         let html = response.data;
         
-        // 1. 記事の主要部分を抽出
-        const mainContent = html.match(/<article[^>]*>([\s\S]*?)<\/article>/i) || 
-                            html.match(/<main[^>]*>([\s\S]*?)<\/main>/i) || 
-                            [html, html];
-        let body = mainContent[1];
+        // 🌟 変更点：記事の一部ではなく、body全体を丸ごと抜き出す
+        const bodyMatch = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+        let body = bodyMatch ? bodyMatch[1] : html;
 
-        // 🌟 2. 鍵マークの原因（画像・外部通信）を徹底的に消去
-        body = body.replace(/<img[^>]*>/gi, '<div class="proxy-img">🖼️ 画像（フィルター回避のため非表示）</div>');
+        // 画像、動画、外部通信、JS、CSSを徹底消去（鍵マーク対策）
+        body = body.replace(/<img[^>]*>/gi, '<div class="proxy-img">🖼️ 画像（非表示）</div>');
         body = body.replace(/<picture[^>]*>([\s\S]*?)<\/picture>/gi, '');
         body = body.replace(/<source[^>]*>/gi, '');
-        body = body.replace(/<link[^>]*>/gi, ''); // 相手のCSSを削除
+        body = body.replace(/<link[^>]*>/gi, ''); 
+        body = body.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, ''); 
         body = body.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
 
-        // 🌟 3. リンクをただの文字にする
+        // リンクをただの文字にする（レイアウト崩れ・誤タップ防止）
         body = body.replace(/<a\b[^>]*>(.*?)<\/a>/gi, '<span>$1</span>');
 
-        // 🌟 4. パズル化（TITIUNKOノイズ）
+        // パズル化（TITIUNKOノイズ注入）
         let secure = body.replace(/</g, '«').replace(/>/g, '»');
         let packed = "";
         for (let i = 0; i < secure.length; i++) {
             packed += secure[i];
-            if (i % 40 === 0) packed += "TITIUNKO"; 
+            if (i % 45 === 0) packed += "TITIUNKO"; 
         }
 
         const finalPayload = packed.length + ":::SPLIT:::" + packed;
