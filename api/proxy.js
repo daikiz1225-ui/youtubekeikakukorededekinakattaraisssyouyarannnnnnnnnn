@@ -5,39 +5,37 @@ export default async function handler(req, res) {
     if (!q) return res.status(400).send('EMPTY');
 
     try {
-        // 1. URLの復元
         const url = Buffer.from(q.split('').reverse().join(''), 'base64').toString('utf-8');
-        
         const response = await axios.get(url, {
-            headers: { 'User-Agent': 'Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X)' }
+            timeout: 7000,
+            headers: { 'User-Agent': 'Mozilla/5.0 (iPad; Apple TV)' }
         });
 
         let html = response.data;
+        
+        // JSとiframeを削除して軽量化
+        let body = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+                       .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '');
 
-        // 2. 記事の主要部分だけを抽出 (Game8などの主要セレクタ)
-        const mainContent = html.match(/<article[^>]*>([\s\S]*?)<\/article>/i) || 
-                            html.match(/<main[^>]*>([\s\S]*?)<\/main>/i) || 
-                            [html, html];
-        let body = mainContent[1];
-
-        // 3. 【あなたのアイデア】リンクを消してただの文字にする
+        // リンクを文字化（あなたのアイデア）
         body = body.replace(/<a\b[^>]*>(.*?)<\/a>/gi, '<span>$1</span>');
 
-        // 4. スクリプトや不要な広告タグを抹殺
-        body = body.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
-        body = body.replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '');
-
-        // 5. 【パズル化】タグを隠し、ノイズを混ぜる
+        // タグ隠蔽
         let secure = body.replace(/</g, '«').replace(/>/g, '»');
+        
+        // パズル化（TITIUNKOノイズ）
         let packed = "";
         for (let i = 0; i < secure.length; i++) {
             packed += secure[i];
-            if (i % 30 === 0) packed += "TITIUNKO"; // 30文字ごとにノイズ
+            if (i % 50 === 0) packed += "TITIUNKO"; 
         }
 
+        // 🌟 データの先頭にサイズ情報を付けて、iPadが%を計算できるようにする
+        const finalPayload = packed.length + ":::SPLIT:::" + packed;
+
         res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-        res.status(200).send(packed);
+        res.status(200).send(finalPayload);
     } catch (e) {
-        res.status(500).send('ERR_FETCH');
+        res.status(500).send('SERVER_FETCH_ERROR');
     }
 }
