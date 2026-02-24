@@ -1,5 +1,5 @@
 /**
- * proxy.js (鍵マーク排除・絶対服従レイアウト版)
+ * proxy.js (全体表示＆不要部分カット版)
  */
 const ProxyModule = {
     init() {
@@ -13,7 +13,6 @@ const ProxyModule = {
         const container = document.getElementById('proxy-container');
         if (!container) return;
         
-        // iPad全画面を確保
         container.style.cssText = "position:fixed; top:0; left:0; width:100vw; height:100vh; z-index:999999; background:#f9f9f9; overflow:hidden;";
 
         container.innerHTML = `
@@ -52,12 +51,18 @@ const ProxyModule = {
                 const rawData = await res.text();
                 const [sizeInfo, packed] = rawData.split(":::SPLIT:::");
                 
-                // 🌟 ノイズ除去とタグの復元
                 let restored = packed.replace(/TITIUNKO/g, '').replace(/«/g, '<').replace(/»/g, '>');
 
-                // 🌟 【絶対服従CSS】どんな元のクラス名があっても上書きする最強の設計図
+                // 🌟 【絶対服従CSS】＋【ゴミ箱CSS】
                 const ironcladCSS = `
                     <style>
+                        /* Game8などの不要なヘッダー・フッター・サイドバーを強制非表示 */
+                        #p-safe-view header, #p-safe-view footer, #p-safe-view nav, 
+                        #p-safe-view aside, #p-safe-view .p-header, #p-safe-view .l-sidebar,
+                        #p-safe-view .ad, #p-safe-view .adsbygoogle {
+                            display: none !important;
+                        }
+
                         #p-safe-view {
                             text-align: left;
                             max-width: 900px;
@@ -74,18 +79,13 @@ const ProxyModule = {
                             max-width: 100% !important;
                             word-wrap: break-word !important;
                         }
-                        #p-safe-view h1, #p-safe-view h2 {
+                        #p-safe-view h1, #p-safe-view h2, #p-safe-view h3 {
                             background: #ecf0f1;
                             padding: 15px 20px;
                             border-left: 6px solid #3498db;
                             border-radius: 4px;
                             margin: 30px 0 15px 0;
-                            font-size: 22px;
-                        }
-                        #p-safe-view h3 {
-                            border-bottom: 2px solid #bdc3c7;
-                            padding-bottom: 5px;
-                            margin-top: 25px;
+                            font-size: 20px;
                             color: #2c3e50;
                         }
                         #p-safe-view table {
@@ -94,25 +94,25 @@ const ProxyModule = {
                             margin: 20px 0;
                             background: #fff;
                         }
-                        #p-safe-view th { background: #ecf0f1 !important; }
                         #p-safe-view td, #p-safe-view th {
                             border: 1px solid #bdc3c7 !important;
                             padding: 10px !important;
-                            font-size: 15px;
+                            font-size: 14px;
                         }
+                        #p-safe-view th { background: #ecf0f1 !important; }
                         #p-safe-view .proxy-img {
                             display: flex;
                             align-items: center;
                             justify-content: center;
                             background: #fdfbfb;
                             border: 2px dashed #bdc3c7;
-                            height: 100px;
+                            height: 80px;
                             margin: 15px 0;
                             color: #7f8c8d;
                             border-radius: 8px;
                             font-weight: bold;
                         }
-                        #p-safe-view span { color: inherit; text-decoration: none; } /* 元リンク */
+                        #p-safe-view span { color: inherit; text-decoration: none; }
                     </style>
                 `;
 
@@ -125,8 +125,7 @@ const ProxyModule = {
         };
 
         btn.onclick = execute;
-        // ※ ご指示通り、Enterキーで検索が発動しないよう（誤作動防止）、Enterキー処理は無効化しました。
-        // （「Go」ボタンを押した時だけ作動します）
+        // 🌟 Enterキーでの検索発動を無効化（ご要望通り）
         input.onkeydown = (e) => { 
             if(e.key === 'Enter') e.preventDefault(); 
         };
