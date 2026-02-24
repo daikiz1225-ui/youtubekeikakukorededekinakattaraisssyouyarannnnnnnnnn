@@ -1,10 +1,11 @@
 /**
- * proxy.js (大画面ミラーリング版)
+ * proxy.js (全画面ミラーリング最適化版)
  */
 const ProxyModule = {
     init() {
         if (typeof GameModule !== 'undefined') {
-            GameModule.setupGameCanvas('大画面ミラーリング', 'proxy');
+            // タイトルバーなどを非表示にして、より広く使う
+            GameModule.setupGameCanvas('全画面ミラーリング', 'proxy');
             this.render();
         }
     },
@@ -13,59 +14,72 @@ const ProxyModule = {
         const container = document.getElementById('proxy-container');
         if (!container) return;
 
-        // 既存の親要素のパディングなどを無視して広げるスタイル
+        // 親要素の制約をリセットし、画面いっぱいに広げる
+        container.style.padding = "0";
+        container.style.margin = "0";
+        container.style.maxWidth = "none";
+        container.style.width = "100%";
+
         container.innerHTML = `
-            <div id="mirror-wrapper" style="
-                position: relative;
-                width: 96vw; 
-                max-width: 1200px; 
-                margin: 0 auto; 
-                height: 85vh; 
+            <div id="mirror-app" style="
                 display: flex; 
                 flex-direction: column; 
-                background: #1a1a1a; 
-                border-radius: 15px; 
-                overflow: hidden;
-                box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+                width: 100%; 
+                height: calc(100vh - 60px); /* 画面上部のバーを除いた全高 */
+                background: #000;
             ">
                 <div style="
                     display: flex; 
-                    gap: 10px; 
-                    padding: 15px; 
-                    background: #2c2c2c; 
-                    border-bottom: 1px solid #444;
-                    z-index: 10;
+                    align-items: center; 
+                    gap: 12px; 
+                    padding: 10px 20px; 
+                    background: #222; 
+                    border-bottom: 1px solid #333;
                 ">
-                    <input type="text" id="p-url" placeholder="URLを入力 (例: game8.jp/...)" style="
-                        flex: 1; 
-                        height: 48px; 
-                        border-radius: 10px; 
-                        border: 1px solid #555; 
-                        background: #111; 
-                        color: white; 
-                        padding: 0 15px; 
-                        font-size: 16px;
-                    ">
+                    <input type="text" id="p-url" placeholder="URLを入力 (例: game8.jp/...)" 
+                        style="
+                            flex: 1; 
+                            height: 44px; 
+                            border-radius: 22px; 
+                            border: none; 
+                            background: #333; 
+                            color: white; 
+                            padding: 0 20px; 
+                            font-size: 16px;
+                            outline: none;
+                        ">
                     <button id="p-btn" style="
-                        width: 100px; 
-                        height: 48px; 
+                        height: 44px; 
+                        padding: 0 25px; 
                         background: #007AFF; 
                         color: white; 
                         border: none; 
-                        border-radius: 10px; 
+                        border-radius: 22px; 
                         font-weight: bold; 
                         cursor: pointer;
                         -webkit-appearance: none;
-                    ">閲覧開始</button>
+                    ">解析開始</button>
                 </div>
 
-                <div id="p-status" style="font-size: 12px; color: #aaa; background: #2c2c2c; padding: 0 15px 10px;"></div>
+                <div id="p-status" style="
+                    font-size: 11px; 
+                    color: #007AFF; 
+                    background: #222; 
+                    padding: 0 20px 8px;
+                    font-weight: bold;
+                ">🌐 待機中...</div>
 
-                <div style="flex: 1; position: relative; background: white;">
+                <div style="
+                    flex: 1; 
+                    width: 100%; 
+                    background: white; 
+                    overflow: hidden;
+                ">
                     <iframe id="p-frame" style="
                         width: 100%; 
                         height: 100%; 
                         border: none;
+                        background: white;
                     " sandbox="allow-same-origin allow-scripts allow-forms"></iframe>
                 </div>
             </div>
@@ -84,16 +98,18 @@ const ProxyModule = {
             if (!url) return;
             if (!url.startsWith('http')) url = 'https://' + url;
 
-            status.innerText = "🔄 アイフィルターを回避して接続中...";
+            status.innerText = "🔄 アイフィルターを回避して構築中...";
             
-            // Base64エンコード (日本語URL対応)
+            // 安全なBase64エンコード
             const encoded = btoa(encodeURIComponent(url).replace(/%([0-9A-F]{2})/g, (m, p1) => String.fromCharCode('0x' + p1)));
             
-            // iframeにAPI経由のURLをセット
+            // サーバーのミラーリングAPIへ
             frame.src = `/api/proxy?d=${encoded}`;
             
             frame.onload = () => { 
-                status.innerText = "✅ 表示中: " + url; 
+                status.innerText = "✅ 接続完了: " + url; 
+                // iPadのキーボードを閉じる
+                input.blur();
             };
         };
 
