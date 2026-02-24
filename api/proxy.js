@@ -2,37 +2,31 @@ const axios = require('axios');
 
 export default async function handler(req, res) {
     const { q } = req.query;
-    if (!q) return res.status(400).send('NO_DATA');
+    if (!q) return res.status(400).send('EMPTY');
 
     try {
-        // URL復元（簡単な反転のみ）
         const url = Buffer.from(q.split('').reverse().join(''), 'base64').toString('utf-8');
-        
         const response = await axios.get(url, {
-            timeout: 5000,
-            headers: { 'User-Agent': 'Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X)' }
+            timeout: 7000,
+            headers: { 'User-Agent': 'Mozilla/5.0 (iPad; Apple TV)' }
         });
 
         let html = response.data;
+        // JSと不要なタグを徹底削除
+        html = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+        html = html.replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '');
 
-        // 🌟 相手のJS/CSSを捨てて、メイン記事部分だけを「骨組み」で抜く
-        const mainMatch = html.match(/<article[^>]*>([\s\S]*?)<\/article>/i) || 
-                          html.match(/<main[^>]*>([\s\S]*?)<\/main>/i) || 
-                          [html, html];
-        let body = mainMatch[1].replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
-
-        // 🌟 【暗号化】タグを独自の記号に変換し、ノイズを混ぜる
-        // < → « , > → » に置換。さらに10文字ごとに "UNKO" を混ぜる
-        let secureData = body.replace(/</g, '«').replace(/>/g, '»');
-        let packed = "";
-        for (let i = 0; i < secureData.length; i++) {
-            packed += secureData[i];
-            if (i % 12 === 0) packed += "TITI"; // あなたの案：ノイズ注入
+        // 🌟 パズル化：HTMLタグを特殊記号に変え、1文字おきにノイズを挟む
+        let secure = html.replace(/</g, '«').replace(/>/g, '»');
+        let puzzle = "";
+        const noise = "X"; // 1文字ノイズで軽量化
+        for (let i = 0; i < secure.length; i++) {
+            puzzle += secure[i] + noise; 
         }
 
         res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-        res.status(200).send(packed);
+        res.send(puzzle);
     } catch (e) {
-        res.status(500).send('ERROR_FETCHING');
+        res.status(500).send('FETCH_ERR');
     }
 }
