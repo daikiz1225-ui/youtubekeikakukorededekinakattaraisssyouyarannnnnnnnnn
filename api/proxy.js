@@ -1,29 +1,27 @@
 const axios = require('axios');
 
 export default async function handler(req, res) {
-    const { d } = req.query;
+    const { d, img } = req.query;
 
-    if (!d) return res.status(400).json({ error: 'データが空です' });
+    // 画像中継モード
+    if (img) {
+        try {
+            const imgUrl = Buffer.from(img, 'base64').toString('utf-8');
+            const response = await axios.get(imgUrl, { responseType: 'arraybuffer' });
+            res.setHeader('Content-Type', response.headers['content-type']);
+            return res.send(response.data);
+        } catch (e) { return res.status(404).send(''); }
+    }
 
+    // HTML取得モード
     try {
-        // Base64を安全にデコード
         const targetUrl = Buffer.from(d, 'base64').toString('utf-8');
+        const response = await axios.get(targetUrl);
         
-        // URLが正しい形式か最終チェック
-        new URL(targetUrl);
-
-        const response = await axios.get(targetUrl, {
-            timeout: 10000,
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1'
-            }
-        });
-
-        res.status(200).json({
-            content: response.data,
-            url: targetUrl
-        });
+        // フィルター回避：中身をBase64にして「ただの文字列」として返す
+        const encodedData = Buffer.from(response.data).toString('base64');
+        res.status(200).json({ data: encodedData });
     } catch (error) {
-        res.status(500).json({ error: '取得失敗: ' + error.message });
+        res.status(500).json({ error: error.message });
     }
 }
