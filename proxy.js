@@ -1,10 +1,10 @@
 /**
- * proxy.js (Base64対応・レイアウト完全固定版)
+ * proxy.js (B案：自作デザイン流し込み版)
  */
 const ProxyModule = {
     init() {
         if (typeof GameModule !== 'undefined') {
-            GameModule.setupGameCanvas('隠密ブラウザ・真', 'proxy');
+            GameModule.setupGameCanvas('攻略ノート', 'proxy');
             this.render();
         }
     },
@@ -13,20 +13,18 @@ const ProxyModule = {
         const container = document.getElementById('proxy-container');
         if (!container) return;
         
-        container.style.cssText = "position:fixed; top:0; left:0; width:100vw; height:100vh; z-index:2147483647; background:#000; overflow:hidden;";
+        // iPad全画面を確保
+        container.style.cssText = "position:fixed; top:0; left:0; width:100vw; height:100vh; z-index:999999; background:#fff; overflow:hidden;";
 
         container.innerHTML = `
-            <div style="display:flex; flex-direction:column; height:100%; width:100%;">
-                <div style="padding:env(safe-area-inset-top) 15px 10px; background:#1a1a1a; display:flex; gap:10px; flex-shrink:0; align-items:center;">
-                    <button id="p-exit" style="background:none; border:none; color:#ff453a; font-size:24px; font-weight:bold;">✕</button>
-                    <input type="text" id="p-url" placeholder="攻略URL" style="flex:1; height:44px; border-radius:22px; border:none; background:#333; color:#fff; padding:0 20px; font-size:16px; outline:none;">
-                    <button id="p-go" style="width:60px; height:44px; background:#007AFF; color:#fff; border-radius:22px; border:none; font-weight:bold;">Go</button>
+            <div style="display:flex; flex-direction:column; height:100%; width:100%; background:#f5f5f7;">
+                <div style="padding:15px; background:#1a1a1a; display:flex; gap:10px; flex-shrink:0;">
+                    <button id="p-exit" style="background:none; border:none; color:#ff453a; font-size:24px;">✕</button>
+                    <input type="text" id="p-url" placeholder="攻略URLをペースト" style="flex:1; height:44px; border-radius:22px; border:none; background:#333; color:#fff; padding:0 20px; font-size:16px; outline:none;">
+                    <button id="p-go" style="padding:0 20px; background:#007AFF; color:#fff; border-radius:22px; border:none; font-weight:bold;">Go</button>
                 </div>
-                <div id="p-view-wrap" style="flex:1; background:#fff; overflow:hidden; position:relative;">
-                    <div id="p-load-msg" style="position:absolute; top:40%; width:100%; text-align:center; color:#999; display:none;">
-                        📡 通信を難読化中...
-                    </div>
-                    <iframe id="p-render-frame" style="width:100%; height:100%; border:none;"></iframe>
+                <div id="p-content-area" style="flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:20px;">
+                    <div id="p-status" style="text-align:center; color:#999; margin-top:100px;">URLを入れて抽出を開始してください</div>
                 </div>
             </div>
         `;
@@ -36,16 +34,14 @@ const ProxyModule = {
     bind() {
         const input = document.getElementById('p-url');
         const btn = document.getElementById('p-go');
-        const frame = document.getElementById('p-render-frame');
-        const loader = document.getElementById('p-load-msg');
+        const contentArea = document.getElementById('p-content-area');
 
-        const fetchEncrypted = async () => {
+        const startFetch = async () => {
             let url = input.value.trim();
             if(!url) return;
             if(!url.startsWith('http')) url = 'https://' + url;
 
-            loader.style.display = 'block';
-            frame.style.opacity = '0.3';
+            contentArea.innerHTML = '<div style="text-align:center; padding:50px;">📦 パズルを解読中...</div>';
 
             const secret = btoa(unescape(encodeURIComponent(url))).split('').reverse().join('');
             
@@ -53,22 +49,30 @@ const ProxyModule = {
                 const res = await fetch(`/api/proxy?q=${secret}`);
                 const data = await res.text();
 
-                // 🌟 TITIUNKOを削除し、タグを復元
+                // 🌟 ノイズ除去とタグの復元
                 let restored = data.replace(/TITIUNKO/g, '').replace(/«/g, '<').replace(/»/g, '>');
 
-                // iframeに流し込む（srcdocを使うことでiPadの監視を回避）
-                frame.srcdoc = restored;
-                frame.onload = () => {
-                    loader.style.display = 'none';
-                    frame.style.opacity = '1';
-                };
+                // 🌟 【自作デザインCSS】ここがレイアウトを直す肝です
+                const myDesign = `
+                    <style>
+                        .note { font-family: -apple-system, sans-serif; color: #1d1d1f; max-width: 800px; margin: 0 auto; line-height: 1.8; }
+                        .note h1, .note h2 { border-bottom: 2px solid #007AFF; padding-bottom: 8px; margin-top: 30px; }
+                        .note img { max-width: 100% !important; height: auto !important; border-radius: 12px; margin: 20px 0; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+                        .note table { width: 100% !important; border-collapse: collapse; margin: 20px 0; }
+                        .note td, .note th { border: 1px solid #ddd; padding: 10px; font-size: 14px; }
+                        .note span { color: inherit; text-decoration: none; } /* 元リンクの文字 */
+                    </style>
+                `;
+
+                contentArea.innerHTML = myDesign + '<div class="note">' + restored + '</div>';
+                contentArea.scrollTop = 0;
             } catch (e) {
-                loader.innerText = "❌ ブロックされました";
+                contentArea.innerHTML = '<div style="color:red; text-align:center; padding:50px;">❌ 通信エラー：ブロックされました</div>';
             }
         };
 
-        btn.onclick = fetchEncrypted;
-        input.onkeydown = (e) => { if(e.key === 'Enter') fetchEncrypted(); };
+        btn.onclick = startFetch;
+        input.onkeydown = (e) => { if(e.key === 'Enter') startFetch(); };
         document.getElementById('p-exit').onclick = () => location.reload();
     }
 };
