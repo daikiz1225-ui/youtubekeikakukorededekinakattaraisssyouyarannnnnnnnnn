@@ -2,48 +2,37 @@ const axios = require('axios');
 
 export default async function handler(req, res) {
     const { q } = req.query;
-    if (!q) return res.status(400).send('EMPTY_QUERY');
+    if (!q) return res.status(400).send('NO_DATA');
 
     try {
-        // 1. URL復元
+        // URL復元（簡単な反転のみ）
         const url = Buffer.from(q.split('').reverse().join(''), 'base64').toString('utf-8');
         
         const response = await axios.get(url, {
-            timeout: 8000, // 8秒でタイムアウト
+            timeout: 5000,
             headers: { 'User-Agent': 'Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X)' }
         });
 
-        // 2. 記事部分の抽出 (より広くヒットするように修正)
         let html = response.data;
-        let content = "";
-        const selectors = [/<article[^>]*>([\s\S]*?)<\/article>/i, /<main[^>]*>([\s\S]*?)<\/main>/i, /<div id="main"[^>]*>([\s\S]*?)<\/div>/i];
-        
-        for(let s of selectors) {
-            let m = html.match(s);
-            if(m) { content = m[1]; break; }
-        }
-        if(!content) content = html; // 見つからなければ全部送る
 
-        // 3. 超軽量粉砕 (記号置換 + 軽量ノイズ)
-        // データを肥大化させすぎないように 10文字ごとにノイズ
-        let broken = content
-            .replace(/<div/gi, '§D1')
-            .replace(/<\/div>/gi, '§D2')
-            .replace(/<img/gi, '§IM')
-            .replace(/src="/gi, '§S=');
+        // 🌟 相手のJS/CSSを捨てて、メイン記事部分だけを「骨組み」で抜く
+        const mainMatch = html.match(/<article[^>]*>([\s\S]*?)<\/article>/i) || 
+                          html.match(/<main[^>]*>([\s\S]*?)<\/main>/i) || 
+                          [html, html];
+        let body = mainMatch[1].replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
 
-        let encrypted = "";
-        for (let i = 0; i < broken.length; i++) {
-            encrypted += broken[i];
-            if (i % 15 === 0) encrypted += "†"; // 15文字ごとに十字架ノイズ
+        // 🌟 【暗号化】タグを独自の記号に変換し、ノイズを混ぜる
+        // < → « , > → » に置換。さらに10文字ごとに "UNKO" を混ぜる
+        let secureData = body.replace(/</g, '«').replace(/>/g, '»');
+        let packed = "";
+        for (let i = 0; i < secureData.length; i++) {
+            packed += secureData[i];
+            if (i % 12 === 0) packed += "TITI"; // あなたの案：ノイズ注入
         }
 
-        // 4. 反転
-        const finalData = encrypted.split('').reverse().join('');
         res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-        res.send(finalData);
-
+        res.status(200).send(packed);
     } catch (e) {
-        res.status(500).send('FETCH_FAILED');
+        res.status(500).send('ERROR_FETCHING');
     }
 }
