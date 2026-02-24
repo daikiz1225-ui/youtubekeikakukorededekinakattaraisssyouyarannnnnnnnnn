@@ -1,53 +1,57 @@
 /**
- * proxy.js
- * プロキシ機能の画面描画と制御
+ * proxy.js (スクレイピング・データ抽出版)
  */
 const ProxyModule = {
     init() {
-        // game.jsにある共通レイアウト関数を呼び出す
-        GameModule.setupGameCanvas('WEBプロキシ', 'proxy');
+        GameModule.setupGameCanvas('Gameデータ抽出', 'proxy');
         this.render();
     },
 
     render() {
         const container = document.getElementById('proxy-container');
-        if (!container) return;
-
         container.innerHTML = `
-            <div style="max-width: 800px; margin: 0 auto; padding: 10px;">
-                <div style="display: flex; gap: 8px; margin-bottom: 15px;">
-                    <input type="text" id="proxy-input" placeholder="https://google.com" 
-                           style="flex: 1; height: 48px; border-radius: 8px; padding: 0 15px; font-size: 16px; border: 1px solid #444; background: #1a1a1a; color: white;">
-                    <button id="proxy-go" style="height: 48px; padding: 0 20px; background: #4CAF50; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">閲覧</button>
+            <div style="padding: 10px; color: white;">
+                <input type="text" id="target-url" placeholder="解析したいURL" style="width:70%; height:44px;">
+                <button id="extract-btn" style="height:44px;">情報を抽出</button>
+                <div id="result-display" style="margin-top:20px; background:#fff; color:#000; padding:15px; border-radius:8px; min-height:200px;">
+                    ここに抽出した結果が表示されます
                 </div>
-                <iframe id="proxy-frame" style="width: 100%; height: 70vh; background: white; border-radius: 8px; border: none;"></iframe>
             </div>
         `;
-
         this.bindEvents();
     },
 
-    bindEvents() {
-        const input = document.getElementById('proxy-input');
-        const btn = document.getElementById('proxy-go');
-        const frame = document.getElementById('proxy-frame');
+    async bindEvents() {
+        const btn = document.getElementById('extract-btn');
+        btn.addEventListener('click', async () => {
+            const url = document.getElementById('target-url').value;
+            const display = document.getElementById('result-display');
+            display.innerText = "読み込み中...";
 
-        const execute = () => {
-            const url = input.value.trim();
-            if (url) {
-                // server.jsのエンドポイントを呼び出す
-                frame.src = `/proxy?url=${encodeURIComponent(url)}`;
-            }
-        };
+            try {
+                // 1. 外部サービス経由でHTMLを取得
+                const response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
+                const data = await response.json();
+                
+                // 2. HTMLを解析
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(data.contents, 'text/html');
 
-        // iPad/Enterキー対策：検索実行時にリロードさせない
-        input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault(); 
-                execute();
+                // 3. 必要な情報を「バラバラにして」抜き出す
+                // 例：記事のタイトルとメイン画像だけ抜く
+                const title = doc.querySelector('h1')?.innerText || "タイトルなし";
+                const firstImg = doc.querySelector('img')?.src;
+
+                // 4. 自作サイトの形に合わせて作成
+                display.innerHTML = `
+                    <h2 style="color: #333;">${title}</h2>
+                    ${firstImg ? `<img src="${firstImg}" style="max-width:100%;">` : ''}
+                    <p>元サイトから必要な情報だけを抽出しました。</p>
+                `;
+
+            } catch (e) {
+                display.innerText = "エラーが発生しました。";
             }
         });
-
-        btn.addEventListener('click', execute);
     }
 };
