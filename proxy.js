@@ -1,11 +1,10 @@
 /**
- * proxy.js (文字列受取・大画面表示版)
+ * proxy.js (粉砕データ復元・大画面版)
  */
 const ProxyModule = {
     init() {
         if (typeof GameModule !== 'undefined') {
-            // 自作サイトの初期設定を呼び出し
-            GameModule.setupGameCanvas('攻略サイト・リーダー', 'proxy');
+            GameModule.setupGameCanvas('隠密パズルブラウザ', 'proxy');
             this.render();
         }
     },
@@ -14,24 +13,18 @@ const ProxyModule = {
         const container = document.getElementById('proxy-container');
         if (!container) return;
 
-        // 🌟 画面を小さくさせないためのスタイル調整
-        container.style.width = "100%";
-        container.style.height = "100%";
-        container.style.padding = "0";
+        // 🌟 iPadの画面いっぱいに広げるスタイル
+        container.style.cssText = "position:fixed; top:0; left:0; width:100vw; height:100vh; z-index:999999; background:#000;";
 
         container.innerHTML = `
-            <div id="proxy-app" style="display:flex; flex-direction:column; width:100%; height:100%; background:#000;">
-                <div style="padding:15px; background:#1a1a1a; display:flex; gap:10px; flex-shrink:0;">
-                    <input type="text" id="p-url" placeholder="URLを貼り付けてGo" 
-                        style="flex:1; height:44px; border-radius:22px; border:none; background:#333; color:#fff; padding:0 20px; font-size:16px; outline:none;">
-                    <button id="p-btn" style="width:80px; height:44px; background:#007AFF; color:#fff; border-radius:22px; border:none; font-weight:bold;">Go</button>
+            <div style="display:flex; flex-direction:column; height:100%; width:100%;">
+                <div style="padding:15px; background:#1a1a1a; display:flex; gap:10px; flex-shrink:0; border-bottom:1px solid #333;">
+                    <button id="p-back" style="background:none; border:none; color:#ff453a; font-size:20px; cursor:pointer; padding:0 10px;">✕</button>
+                    <input type="text" id="p-url" placeholder="URLをペースト" style="flex:1; height:44px; border-radius:12px; border:none; background:#333; color:#fff; padding:0 15px;">
+                    <button id="p-btn" style="height:44px; padding:0 20px; background:#007AFF; color:#fff; border-radius:12px; border:none; font-weight:bold;">抽出</button>
                 </div>
-                
-                <div id="p-view-area" style="flex:1; width:100%; background:#fff; overflow:hidden; position:relative; border-radius:15px 15px 0 0;">
-                    <div id="p-status" style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); color:#999; text-align:center;">
-                        URLを入力すると、広告なしで記事が表示されます。
-                    </div>
-                    <iframe id="p-content-frame" style="width:100%; height:100%; border:none; display:none;"></iframe>
+                <div id="p-screen" style="flex:1; background:#fff; overflow-y:auto; -webkit-overflow-scrolling:touch;">
+                    <div id="p-msg" style="padding:100px 20px; text-align:center; color:#999;">暗号化通信待機中...</div>
                 </div>
             </div>
         `;
@@ -41,41 +34,56 @@ const ProxyModule = {
     bind() {
         const input = document.getElementById('p-url');
         const btn = document.getElementById('p-btn');
-        const frame = document.getElementById('p-content-frame');
-        const status = document.getElementById('p-status');
+        const screen = document.getElementById('p-screen');
+        const back = document.getElementById('p-back');
 
-        const executeAction = async () => {
+        const decryptAndShow = async () => {
             let url = input.value.trim();
-            if (!url) return;
-            if (!url.startsWith('http')) url = 'https://' + url;
+            if(!url) return;
+            if(!url.startsWith('http')) url = 'https://' + url;
 
-            status.innerHTML = '🔄 データを抽出中...';
-            status.style.display = 'block';
-            frame.style.display = 'none';
+            screen.innerHTML = '<div style="padding:100px 20px; text-align:center;">🧩 データを復元中...</div>';
 
-            // 🌟 URLをぐっちゃぐちゃに変換（反転Base64）
-            const secret = btoa(unescape(encodeURIComponent(url))).split('').reverse().join('');
+            // URLを難読化して送信
+            const secretUrl = btoa(unescape(encodeURIComponent(url))).split('').reverse().join('');
             
             try {
-                // サーバーからHTML文字列を取得
-                const res = await fetch(`/api/proxy?q=${secret}`);
-                if (!res.ok) throw new Error();
-                const htmlString = await res.text();
+                const res = await fetch(`/api/proxy?q=${secretUrl}`);
+                const trash = await res.text();
+
+                // --- 復元プロセス ---
+                // 1. 反転を戻す
+                let stage1 = trash.split('').reverse().join('');
                 
-                // 🌟 iframeのsrcdocに文字列を直接流し込む（鍵マークが出ない魔法）
-                frame.srcdoc = htmlString;
-                
-                frame.onload = () => {
-                    frame.style.display = 'block';
-                    status.style.display = 'none';
-                };
+                // 2. ノイズ「Z-TITI-Z」を消去
+                let stage2 = stage1.split('Z-TITI-Z').join('');
+
+                // 3. 独自記号をHTMLタグに戻す
+                let finalHtml = stage2
+                    .replace(/\[\[D1\]\]/g, '<div')
+                    .replace(/\[\[D2\]\]/g, '</div>')
+                    .replace(/\[\[S1\]\]/g, '<span')
+                    .replace(/\[\[S2\]\]/g, '</span>')
+                    .replace(/\[\[A1\]\]/g, '<a')
+                    .replace(/\[\[A2\]\]/g, '</a>')
+                    .replace(/\[\[IMG_SRC\]\]/g, 'src="');
+
+                // 4. スタイル調整して流し込み
+                screen.innerHTML = `
+                    <style>
+                        body { font-family: sans-serif; padding: 20px; color: #333; }
+                        img { max-width: 100%; height: auto; border-radius: 8px; margin: 10px 0; }
+                        a { color: #007AFF; text-decoration: none; pointer-events: none; } /* リンク無効化 */
+                    </style>
+                    <div class="restored-content">${finalHtml}</div>
+                `;
             } catch (e) {
-                status.innerHTML = '❌ 取得失敗。URLが正しいか確認してください。';
+                screen.innerHTML = '<div style="padding:100px 20px; color:red; text-align:center;">通信が遮断されました</div>';
             }
-            input.blur();
         };
 
-        btn.onclick = executeAction;
-        input.onkeydown = (e) => { if (e.key === 'Enter') executeAction(); };
+        btn.onclick = decryptAndShow;
+        input.onkeydown = (e) => { if(e.key === 'Enter') decryptAndShow(); };
+        back.onclick = () => location.reload();
     }
 };
