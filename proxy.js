@@ -1,105 +1,102 @@
 /**
- * proxy.js (高機能・広画面版)
+ * proxy.js
+ * フロントエンドUIと通信偽装ロジック
  */
 const ProxyModule = {
+    // 初期化
     init() {
-        // game.js の共通枠を使用
-        GameModule.setupGameCanvas('攻略データ抽出', 'proxy');
-        this.render();
+        if (typeof GameModule !== 'undefined' && GameModule.setupGameCanvas) {
+            GameModule.setupGameCanvas('安全データ抽出プロキシ', 'proxy');
+            this.render();
+        }
     },
 
+    // 画面描画
     render() {
         const container = document.getElementById('proxy-container');
         if (!container) return;
 
-        // 画面を広く使うためのスタイル上書き
         container.innerHTML = `
-            <div id="proxy-wrapper" style="width: 90vw; max-width: 1100px; margin: 0 auto; color: white; font-family: sans-serif;">
-                <div style="display: flex; gap: 10px; margin-bottom: 20px;">
-                    <input type="text" id="target-url" placeholder="https://game8.jp/..." 
-                           style="flex: 1; height: 50px; border-radius: 10px; padding: 0 15px; font-size: 16px; background: #333; color: white; border: 1px solid #555;">
-                    <button id="extract-btn" style="height: 50px; padding: 0 25px; border-radius: 10px; background: #007AFF; color: white; border: none; font-weight: bold; cursor: pointer;">
-                        解析開始
+            <div id="proxy-app" style="width: 95vw; max-width: 1000px; margin: 0 auto; font-family: sans-serif;">
+                <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                    <input type="text" id="proxy-url-input" placeholder="URLを入力 (例: game8.jp/...)" 
+                           style="flex: 1; height: 50px; border-radius: 12px; border: 1px solid #444; background: #222; color: white; padding: 0 15px; font-size: 16px; outline: none;">
+                    <button id="proxy-submit-btn" 
+                            style="height: 50px; padding: 0 25px; border-radius: 12px; background: #007AFF; color: white; border: none; font-weight: bold; cursor: pointer; -webkit-appearance: none;">
+                        解析
                     </button>
                 </div>
-
-                <div id="status-msg" style="margin-bottom: 10px; color: #aaa;"></div>
-
-                <div id="result-display" style="background: white; color: #333; padding: 20px; border-radius: 15px; min-height: 500px; overflow-y: auto; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
-                    <p style="text-align: center; color: #999; margin-top: 100px;">URLを入力して「解析開始」を押してください</p>
+                <div id="proxy-status" style="font-size: 12px; color: #888; margin-bottom: 5px; height: 15px;"></div>
+                <div id="proxy-output" 
+                     style="background: white; color: #222; min-height: 65vh; border-radius: 15px; overflow: auto; padding: 20px; box-shadow: inset 0 2px 10px rgba(0,0,0,0.2);">
+                    <p style="text-align:center; color:#999; margin-top:100px;">ここにWebサイトが「バラバラにされて」表示されます</p>
                 </div>
             </div>
         `;
-        this.bindEvents();
+
+        this.setupEvents();
     },
 
-    async bindEvents() {
-        const btn = document.getElementById('extract-btn');
-        const input = document.getElementById('target-url');
-        const display = document.getElementById('result-display');
-        const status = document.getElementById('status-msg');
+    // イベント設定
+    setupEvents() {
+        const input = document.getElementById('proxy-url-input');
+        const btn = document.getElementById('proxy-submit-btn');
+        const output = document.getElementById('proxy-output');
+        const status = document.getElementById('proxy-status');
 
-        const startExtraction = async () => {
-            const url = input.value.trim();
-            if (!url) return alert('URLを入力してください');
+        const handleFetch = async () => {
+            let url = input.value.trim();
+            if (!url) return;
+            if (!url.startsWith('http')) url = 'https://' + url;
 
-            display.innerHTML = '<div style="text-align:center; padding:50px;"><div class="loader"></div><p>データをバラバラにして取得中...</p></div>';
-            status.innerText = "通信中...";
+            status.innerText = "🔒 通信を難読化中...";
+            output.innerHTML = '<div style="text-align:center; padding:50px;">取得中...</div>';
 
             try {
-                // alloriginsを経由
-                const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}&_=${Date.now()}`;
-                const response = await fetch(proxyUrl);
+                // 1. URLをBase64で難読化（アイフィルター対策）
+                const encodedUrl = btoa(encodeURIComponent(url));
                 
-                if (!response.ok) throw new Error('通信エラー');
+                // 2. VercelのAPIにリクエスト
+                const response = await fetch(`/api/proxy?d=${encodedUrl}`);
                 const data = await response.json();
+
+                if (data.error) throw new Error(data.error);
+
+                status.innerText = "✅ データを復元しました";
                 
+                // 3. 取得したHTMLを解析・補正
                 const parser = new DOMParser();
-                const doc = parser.parseFromString(data.contents, 'text/html');
+                const doc = parser.parseFromString(data.content, 'text/html');
+                const baseUrl = new URL(url).origin;
 
-                // --- データのバラバラ抽出 ---
-                const title = doc.querySelector('h1')?.innerText || "タイトル不明";
-                const mainContent = doc.querySelector('.archive-style, .entry-content, article') || doc.body;
-                
-                // 相対パスの画像を絶対パスに書き換える処理
-                const images = mainContent.querySelectorAll('img');
-                images.forEach(img => {
-                    if (img.src.startsWith('http')) return;
-                    const originalHost = new URL(url).origin;
-                    img.src = originalHost + img.getAttribute('src');
-                    img.style.maxWidth = "100%";
-                    img.style.height = "auto";
-                });
+                // 画像やリンクのパスを「絶対パス」に修正
+                const fixPath = (el, attr) => {
+                    const val = el.getAttribute(attr);
+                    if (val && !val.startsWith('http') && !val.startsWith('data:')) {
+                        el.setAttribute(attr, baseUrl + (val.startsWith('/') ? '' : '/') + val);
+                    }
+                };
 
-                // 自作サイト用のテンプレートに流し込む
-                display.innerHTML = `
-                    <div style="border-bottom: 2px solid #eee; margin-bottom: 20px; padding-bottom: 10px;">
-                        <h1 style="font-size: 24px; color: #000;">${title}</h1>
-                        <p style="font-size: 12px; color: #666;">取得元: ${url}</p>
-                    </div>
-                    <div class="extracted-body" style="line-height: 1.6;">
-                        ${mainContent.innerHTML}
-                    </div>
-                `;
-                status.innerText = "取得完了";
+                doc.querySelectorAll('img').forEach(img => fixPath(img, 'src'));
+                doc.querySelectorAll('a').forEach(a => fixPath(a, 'href'));
 
-            } catch (e) {
-                console.error(e);
-                display.innerHTML = `
-                    <div style="color: red; padding: 20px; text-align: center;">
-                        <h3>エラーが発生しました</h3>
-                        <p>相手サイトのセキュリティによりブロックされた可能性があります。</p>
-                        <p style="font-size: 12px; color: #666;">${e.message}</p>
-                    </div>
-                `;
-                status.innerText = "失敗";
+                // 4. 表示（スクリプト等は除去して安全に表示）
+                output.innerHTML = doc.body.innerHTML;
+
+            } catch (err) {
+                status.innerText = "❌ 失敗";
+                output.innerHTML = `<div style="color:red; padding:20px;">エラー: ${err.message}</div>`;
             }
         };
 
-        // Enterキー対策
+        // iPad対応: Enterキーで検索。ページ全体のリロードを防止
         input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') { e.preventDefault(); startExtraction(); }
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                handleFetch();
+            }
         });
-        btn.addEventListener('click', startExtraction);
+
+        btn.addEventListener('click', handleFetch);
     }
 };
