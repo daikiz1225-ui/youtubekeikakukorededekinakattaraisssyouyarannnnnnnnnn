@@ -1,10 +1,10 @@
 /**
- * proxy.js (超軽量・独自暗号復元版)
+ * proxy.js (究極パズル復元版)
  */
 const ProxyModule = {
     init() {
         if (typeof GameModule !== 'undefined') {
-            GameModule.setupGameCanvas('隠密リーダー', 'proxy');
+            GameModule.setupGameCanvas('パズル解読中', 'proxy');
             this.render();
         }
     },
@@ -12,18 +12,18 @@ const ProxyModule = {
     render() {
         const container = document.getElementById('proxy-container');
         if (!container) return;
-        // iPad全画面表示
-        container.style.cssText = "position:fixed; top:0; left:0; width:100vw; height:100vh; z-index:9999999; background:#fff;";
+        // 自作サイトの枠を完全に無視して全画面化
+        container.style.cssText = "position:fixed; top:0; left:0; width:100vw; height:100vh; z-index:2147483647; background:#000; display:flex; flex-direction:column;";
 
         container.innerHTML = `
-            <div style="display:flex; flex-direction:column; height:100%; width:100%; color:#000;">
-                <div style="padding:15px; background:#1a1a1a; display:flex; gap:10px; flex-shrink:0;">
-                    <button id="p-exit" style="background:none; border:none; color:#ff453a; font-size:24px;">✕</button>
-                    <input type="text" id="p-url" placeholder="URLを入力" style="flex:1; height:44px; border-radius:10px; border:none; background:#333; color:#fff; padding:0 15px;">
-                    <button id="p-go" style="height:44px; padding:0 20px; background:#007AFF; color:#fff; border-radius:10px; border:none; font-weight:bold;">Go</button>
-                </div>
-                <div id="p-result" style="flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:20px;">
-                    <div id="p-msg" style="text-align:center; margin-top:50px; color:#999;">待機中...</div>
+            <div style="padding:env(safe-area-inset-top) 15px 10px; background:#1a1a1a; display:flex; gap:10px; flex-shrink:0;">
+                <button id="p-exit" style="background:none; border:none; color:#ff453a; font-size:24px; padding:5px 10px;">✕</button>
+                <input type="text" id="p-url" placeholder="攻略サイトのURL" style="flex:1; height:40px; border-radius:20px; border:none; background:#333; color:#fff; padding:0 15px; font-size:16px; outline:none;">
+                <button id="p-go" style="padding:0 20px; background:#007AFF; color:#fff; border-radius:20px; border:none; font-weight:bold;">Go</button>
+            </div>
+            <div id="p-view" style="flex:1; background:#fff; overflow-y:auto; -webkit-overflow-scrolling:touch; position:relative;">
+                <div id="p-msg" style="margin-top:100px; text-align:center; color:#999; font-size:18px;">
+                    URLを入力してGoを押してください
                 </div>
             </div>
         `;
@@ -33,41 +33,46 @@ const ProxyModule = {
     bind() {
         const input = document.getElementById('p-url');
         const btn = document.getElementById('p-go');
-        const result = document.getElementById('p-result');
+        const view = document.getElementById('p-view');
         const msg = document.getElementById('p-msg');
 
-        const run = async () => {
+        const decode = async () => {
             let url = input.value.trim();
             if(!url) return;
             if(!url.startsWith('http')) url = 'https://' + url;
 
-            msg.innerText = "🔒 暗号化通信中...";
+            msg.innerText = "🧩 パズルを解読中...";
             const secret = btoa(unescape(encodeURIComponent(url))).split('').reverse().join('');
 
             try {
                 const res = await fetch(`/api/proxy?q=${secret}`);
-                if(!res.ok) throw new Error();
-                const packed = await res.text();
+                const puzzle = await res.text();
 
-                // 🌟 【復元】ノイズを消して、独自記号をタグに戻す
-                let stage1 = packed.split('TITI').join(''); // ノイズ除去
-                let finalHtml = stage1.replace(/«/g, '<').replace(/»/g, '>'); // タグ復元
+                // 🌟 高速復元（1文字飛ばしで文字を拾う）
+                let restored = "";
+                for (let i = 0; i < puzzle.length; i += 2) {
+                    restored += puzzle[i];
+                }
 
-                result.innerHTML = `
+                // 特殊記号をHTMLに戻す
+                let html = restored.replace(/«/g, '<').replace(/»/g, '>');
+
+                view.innerHTML = `
                     <style>
-                        body { font-family: sans-serif; }
-                        img { max-width: 100%; height: auto; border-radius: 8px; }
-                        a { color: #007AFF; pointer-events: none; }
+                        body { padding: 20px; font-family: sans-serif; line-height: 1.6; }
+                        img { max-width: 100%; border-radius: 10px; margin: 10px 0; }
+                        .adsbygoogle, ins, .ad { display: none !important; }
                     </style>
-                    ${finalHtml}
+                    ${html}
                 `;
+                view.scrollTop = 0;
             } catch (e) {
-                msg.innerText = "❌ 読み込み失敗。自鯖のログを確認してください。";
+                msg.innerText = "❌ 解析に失敗しました。";
             }
         };
 
-        btn.onclick = run;
-        input.onkeydown = (e) => { if(e.key === 'Enter') run(); };
+        btn.onclick = decode;
+        input.onkeydown = (e) => { if(e.key === 'Enter') decode(); };
         document.getElementById('p-exit').onclick = () => location.reload();
     }
 };
