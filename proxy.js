@@ -1,119 +1,75 @@
 /**
- * proxy.js (iPad描画バグ完全対策版)
+ * proxy.js (難読化スクレイピング方式)
  */
 const ProxyModule = {
     init() {
-        if (typeof GameModule !== 'undefined' && GameModule.setupGameCanvas) {
-            GameModule.setupGameCanvas('プロキシ起動中', 'proxy');
+        if (typeof GameModule !== 'undefined') {
+            GameModule.setupGameCanvas('攻略データ抽出', 'proxy');
             this.render();
         }
     },
 
     render() {
-        let overlay = document.getElementById('proxy-ultra-layer');
-        if (!overlay) {
-            overlay = document.createElement('div');
-            overlay.id = 'proxy-ultra-layer';
-            document.body.appendChild(overlay);
-        }
+        const container = document.getElementById('proxy-container');
+        if (!container) return;
 
-        const styleId = 'proxy-shield-css';
-        if (!document.getElementById(styleId)) {
-            const style = document.createElement('style');
-            style.id = styleId;
-            style.innerHTML = `
-                #proxy-ultra-layer {
-                    position: fixed !important;
-                    top: 0 !important;
-                    left: 0 !important;
-                    width: 100vw !important;
-                    /* dvhを使用してiPadのバー変化によるサイズ縮小を防止 */
-                    height: 100dvh !important; 
-                    z-index: 2147483647 !important;
-                    background: #000 !important;
-                    display: flex !important;
-                    flex-direction: column !important;
-                    margin: 0 !important;
-                    padding: 0 !important;
-                    /* GPU描画を強制して「消える」バグを防ぐ */
-                    transform: translateZ(0);
-                    -webkit-font-smoothing: antialiased;
-                }
-                /* 親サイト側のスクロールを物理的にフリーズ */
-                .proxy-active-lock {
-                    overflow: hidden !important;
-                    position: fixed !important;
-                    width: 100% !important;
-                    height: 100% !important;
-                }
-            `;
-            document.head.appendChild(style);
-        }
-
-        document.body.classList.add('proxy-active-lock');
-
-        overlay.innerHTML = `
-            <div id="p-header" style="
-                display: flex; align-items: center; gap: 15px; 
-                padding: env(safe-area-inset-top) 20px 10px; 
-                background: #1a1a1a; border-bottom: 1px solid #333; 
-                flex-shrink: 0; height: auto; z-index: 10;
-            ">
-                <button id="p-close" style="background:none; border:none; color:#ff453a; font-size:26px; cursor:pointer; padding:10px;">✕</button>
-                <input type="text" id="p-url" placeholder="URLを入力して解析" 
-                    style="flex: 1; height: 44px; border-radius: 12px; border: none; background: #333; color: white; padding: 0 15px; font-size: 16px; outline: none;">
-                <button id="p-btn" style="height: 44px; padding: 0 25px; background: #007AFF; color: white; border: none; border-radius: 12px; font-weight: bold;">Go</button>
-            </div>
-
-            <div id="p-frame-container" style="flex: 1; width: 100%; background: #fff; position: relative; overflow: hidden;">
-                <div id="p-loader" style="
-                    display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-                    background: rgba(255,255,255,0.98); z-index: 100; flex-direction: column;
-                    justify-content: center; align-items: center; color: #333;
-                ">
-                    <div style="font-size: 40px; margin-bottom: 15px;">🔍</div>
-                    解析中...
+        // 既存のYouTubeレイアウトを邪魔しないよう、クラスを追加して制御
+        container.innerHTML = `
+            <div id="sc-root" style="display:flex; flex-direction:column; height:100%; background:#000;">
+                <div style="padding:12px; background:#1a1a1a; display:flex; gap:10px; flex-shrink:0;">
+                    <input type="text" id="p-url" placeholder="攻略サイトのURLを入力" 
+                        style="flex:1; height:40px; border-radius:20px; border:none; background:#333; color:#fff; padding:0 15px; font-size:16px; outline:none;">
+                    <button id="p-btn" style="height:40px; padding:0 20px; background:#007AFF; color:#fff; border-radius:20px; border:none; font-weight:bold;">抽出</button>
                 </div>
-                <iframe id="p-frame" style="width: 100%; height: 100%; border: none;" sandbox="allow-same-origin allow-scripts allow-forms"></iframe>
+                <div id="p-display" style="flex:1; background:#fff; overflow:hidden; border-radius:15px 15px 0 0; position:relative;">
+                    <div id="p-status" style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); color:#999; text-align:center;">
+                        URLを入れて「抽出」を押してください
+                    </div>
+                    <iframe id="p-frame" style="width:100%; height:100%; border:none; display:none;"></iframe>
+                </div>
             </div>
         `;
-
-        setTimeout(() => this.bind(), 50);
+        this.bind();
     },
 
     bind() {
         const input = document.getElementById('p-url');
         const btn = document.getElementById('p-btn');
         const frame = document.getElementById('p-frame');
-        const loader = document.getElementById('p-loader');
-        const close = document.getElementById('p-close');
-        const root = document.getElementById('proxy-ultra-layer');
+        const status = document.getElementById('p-status');
 
-        // 親サイトへのイベント伝播を完全に遮断
-        root.addEventListener('touchstart', (e) => e.stopPropagation(), {passive: true});
-        root.addEventListener('wheel', (e) => e.stopPropagation(), {passive: true});
-
-        const load = () => {
+        const startExtraction = async () => {
             let url = input.value.trim();
             if (!url) return;
             if (!url.startsWith('http')) url = 'https://' + url;
+
+            status.innerHTML = '🔍 解析中... (アイフィルターを回避しています)';
+            status.style.display = 'block';
+            frame.style.display = 'none';
+
+            // 🌟 URLをぐっちゃぐちゃにする (Base64 -> 反転)
+            const secret = btoa(unescape(encodeURIComponent(url))).split('').reverse().join('');
             
-            loader.style.display = 'flex';
-            const encoded = btoa(encodeURIComponent(url).replace(/%([0-9A-F]{2})/g, (m, p1) => String.fromCharCode('0x' + p1)));
-            frame.src = `/api/proxy?d=${encoded}`;
-            input.blur();
+            try {
+                const res = await fetch(`/api/proxy?q=${secret}`);
+                const html = await res.text();
+                
+                // 取得したHTMLを流し込む
+                frame.srcdoc = html;
+                frame.style.display = 'block';
+                status.style.display = 'none';
+                input.blur();
+            } catch (e) {
+                status.innerHTML = '❌ 抽出に失敗しました。';
+            }
         };
 
-        btn.onclick = load;
-        input.onkeydown = (e) => { if (e.key === 'Enter') load(); };
-        frame.onload = () => { loader.style.display = 'none'; };
-
-        close.onclick = () => {
-            document.body.classList.remove('proxy-active-lock');
-            const style = document.getElementById('proxy-shield-css');
-            if (root) root.remove();
-            if (style) style.remove();
-            location.reload(); 
+        btn.onclick = startExtraction;
+        input.onkeydown = (e) => { 
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                startExtraction();
+            }
         };
     }
 };
