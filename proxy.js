@@ -1,10 +1,10 @@
 /**
- * proxy.js (元サイト完全再現・iframe版)
+ * proxy.js (パス修正対応版)
  */
 const ProxyModule = {
     init() {
         if (typeof GameModule !== 'undefined') {
-            GameModule.setupGameCanvas('完全再現リーダー', 'proxy');
+            GameModule.setupGameCanvas('攻略プロキシ・極', 'proxy');
             this.render();
         }
     },
@@ -13,13 +13,13 @@ const ProxyModule = {
         const container = document.getElementById('proxy-container');
         if (!container) return;
         
-        container.style.cssText = "position:fixed; top:0; left:0; width:100vw; height:100vh; z-index:999999; background:#000; overflow:hidden;";
+        container.style.cssText = "position:fixed; top:0; left:0; width:100vw; height:100vh; z-index:999999; background:#000;";
 
         container.innerHTML = `
-            <div style="display:flex; flex-direction:column; height:100%; width:100%;">
-                <div style="padding:10px; background:#1a1a1a; display:flex; gap:10px; flex-shrink:0;">
+            <div style="display:flex; flex-direction:column; height:100%;">
+                <div style="padding:10px; background:#1a1a1a; display:flex; gap:10px;">
                     <button id="p-exit" style="background:none; border:none; color:#ff453a; font-size:24px;">✕</button>
-                    <input type="text" id="p-url" placeholder="元サイトと同じ見た目で表示します" style="flex:1; height:40px; border-radius:10px; border:none; background:#333; color:#fff; padding:0 15px; font-size:16px;">
+                    <input type="text" id="p-url" placeholder="URLを入力" style="flex:1; height:40px; border-radius:10px; border:none; background:#333; color:#fff; padding:0 15px;">
                     <button id="p-go" style="padding:0 20px; background:#0a84ff; color:#fff; border-radius:10px; border:none; font-weight:bold;">Go</button>
                 </div>
                 <iframe id="p-frame" style="flex:1; width:100%; border:none; background:#fff;"></iframe>
@@ -42,28 +42,16 @@ const ProxyModule = {
             
             try {
                 const res = await fetch(`/api/proxy?q=${secret}`);
-                const rawData = await res.text();
-                const [_, packed] = rawData.split(":::SPLIT:::");
-                
+                const data = await res.text();
+
                 // 解読
-                let restored = packed.replace(/TITIUNKO/g, '').replace(/«/g, '<').replace(/»/g, '>');
+                let restored = data.replace(/TITIUNKO/g, '').replace(/«/g, '<').replace(/»/g, '>');
 
-                // 🌟 iframeの中に完全なHTMLを流し込む
-                const doc = frame.contentWindow.document;
-                doc.open();
-                doc.write(restored);
-                doc.close();
-
-                // 💡 iPad向けの追加調整
-                const style = doc.createElement('style');
-                style.innerHTML = `
-                    body { overflow-x: hidden !important; width: 100vw !important; }
-                    img { max-width: 100% !important; height: auto !important; }
-                `;
-                doc.head.appendChild(style);
+                // 🌟 iframeに流し込む（srcdocは自分自身のコンテンツとして扱うのでCORSに強い）
+                frame.srcdoc = restored;
 
             } catch (e) {
-                console.error("再現失敗");
+                alert("取得失敗");
             }
         };
 
