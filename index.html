@@ -11,14 +11,25 @@
         <div class="logo" onclick="Actions.goHome()">
             <span class="logo-red">▶</span> Premium
         </div>
-        <div class="search-bar">
-            <input type="text" id="search-input" placeholder="検索">
-            <button id="search-btn">🔍</button>
+        <div class="search-bar-container" style="position:relative; flex: 0 1 600px;">
+            <div class="search-bar">
+                <input type="text" id="search-input" placeholder="検索" oninput="Actions.updateSuggest()" onkeydown="if(event.key==='Enter') Actions.search()">
+                <button id="search-btn" onclick="Actions.search()">🔍</button>
+            </div>
+            <div id="suggest-box" class="suggest-box"></div>
         </div>
         <div class="user-icons">
+            <div id="secret-btn" class="icon-circle" onclick="Actions.toggleSecret()" title="シークレットモード">👤</div>
             <div class="icon-circle" onclick="Actions.showSubs()">🔔</div>
         </div>
     </header>
+
+    <div id="filter-bar" class="filter-bar" style="display:none;">
+        <button onclick="Actions.setFilter('none')">すべて</button>
+        <button onclick="Actions.setFilter('today')">今日</button>
+        <button onclick="Actions.setFilter('short')">4分以内</button>
+        <button onclick="Actions.setFilter('live')">ライブ中</button>
+    </div>
 
     <div class="main-layout">
         <nav class="sidebar">
@@ -41,11 +52,6 @@
     <script src="blockblast.js"></script>
     <script src="game2048.js"></script>
     <script src="towerdefense.js"></script>
-    <script src="airhockey.js"></script>
-    <script src="cannon.js"></script>
-    <script src="pachinko.js"></script>
-    <script src="proxy.js"></script>
-
     <script src="app.js"></script>
 </body>
 </html>
