@@ -12,45 +12,64 @@ body { margin: 0; font-family: sans-serif; background-color: var(--bg-color); co
 .header { position: fixed; top: 0; width: 100%; height: var(--header-height); background: var(--bg-color); display: flex; align-items: center; justify-content: space-between; padding: 0 16px; z-index: 1000; }
 .logo { font-size: 20px; font-weight: bold; cursor: pointer; }
 .logo-red { color: var(--accent-red); margin-right: 4px; }
-.search-bar { display: flex; flex: 0 1 600px; background: #222; border-radius: 40px; padding: 2px 15px; border: 1px solid #333; }
+.search-bar { display: flex; background: #222; border-radius: 40px; padding: 2px 15px; border: 1px solid #333; width: 100%; }
 .search-bar input { flex: 1; background: transparent; border: none; color: white; padding: 8px; outline: none; }
-.search-bar button { background: transparent; border: none; cursor: pointer; }
+.search-bar button { background: transparent; border: none; cursor: pointer; color: white; }
+
+.suggest-box {
+    position: absolute; top: 50px; left: 0; width: 100%; background: #222; 
+    border: 1px solid #444; border-radius: 12px; z-index: 2000; display: none;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5); overflow: hidden;
+}
+.suggest-item { padding: 10px 20px; cursor: pointer; transition: 0.2s; }
+.suggest-item:hover { background: #333; }
+
+.filter-bar {
+    position: fixed; top: 56px; left: 240px; width: calc(100% - 240px);
+    background: var(--bg-color); padding: 10px; z-index: 900; display: flex; gap: 10px;
+}
+.filter-bar button {
+    background: #333; color: white; border: none; padding: 6px 15px; border-radius: 15px; cursor: pointer;
+}
+.filter-bar button.active { background: white; color: black; }
 
 .main-layout { display: flex; margin-top: var(--header-height); }
-.sidebar { width: var(--sidebar-width); height: calc(100vh - var(--header-height)); position: fixed; padding: 12px; }
-.nav-item { padding: 12px; border-radius: 10px; cursor: pointer; display: flex; align-items: center; gap: 20px; }
+.sidebar { width: var(--sidebar-width); height: calc(100vh - var(--header-height)); position: fixed; left: 0; top: var(--header-height); background: var(--bg-color); padding: 12px; }
+.nav-item { display: flex; align-items: center; padding: 10px 12px; border-radius: 10px; cursor: pointer; margin-bottom: 4px; }
 .nav-item:hover { background: #272727; }
+.nav-item span { margin-left: 16px; font-size: 14px; }
+.content { flex: 1; margin-left: var(--sidebar-width); padding: 20px; }
 
-.content { margin-left: var(--sidebar-width); flex: 1; padding: 20px; }
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+.v-card { cursor: pointer; border-radius: 12px; overflow: hidden; transition: 0.2s; }
+.v-card:hover { transform: scale(1.02); }
+.thumb-wrap { position: relative; width: 100%; aspect-ratio: 16/9; }
+.thumb-wrap img { width: 100%; height: 100%; object-fit: cover; border-radius: 12px; }
 
-.v-card { cursor: pointer; border-radius: 12px; overflow: hidden; }
-.thumb-container { position: relative; width: 100%; aspect-ratio: 16/9; }
-.main-thumb { width: 100%; height: 100%; object-fit: cover; border-radius: 12px; }
-.ch-icon-img { position: absolute; bottom: 8px; right: 8px; width: 36px; height: 36px; border-radius: 50%; border: 2px solid #000; }
+/* 関連動画アイテム */
+.related-item {
+    display: flex; gap: 10px; margin-bottom: 12px; padding: 6px; border-radius: 8px;
+    cursor: pointer !important; pointer-events: auto !important;
+}
+.related-item:hover { background: rgba(255,255,255,0.1); }
+.related-item * { pointer-events: none; }
+
+.user-icons { display: flex; gap: 8px; }
+.icon-circle { width: 40px; height: 40px; background: #222; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.icon-circle.active { background: var(--accent-red); }
+
+/* 再生切り替えボタン */
+.mode-switch-btn {
+    background: #333; color: white; border: 1px solid #444; padding: 8px 16px; 
+    border-radius: 20px; cursor: pointer; font-size: 13px; margin-right: 12px;
+}
+.mode-switch-btn:hover { background: #444; }
 
 .btn { background: #f1f1f1; color: #0f0f0f; border: none; padding: 10px 20px; border-radius: 20px; cursor: pointer; font-weight: bold; }
-.btn.subbed { background: #272727; color: #fff; }
 
-.watch-layout { display: flex; gap: 24px; flex-wrap: wrap; }
-.player-area { flex: 3; min-width: 600px; }
-.related-area { flex: 1; min-width: 300px; }
-.video-wrapper { width: 100%; aspect-ratio: 16/9; background: #000; border-radius: 12px; overflow: hidden; }
-
-/* ショート再生用 */
-.shorts-container { display: flex; flex-direction: column; align-items:center; position: relative; padding-top: 10px; }
-.nav-arrow { position: fixed; top: 50%; transform: translateY(-50%); width: 60px; height: 60px; background: rgba(255,255,255,0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 30px; cursor: pointer; z-index: 10; transition: 0.2s; }
-.nav-arrow:hover { background: rgba(255,255,255,0.2); }
-.arrow-prev { left: calc(var(--sidebar-width) + 20px); }
-.arrow-next { right: 40px; }
-
-.tabs { display: flex; border-bottom: 1px solid #333; margin: 20px 0; gap: 24px; }
-.tab { padding: 10px 0; cursor: pointer; color: #aaa; }
-.tab.active { color: #fff; border-bottom: 2px solid #fff; }
-
-@media (max-width: 1024px) {
-    .sidebar { width: 80px; }
+@media (max-width: 800px) {
+    .sidebar { width: 72px; }
     .sidebar span { display: none; }
-    .content { margin-left: 80px; }
-    .arrow-prev { left: 100px; }
+    .content { margin-left: 72px; }
+    .filter-bar { left: 72px; width: calc(100% - 72px); }
 }
