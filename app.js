@@ -46,12 +46,16 @@ const Actions = {
     currentView: "home",
     currentList: [],
     currentFilter: "none",
-    currentPlayMode: 'edu', // 'edu' または 'stream'
+    currentPlayMode: 'edu',
+    selectedChannels: [], // 選択された最大5つのチャンネル
 
     init() {
         this.goHome();
         document.addEventListener('click', (e) => {
-            if (!e.target.closest('.search-bar-container')) document.getElementById('suggest-box').style.display = 'none';
+            if (!e.target.closest('.search-bar-container')) {
+                const box = document.getElementById('suggest-box');
+                if(box) box.style.display = 'none';
+            }
         });
     },
 
@@ -79,7 +83,76 @@ const Actions = {
         this.search();
     },
 
-    // 再生モード切り替えロジック
+    // --- チャンネル選択ロジック（案A） ---
+    toggleChannelSelect(chId) {
+        const idx = this.selectedChannels.indexOf(chId);
+        if (idx > -1) {
+            this.selectedChannels.splice(idx, 1);
+        } else {
+            if (this.selectedChannels.length >= 5) {
+                alert("API節約のため、最大5チャンネルまでだぜ！");
+                return;
+            }
+            this.selectedChannels.push(chId);
+        }
+        this.showSubs(); // 描画更新
+    },
+
+    // --- 選んだチャンネルの新着を読み込む ---
+    async loadSelectedNews() {
+        if (this.selectedChannels.length === 0) return;
+        const btn = document.getElementById('load-news-btn');
+        btn.innerText = "読み込み中...";
+        btn.disabled = true;
+
+        const allVideos = [];
+        for (const chId of this.selectedChannels) {
+            try {
+                const data = await YT.fetchAPI('search', {
+                    channelId: chId, part: 'snippet', order: 'date', type: 'video', maxResults: 4
+                });
+                allVideos.push(...data.items);
+            } catch (e) { console.error(e); }
+        }
+
+        // 新着順にソート
+        allVideos.sort((a, b) => new Date(b.snippet.publishedAt) - new Date(a.snippet.publishedAt));
+        this.currentList = allVideos;
+        this.renderGrid(`<h2>選択したチャンネルの新着フィード</h2>`);
+    },
+
+    // --- 登録済み画面（アイコン列 + 青く光る選択） ---
+    showSubs() {
+        this.currentView = "subs";
+        const subs = Storage.get('yt_subs');
+        
+        const chListHtml = subs.map(ch => {
+            const isSelected = this.selectedChannels.includes(ch.id) ? 'selected' : '';
+            return `
+            <div style="text-align:center; min-width:110px;">
+                <div class="ch-item ${isSelected}" onclick="Actions.toggleChannelSelect('${ch.id}')">
+                    <img src="${ch.thumb}" class="ch-face" onclick="event.stopPropagation(); Actions.showChannel('${ch.id}')">
+                </div>
+                <div style="font-size:11px; margin-top:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; width:100px;">${ch.name}</div>
+            </div>`;
+        }).join('');
+
+        const btnText = this.selectedChannels.length > 0 ? 
+            `${this.selectedChannels.length}人の新着を取得` : "チャンネルを選択（最大5人）";
+
+        document.getElementById('view-container').innerHTML = `
+            <div style="padding:20px;">
+                <h2>登録済み</h2>
+                <div style="display:flex; overflow-x:auto; gap:15px; padding:15px 0; border-bottom:1px solid #333; margin-bottom:20px;">
+                    ${chListHtml}
+                </div>
+                <button id="load-news-btn" class="load-news-btn" onclick="Actions.loadSelectedNews()" ${this.selectedChannels.length === 0 ? 'disabled' : ''}>
+                    ${btnText}
+                </button>
+            </div>`;
+    },
+
+    // --- 再生切り替えとストリーミング再生 ---
     async switchMode(videoId) {
         this.currentPlayMode = (this.currentPlayMode === 'edu') ? 'stream' : 'edu';
         const eduEl = document.getElementById('edu-player-frame');
@@ -99,11 +172,9 @@ const Actions = {
         }
     },
 
-    // HLSストリーミングセットアップ
     setupStream(videoId) {
         const video = document.getElementById('stream-player');
-        const streamUrl = `/api/stream?v=${videoId}`; // 取得したwatch.htmlのロジック
-
+        const streamUrl = `/api/stream?v=${videoId}`;
         if (Hls.isSupported()) {
             const hls = new Hls();
             hls.loadSource(streamUrl);
@@ -149,7 +220,7 @@ const Actions = {
                         <div style="font-weight:bold;">${video.snippet.channelTitle}</div>
                         <div style="display:flex; align-items:center;">
                             <button id="mode-switch-btn" class="mode-switch-btn" onclick="Actions.switchMode('${vId}')">📺 edu再生中 (切替)</button>
-                            <button class="btn">登録</button>
+                            <button class="btn" onclick="Actions.handleSub('${video.snippet.channelId}', '${video.snippet.channelTitle.replace(/'/g,"")}', true)">登録</button>
                         </div>
                     </div>
                 </div>
@@ -209,13 +280,7 @@ const Actions = {
     showHistory() {
         const history = Storage.get('yt_history');
         this.currentList = history.map(x => ({ id: { videoId: x.id }, snippet: { title: x.title, thumbnails: { high: { url: x.thumb } }, channelTitle: x.channelTitle } }));
-        this.renderGrid("<h2>視聴履歴</h2>");
-    },
-
-    showSubs() {
-        const subs = Storage.get('yt_subs');
-        const html = subs.map(ch => `<div class="v-card" style="padding:20px; text-align:center; background:var(--card-bg);" onclick="Actions.showChannel('${ch.id}')"><img src="${ch.thumb}" style="width:100px; height:100px; border-radius:50%;"><h3>${ch.name}</h3></div>`).join('');
-        document.getElementById('view-container').innerHTML = `<div style="padding:20px;"><h2>登録済み</h2><div class="grid">${html}</div></div>`;
+        this.renderGrid("<h2>履歴</h2>");
     },
 
     showGame() { if (window.showGamePlatform) window.showGamePlatform(); }
