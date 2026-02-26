@@ -11,63 +11,55 @@
 body { margin: 0; font-family: sans-serif; background-color: var(--bg-color); color: var(--text-color); overflow-x: hidden; }
 
 /* ヘッダー */
-.header { position: fixed; top: 0; width: 100%; height: var(--header-height); background: var(--bg-color); display: flex; align-items: center; justify-content: space-between; padding: 0 16px; z-index: 1000; }
-.logo { font-size: 20px; font-weight: bold; cursor: pointer; }
+.header { position: fixed; top: 0; width: 100%; height: var(--header-height); background: var(--bg-color); display: flex; align-items: center; justify-content: space-between; padding: 0 16px; z-index: 2000; border-bottom: 1px solid #222; }
+.logo { font-size: 20px; font-weight: bold; cursor: pointer; display: flex; align-items: center; }
 .logo-red { color: var(--accent-red); margin-right: 4px; }
 .search-bar-container { position: relative; flex: 0 1 600px; margin: 0 15px; }
-.search-bar { display: flex; background: #222; border-radius: 40px; padding: 2px 15px; border: 1px solid #333; width: 100%; align-items: center; }
-.search-bar input { flex: 1; background: transparent; border: none; color: white; padding: 10px; outline: none; font-size: 16px; }
-.search-bar button { background: transparent; border: none; cursor: pointer; color: white; font-size: 18px; }
-
-/* サジェスト */
-.suggest-box { position: absolute; top: 50px; left: 0; width: 100%; background: #222; border: 1px solid #444; border-radius: 12px; z-index: 2000; display: none; }
-.suggest-item { padding: 12px 20px; cursor: pointer; border-bottom: 1px solid #333; }
-
-/* フィルタ */
-.filter-bar { position: fixed; top: 56px; left: var(--sidebar-width); width: calc(100% - var(--sidebar-width)); background: var(--bg-color); padding: 10px; z-index: 900; display: flex; gap: 10px; overflow-x: auto; }
-.filter-bar button { background: #333; color: white; border: none; padding: 8px 16px; border-radius: 20px; cursor: pointer; white-space: nowrap; }
-.filter-bar button.active { background: white; color: black; }
+.search-bar { display: flex; background: #222; border-radius: 40px; padding: 2px 15px; border: 1px solid #333; align-items: center; }
+.search-bar input { flex: 1; background: transparent; border: none; color: white; padding: 12px; outline: none; font-size: 16px; }
+.search-bar button { background: transparent; border: none; cursor: pointer; color: white; font-size: 18px; padding: 0 10px; }
 
 /* サイドバー */
-.main-layout { display: flex; margin-top: var(--header-height); }
-.sidebar { width: var(--sidebar-width); height: calc(100vh - var(--header-height)); position: fixed; left: 0; top: var(--header-height); background: var(--bg-color); padding: 12px; z-index: 100; border-right: 1px solid #222; }
-.nav-item { display: flex; align-items: center; padding: 14px 12px; border-radius: 10px; cursor: pointer; margin-bottom: 6px; font-size: 16px; }
-.nav-item:active { background: #272727; }
-.nav-item span { margin-left: 16px; }
+.sidebar { width: var(--sidebar-width); height: 100vh; position: fixed; left: 0; top: var(--header-height); background: var(--bg-color); padding: 12px; z-index: 1000; border-right: 1px solid #222; }
+.nav-item { display: flex; align-items: center; padding: 14px 12px; border-radius: 10px; cursor: pointer; margin-bottom: 4px; }
+.nav-item:active { background: #333; }
+.nav-item span { margin-left: 16px; font-size: 15px; }
 
-/* コンテンツ */
-.content { flex: 1; margin-left: var(--sidebar-width); padding: 20px; min-height: 100vh; }
+/* コンテンツエリア */
+.content { margin-left: var(--sidebar-width); padding: 20px; margin-top: var(--header-height); min-height: 100vh; }
 
-/* 登録チャンネル用UI */
-.ch-item-container { display: inline-block; padding: 10px; text-align: center; cursor: pointer; vertical-align: top; }
-.ch-item { width: 90px; height: 90px; border-radius: 50%; border: 4px solid transparent; display: flex; align-items: center; justify-content: center; transition: 0.2s; }
-.ch-item.selected { border-color: var(--accent-blue); box-shadow: 0 0 15px var(--accent-blue); }
-.ch-face { width: 76px; height: 76px; border-radius: 50%; object-fit: cover; }
-.load-news-btn { display: block; width: 100%; max-width: 380px; margin: 20px auto; background: var(--accent-blue); color: white; border: none; padding: 15px; border-radius: 30px; font-weight: bold; font-size: 16px; }
+/* チャンネル詳細タブ */
+.ch-tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid #333; padding-bottom: 10px; overflow-x: auto; }
+.ch-tabs button { background: #272727; color: white; border: none; padding: 10px 20px; border-radius: 20px; cursor: pointer; font-weight: bold; white-space: nowrap; }
+.ch-tabs button.active { background: white; color: black; }
 
-/* グリッド */
+/* 動画カード（iPad判定強化版） */
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
 .grid.shorts-mode { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
-.v-card { cursor: pointer; }
+.v-card { position: relative; cursor: pointer; width: 100%; }
+.v-click-layer { position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 10; } /* 判定を最前面に固定 */
 .thumb-wrap { width: 100%; aspect-ratio: 16/9; border-radius: 12px; overflow: hidden; background: #222; }
 .shorts-mode .thumb-wrap { aspect-ratio: 9/16; }
 .thumb-wrap img { width: 100%; height: 100%; object-fit: cover; }
+.v-info { padding: 10px 0; }
+.v-title { font-weight: bold; font-size: 14px; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.v-ch { font-size: 12px; color: #aaa; margin-top: 4px; }
+
+/* チャンネル登録UI (案A) */
+.ch-item-container { display: inline-block; padding: 12px; text-align: center; cursor: pointer; vertical-align: top; }
+.ch-item { width: 94px; height: 94px; border-radius: 50%; border: 4px solid transparent; display: flex; align-items: center; justify-content: center; transition: 0.2s; position: relative; }
+.ch-item.selected { border-color: var(--accent-blue); box-shadow: 0 0 15px var(--accent-blue); }
+.ch-face { width: 78px; height: 78px; border-radius: 50%; object-fit: cover; }
 
 /* 再生画面 */
 .watch-layout { display: flex; flex-direction: column; gap: 20px; }
-@media (min-width: 1000px) { .watch-layout { flex-direction: row; } }
-.player-area { flex: 3; }
-.video-wrapper { width: 100%; aspect-ratio: 16/9; background: black; border-radius: 12px; overflow: hidden; }
-.related-area { flex: 1; }
-
-/* タブ（チャンネル詳細用） */
-.ch-tabs { display: flex; gap: 20px; border-bottom: 1px solid #333; margin-bottom: 20px; padding: 10px 0; }
-.ch-tab { cursor: pointer; padding: 8px 16px; border-radius: 10px; font-weight: bold; color: #aaa; }
-.ch-tab.active { color: white; background: #333; }
+.player-area { width: 100%; }
+.video-wrapper { width: 100%; aspect-ratio: 16/9; background: black; border-radius: 15px; overflow: hidden; }
+.video-wrapper iframe { width: 100%; height: 100%; border: none; }
+.play-sub-bar { display: flex; justify-content: space-between; align-items: center; background: #1e1e1e; padding: 15px; border-radius: 12px; margin-top: 15px; }
 
 @media (max-width: 800px) {
-    .sidebar { width: 80px; }
+    .sidebar { width: 72px; }
     .sidebar span { display: none; }
-    .content { margin-left: 80px; }
-    .filter-bar { left: 80px; width: calc(100% - 80px); }
+    .content { margin-left: 72px; }
 }
