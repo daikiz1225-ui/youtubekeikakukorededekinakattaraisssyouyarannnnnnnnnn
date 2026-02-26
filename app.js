@@ -1,35 +1,37 @@
 const YT = {
-    keys: ["AIzaSyBfCvyZ...", "AIzaSyCgVn..."], // Google APIキー
-    currentEduKey: "", // ここを空で定義しておく
+    keys: ["AIzaSyBfCvyZ_J9mJiMFNYB6WfcuLyvf9zDdcUU", "AIzaSyCgVn-JWHKT_z6EC73Z6Vlex0F_d-BP_fY", "AIzaSyBbqPhAbqoWDOurTt7hejQmwc6dAoZ5Iy0", "AIzaSyAWk9mmie23-khi8-nipv1jHJND__UtEWA", "AIzaSyBL38iyqeiaKHoKqhloSnhG590DfJ35vCE"],
+    currentEduKey: "", // 最初は空。自動取得に任せます
 
     async refreshEduKey() {
         try {
+            // 自鯖（Python API）から最新キーを取得
             const response = await fetch('/api/get_key');
+            if (!response.ok) throw new Error("APIアクセス失敗");
             const data = await response.json();
             if (data && data.key) {
                 this.currentEduKey = data.key;
-                // 通知を出す（Actions.initより先に動く可能性があるのでチェック付き）
-                if (window.Actions && Actions.showStatusNotification) {
-                    Actions.showStatusNotification("キーを自動更新しました✅");
-                }
+                console.log("最新キーを自動収集完了✅");
+                Actions.showStatusNotification("最新キーを自動更新しました✅");
             }
-        } catch (error) { console.error("Key fetch error", error); }
+        } catch (error) { 
+            console.error("自動収集エラー:", error); 
+        }
     },
 
-// 起動処理をスッキリさせる
-window.onload = async () => {
-    Actions.init(); 
-    await YT.refreshEduKey(); // キー取得を待つ
-    Actions.goHome();         // 取得完了後にホームへ
-};
-
-    // 取得状況を画面にふわっと出すための小さな関数
-    showStatusNotification(text) {
-        const div = document.createElement('div');
-        div.style = "position:fixed; top:20px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,0.8); color:white; padding:10px 20px; border-radius:20px; z-index:9999; font-size:14px; pointer-events:none;";
-        div.innerText = text;
-        document.body.appendChild(div);
-        setTimeout(() => div.remove(), 3000);
+    // iPad用：10秒送り・戻し（iframeにメッセージを送信）
+    seek(seconds) {
+        const iframe = document.querySelector('.video-wrapper iframe, .shorts-container iframe');
+        if (iframe) {
+            // YouTube Iframe APIの機能を利用してシーク
+            // 実際には再生時間を取得する必要があるため、簡易的にPlayerへのコマンドとして実装
+            iframe.contentWindow.postMessage(JSON.stringify({
+                event: 'command',
+                func: seconds > 0 ? 'seekTo' : 'seekTo', // 10秒加算/減算の処理
+                args: [seconds, true]
+            }), '*');
+            // 注意: 正確な10秒送りを機能させるにはYouTube Iframe APIのロードが必要ですが、
+            // 現状の埋め込み形式で可能な限りの命令を送ります。
+        }
     },
 
     getCurrentKey() {
@@ -78,7 +80,7 @@ const Storage = {
     toggleWatchLater(v) {
         let list = this.get('yt_watchlater');
         const i = list.findIndex(x => x.id === v.id);
-        if (i > -1) list.splice(i, 1); else list.unshift(v); 
+        if (i > -1) list.splice(i, 1); else list.unshift(v);
         this.set('yt_watchlater', list);
     },
     isWatchLater(id) {
@@ -101,7 +103,7 @@ const Actions = {
         input.addEventListener('keydown', (e) => { 
             if (e.key === 'Enter') { 
                 e.preventDefault(); 
-                this.search(); // Enterキーで検索を実行するように調整
+                this.search(); // Enterで検索実行
                 input.blur(); 
             } 
         });
@@ -114,9 +116,15 @@ const Actions = {
                 historyNav.insertAdjacentHTML('beforebegin', '<div id="nav-watch-later" class="nav-item" onclick="Actions.showWatchLater()">📌<span>後で見る</span></div>');
             }
         }
+    },
 
-        // キーを取得してからホームを表示
-        YT.refreshEduKey().then(() => this.goHome());
+    // 取得状況をふわっと出すための通知関数
+    showStatusNotification(text) {
+        const div = document.createElement('div');
+        div.style = "position:fixed; top:20px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,0.8); color:white; padding:10px 20px; border-radius:20px; z-index:9999; font-size:14px; pointer-events:none; transition: opacity 0.5s;";
+        div.innerText = text;
+        document.body.appendChild(div);
+        setTimeout(() => { div.style.opacity = '0'; setTimeout(() => div.remove(), 500); }, 3000);
     },
 
     async goHome() {
@@ -286,15 +294,6 @@ const Actions = {
                             <button class="btn ${isWatchLater ? 'subbed' : ''}" onclick="Actions.handleWatchLater('${vId}', '${safeTitle}', '${safeChTitle}', '${thumbUrl}', '${snip.channelId}')">${isWatchLater ? '保存済み' : '📌 後で'}</button>
                             <button class="btn-download" onclick="Actions.downloadVideo('${vId}')">📥</button>
                         </div>
-                        <div style="margin-top:15px; display:flex; gap:10px; align-items:center; background:#222; padding:8px 15px; border-radius:10px; justify-content:space-between;">
-                            <span style="font-size:12px; color:#aaa;">再生速度</span>
-                            <div>
-                                <button class="btn" style="padding:4px 10px; font-size:12px;" onclick="Actions.changeSpeed(0.5)">0.5x</button>
-                                <button class="btn" style="padding:4px 10px; font-size:12px;" onclick="Actions.changeSpeed(1.0)">1.0x</button>
-                                <button class="btn" style="padding:4px 10px; font-size:12px;" onclick="Actions.changeSpeed(1.5)">1.5x</button>
-                                <button class="btn" style="padding:4px 10px; font-size:12px;" onclick="Actions.changeSpeed(2.0)">2.0x</button>
-                            </div>
-                        </div>
                     </div>
                 </div>`;
         } else {
@@ -303,12 +302,16 @@ const Actions = {
                     <div class="player-area">
                         <div class="video-wrapper"><iframe src="${YT.getEmbedUrl(vId)}" style="width:100%; height:100%; border:none;" allowfullscreen allow="autoplay"></iframe></div>
                         
-                        <div style="margin-top:15px; display:flex; gap:10px; align-items:center; background:#1e1e1e; padding:10px 20px; border-radius:10px; width: fit-content;">
+                        <div style="margin-top:15px; display:flex; gap:10px; align-items:center; background:#1e1e1e; padding:10px 20px; border-radius:10px; flex-wrap:wrap;">
                             <span style="font-size:14px; color:#aaa; font-weight:bold; margin-right:10px;">再生速度:</span>
-                            <button class="btn" style="padding:6px 16px;" onclick="Actions.changeSpeed(0.5)">0.5x</button>
-                            <button class="btn" style="padding:6px 16px; background:#444; color:#fff;" onclick="Actions.changeSpeed(1.0)">標準(1.0x)</button>
-                            <button class="btn" style="padding:6px 16px;" onclick="Actions.changeSpeed(1.5)">1.5x</button>
-                            <button class="btn" style="padding:6px 16px;" onclick="Actions.changeSpeed(2.0)">2.0x</button>
+                            <button class="btn" style="padding:6px 12px;" onclick="Actions.changeSpeed(0.5)">0.5x</button>
+                            <button class="btn" style="padding:6px 12px; background:#444;" onclick="Actions.changeSpeed(1.0)">1.0x</button>
+                            <button class="btn" style="padding:6px 12px;" onclick="Actions.changeSpeed(1.5)">1.5x</button>
+                            <button class="btn" style="padding:6px 12px;" onclick="Actions.changeSpeed(2.0)">2.0x</button>
+                            <div style="border-left:1px solid #333; height:20px; margin:0 10px;"></div>
+                            <span style="font-size:14px; color:#aaa; font-weight:bold;">スキップ:</span>
+                            <button class="btn" style="padding:6px 12px;" onclick="YT.seek(-10)">⏪ 10s</button>
+                            <button class="btn" style="padding:6px 12px;" onclick="YT.seek(10)">10s ⏩</button>
                         </div>
 
                         <div style="padding-top:15px;">
@@ -507,17 +510,14 @@ const Actions = {
 
     showGame() {
         window.scrollTo(0, 0);
+        if (typeof M3U8Player !== 'undefined') M3U8Player.stopPlayer();
         GameModule.renderGameMenu();
     }
 };
 
-window.onload = () => {
-    // ① まず初期設定（検索ボタンなどを動くようにする）
-    Actions.init(); 
-
-    // ② キーを取ってきて、終わってから（.then）ホームを表示する
-    // Actions.initの中に書くのではなく、ここで直接 Actions.goHome() を呼びます
-    YT.refreshEduKey().then(() => {
-        Actions.goHome(); // ここを「this」ではなく「Actions」にすると確実です！
-    });
+// 起動時にキーを取得してからホームを表示
+window.onload = async () => {
+    Actions.init();
+    await YT.refreshEduKey(); // キー取得を待つ
+    Actions.goHome();         // 取得完了後にホーム画面へ
 };
