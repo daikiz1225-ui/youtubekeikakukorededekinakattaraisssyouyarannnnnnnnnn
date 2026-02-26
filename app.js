@@ -509,10 +509,13 @@ const Actions = {
     }
 };
 
-window.onload = () => Actions.init()// 他の初期設定（検索窓など）...
-    
-    // キーを取ってきて、終わってから（.then）ホームを表示する
+window.onload = () => {
+    // ① まず初期設定（検索ボタンなどを動くようにする）
+    Actions.init(); 
+
+    // ② キーを取ってきて、終わってから（.then）ホームを表示する
+    // Actions.initの中に書くのではなく、ここで直接 Actions.goHome() を呼びます
     YT.refreshEduKey().then(() => {
-        this.goHome();
+        Actions.goHome(); // ここを「this」ではなく「Actions」にすると確実です！
     });
 };
