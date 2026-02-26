@@ -1,5 +1,6 @@
 const YT = {
     keys: ["AIzaSyBfCvyZ_J9mJiMFNYB6WfcuLyvf9zDdcUU", "AIzaSyCgVn-JWHKT_z6EC73Z6Vlex0F_d-BP_fY", "AIzaSyBbqPhAbqoWDOurTt7hejQmwc6dAoZ5Iy0", "AIzaSyAWk9mmie23-khi8-nipv1jHJND__UtEWA", "AIzaSyBL38iyqeiaKHoKqhloSnhG590DfJ35vCE"],
+    // 更新されたEDUキー
     currentEduKey: "AXH1ezlfxW5OxqYvZffRY980tx4oOj0-C8EZoscXox80zZHyIldr1-RMuTe6GD7bRpl1LcMIkl2fxz649ClWEzgm75Ger6esiqqDzyeFo0FNpRFWGr-pPk4CQ_UY4AMiFKMT1gOF0JHr86FtUCAaOgZBxK-zpuKQ2A==",
 
     async refreshEduKey() {
@@ -179,10 +180,18 @@ const Actions = {
         }
     },
 
-    // ダウンロード機能の新規追加
+    // ダウンロード機能の修正: SaveFrom.netを動画エリアに埋め込む
     downloadVideo(vId) {
-        const url = `https://www.youtube.com/watch?v=${vId}`;
-        window.open(`https://cobalt.tools/?u=${encodeURIComponent(url)}`, '_blank');
+        const youtubeUrl = `https://www.youtube.com/watch?v=${vId}`;
+        const downloadUrl = `https://ja.savefrom.net/1-youtube-video-downloader-175dk.html?url=${encodeURIComponent(youtubeUrl)}`;
+        
+        // 通常動画のラッパーまたはショート動画のラッパーを探す
+        const playerWrapper = document.querySelector('.video-wrapper') || 
+                              document.querySelector('.shorts-container div[style*="background:#000"]');
+        
+        if (playerWrapper) {
+            playerWrapper.innerHTML = `<iframe src="${downloadUrl}" style="width:100%; height:100%; border:none;" allowfullscreen></iframe>`;
+        }
     },
 
     async play(video) {
@@ -306,8 +315,8 @@ const Actions = {
     showSubs() {
         this.currentView = "subs";
         const subs = Storage.get('yt_subs');
-        const html = subs.map(ch => `<div class=\"v-card\" style=\"padding:20px; text-align:center; background:var(--card-bg);\" onclick=\"Actions.showChannel('${ch.id}')\"><img src=\"${ch.thumb}\" style=\"width:100px; height:100px; border-radius:50%;\"><h3>${ch.name}</h3><button class=\"btn subbed\" onclick=\"event.stopPropagation(); Actions.handleSub('${ch.id}', '${ch.name}', true); Actions.showSubs();\">解除</button></div>`).join('');
-        document.getElementById('view-container').innerHTML = `<div style=\"padding:20px;\"><h2>登録済み</h2><div class=\"grid\">${html}</div></div>`;
+        const html = subs.map(ch => `<div class="v-card" style="padding:20px; text-align:center; background:var(--card-bg);" onclick="Actions.showChannel('${ch.id}')"><img src="${ch.thumb}" style="width:100px; height:100px; border-radius:50%;"><h3>${ch.name}</h3><button class="btn subbed" onclick="event.stopPropagation(); Actions.handleSub('${ch.id}', '${ch.name}', true); Actions.showSubs();">解除</button></div>`).join('');
+        document.getElementById('view-container').innerHTML = `<div style="padding:20px;"><h2>登録済み</h2><div class="grid">${html}</div></div>`;
     },
 
     showHistory() {
