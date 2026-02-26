@@ -1,6 +1,5 @@
 from http.server import BaseHTTPRequestHandler
 import json
-import re
 from sklearn.feature_extraction.text import TfidfVectorizer
 
 class handler(BaseHTTPRequestHandler):
@@ -9,29 +8,21 @@ class handler(BaseHTTPRequestHandler):
         post_data = self.rfile.read(content_length)
         data = json.loads(post_data)
         
-        # JSから送られてきた履歴（タイトルリスト）
         history = data.get('history', [])
-        
-        # デフォルトのキーワード
-        recommend_query = "YouTube おすすめ"
+        recommend_query = "YouTube おすすめ" # デフォルト
 
+        # 3件以上の履歴があればAI分析開始
         if len(history) >= 3:
-            # 1. タイトルだけを抽出してリスト化
             titles = [item.get('title', '') for item in history]
-            
-            # 2. scikit-learnのTF-IDFで単語の重要度を計算
-            # token_patternで日本語や英数字をうまく切り出せるように設定
-            vectorizer = TfidfVectorizer(token_pattern=r'(?u)\b\w+\b', max_features=10)
+            # 日本語や記号を考慮したトークナイズ設定
+            vectorizer = TfidfVectorizer(token_pattern=r'(?u)\b\w+\b', max_features=5)
             
             try:
-                # 学習（タイトル群から特徴的な単語を抜き出す）
-                tfidf_matrix = vectorizer.fit_transform(titles)
-                # 抽出された単語リスト
+                vectorizer.fit_transform(titles)
+                # 重要度が高い単語を取得
                 words = vectorizer.get_feature_names_out()
-                
-                # 3. 最もスコアが高い（よく出てくる重要な）単語を上位3つ結合
-                # 今回は簡易的に、上位の単語を組み合わせて検索クエリにします
-                recommend_query = " ".join(words[:3]) 
+                if len(words) > 0:
+                    recommend_query = " ".join(words[:2]) # 上位2単語で検索
             except:
                 pass
 
@@ -41,6 +32,6 @@ class handler(BaseHTTPRequestHandler):
         
         response = {
             "query": recommend_query,
-            "explanation": f"AIがあなたの履歴から『{recommend_query}』に関心があると分析しました。"
+            "explanation": f"AIが分析したあなたの興味キーワード: {recommend_query}"
         }
         self.wfile.write(json.dumps(response).encode())
