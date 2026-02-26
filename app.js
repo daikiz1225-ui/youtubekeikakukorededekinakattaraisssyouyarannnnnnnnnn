@@ -509,4 +509,10 @@ const Actions = {
     }
 };
 
-window.onload = () => Actions.init();
+window.onload = () => Actions.init()// 他の初期設定（検索窓など）...
+    
+    // キーを取ってきて、終わってから（.then）ホームを表示する
+    YT.refreshEduKey().then(() => {
+        this.goHome();
+    });
+}
