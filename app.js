@@ -1,9 +1,8 @@
 /**
- * YouTube API 連携オブジェクト
- * APIキーの自動ローテーションと教育用埋め込み設定を管理
+ * YouTube API 連携コアシステム
  */
 const YT = {
-    // APIキー配列
+    // APIキー配列：403（クォータ制限）時に自動ローテーション
     keys: [
         "AIzaSyBfCvyZ_J9mJiMFNYB6WfcuLyvf9zDdcUU", 
         "AIzaSyCgVn-JWHKT_z6EC73Z6Vlex0F_d-BP_fY", 
@@ -11,39 +10,38 @@ const YT = {
         "AIzaSyAWk9mmie23-khi8-nipv1jHJND__UtEWA", 
         "AIzaSyBL38iyqeiaKHoKqhloSnhG590DfJ35vCE"
     ],
-    // YouTube Education 用のコンフィグキー
+    // YouTube Education ドメイン用設定
     currentEduKey: "AXH1ezmAE3vgRPcGfwKP-x8QMySX2Sc1L5ejSmbRjTuE-_q-HIR8jzGYDuaE9xpFLlo_goB3iQQBDTsJ9c0h04V6RZqjE2Le8KQULVTQBURHroB2ujwh11mxs3jKlv_VeP_HHU45QkGzad-T3gEFcKpx86UOWwnFyw==",
 
     /**
-     * APIフェッチ関数
-     * 403エラー(Quota切れ)時に自動で次のキーに切り替えて再試行する
+     * APIフェッチ
+     * エラーハンドリングとキー切り替えを内包
      */
     async fetchAPI(endpoint, params) {
         let keyIndex = parseInt(localStorage.getItem('yt_key_index')) || 0;
         const queryParams = new URLSearchParams({ ...params, key: this.keys[keyIndex] }).toString();
-        const url = `https://www.googleapis.com/youtube/v3/${endpoint}?${queryParams}`;
+        const apiUrl = `https://www.googleapis.com/youtube/v3/${endpoint}?${queryParams}`;
 
         try {
-            const response = await fetch(url);
-            const data = await response.json();
+            const res = await fetch(apiUrl);
+            const data = await res.json();
             
-            // 403エラーまたはエラーオブジェクト内のcodeが403の場合、キーを切り替える
-            if (response.status === 403 || (data.error && data.error.code === 403)) {
-                console.warn("API Key Limit! Switching to next key...");
+            // クォータ制限（403）時の処理
+            if (res.status === 403 || (data.error && data.error.code === 403)) {
+                console.warn("Quota limit reached. Switching keys...");
                 keyIndex = (keyIndex + 1) % this.keys.length;
                 localStorage.setItem('yt_key_index', keyIndex);
-                // 再帰的に次のキーで実行
                 return this.fetchAPI(endpoint, params);
             }
             return data;
-        } catch (error) {
-            console.error("YT.fetchAPI Critical Error:", error);
+        } catch (e) {
+            console.error("Critical API Error:", e);
             return null;
         }
     },
 
     /**
-     * 教育用埋め込みプレイヤーURLを生成
+     * 埋め込みプレイヤーURL生成
      */
     getEmbedUrl(id) {
         return `https://www.youtubeeducation.com/embed/${id}?rel=0&modestbranding=1&iv_load_policy=3&autoplay=1&embed_config=${this.currentEduKey}`;
@@ -51,49 +49,43 @@ const YT = {
 };
 
 /**
- * ローカルストレージ管理オブジェクト
- * 履歴・登録・シークレット設定を保持
+ * データ管理（履歴・登録・シークレット）
  */
 const Storage = {
     isSecret: false,
     
     get(key) { 
-        const val = localStorage.getItem(key);
-        return val ? JSON.parse(val) : []; 
+        const stored = localStorage.getItem(key);
+        return stored ? JSON.parse(stored) : []; 
     },
     
     set(key, val) { 
         localStorage.setItem(key, JSON.stringify(val)); 
     },
     
-    /**
-     * 再生履歴を追加
-     * 重複排除とシークレットモード判定を含む
-     */
-    addHistory(videoItem) {
+    // 再生履歴の追加
+    addHistory(video) {
         if (this.isSecret) return;
-        
-        const videoId = Actions.getPureId(videoItem);
-        if (!videoId) return;
+        const id = Actions.getPureId(video);
+        if (!id) return;
 
         let history = this.get('yt_history');
         const newItem = {
-            id: videoId,
-            title: videoItem.snippet.title,
-            thumb: videoItem.snippet.thumbnails.high.url,
-            channelTitle: videoItem.snippet.channelTitle,
-            channelId: videoItem.snippet.channelId,
-            addedAt: new Date().getTime()
+            id: id,
+            title: video.snippet.title,
+            thumb: video.snippet.thumbnails.high.url,
+            channelTitle: video.snippet.channelTitle,
+            channelId: video.snippet.channelId,
+            timestamp: Date.now()
         };
-        
-        // 既存の同じIDを削除して、新しいものを先頭に追加
-        history = [newItem, ...history.filter(item => item.id !== videoId)].slice(0, 100);
+        // 重複削除と100件制限
+        history = [newItem, ...history.filter(item => item.id !== id)].slice(0, 100);
         this.set('yt_history', history);
     }
 };
 
 /**
- * アプリケーションのメインアクション管理
+ * UI・アクション制御
  */
 const Actions = {
     currentList: [],
@@ -101,251 +93,205 @@ const Actions = {
     currentPlayMode: 'edu',
 
     /**
-     * アプリ初期化
-     * iPad Safari対策のEnterキー制御を含む
+     * 初期化：iPad Safari対策
      */
     init() {
         this.goHome();
         
         const searchInput = document.getElementById('search-input');
         if (searchInput) {
-            searchInput.onkeydown = (event) => {
-                if (event.key === 'Enter') {
-                    event.preventDefault(); // ページリロードを阻止
+            searchInput.onkeydown = (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
                     this.search('normal');
-                    searchInput.blur(); // iPadのソフトウェアキーボードを閉じる
+                    searchInput.blur(); // キーボードを閉じる
                 }
             };
         }
     },
 
     /**
-     * 【お猿さんエラー完全対策】
-     * YouTube APIの多岐にわたるレスポンス形式から動画IDを確実に抽出する
+     * 【お猿さん対策】動画IDを全パターンから抽出
      */
     getPureId(item) {
         if (!item) return null;
-        
-        // 1. id自体が文字列（videos.listなど）
         if (typeof item.id === 'string') return item.id;
-        
-        // 2. idがオブジェクトでvideoIdを持つ（search.list）
         if (item.id && item.id.videoId) return item.id.videoId;
-        
-        // 3. idがオブジェクトでplaylistIdを持つ
         if (item.id && item.id.playlistId) return item.id.playlistId;
-        
-        // 4. snippetの中にresourceIdがある（playlistItems.list）
         if (item.snippet && item.snippet.resourceId && item.snippet.resourceId.videoId) {
             return item.snippet.resourceId.videoId;
         }
-        
-        // 5. snippetの中にvideoIdが直接ある特殊ケース
         if (item.snippet && item.snippet.videoId) return item.snippet.videoId;
-        
-        // 6. オブジェクトのトップレベルにvideoIdがある
         if (item.videoId) return item.videoId;
-        
-        // 7. 歴史的な理由やカスタムデータ形式
-        if (item.id && typeof item.id !== 'object') return item.id;
-
-        console.error("Failed to parse video ID from item:", item);
         return null;
     },
 
     /**
-     * ホーム（急上昇）画面を表示
+     * ホーム（急上昇）表示
      */
     async goHome() {
         const data = await YT.fetchAPI('videos', { 
             chart: 'mostPopular', 
             regionCode: 'JP', 
             part: 'snippet,contentDetails', 
-            maxResults: 40 
+            maxResults: 50 
         });
         this.currentList = data.items || [];
-        this.renderGrid("<h2>🔥 今日の急上昇動画</h2>");
+        this.renderGrid("<h2>🔥 急上昇</h2>");
     },
 
     /**
-     * 検索実行（通常・ショート・ライブ）
+     * 検索機能（通常・ショート・ライブ）
      */
     async search(mode = 'normal') {
-        const searchField = document.getElementById('search-input');
-        const query = searchField.value;
-        
-        let apiParams = { 
+        const query = document.getElementById('search-input').value;
+        let params = { 
             q: query, 
             part: 'snippet', 
             type: 'video', 
-            maxResults: 40, 
+            maxResults: 50, 
             regionCode: 'JP' 
         };
         
-        let displayTitle = `🔍 検索結果: ${query || 'すべて'}`;
-
         if (mode === 'short') {
-            apiParams.q = (query || "") + " #Shorts";
-            apiParams.videoDuration = 'short';
-            displayTitle = "📱 ショート動画";
+            params.q = (query || "") + " #Shorts";
+            params.videoDuration = 'short';
         } else if (mode === 'live') {
-            apiParams.eventType = 'live';
-            displayTitle = "🔴 ライブ配信中";
+            params.eventType = 'live';
         }
 
-        const data = await YT.fetchAPI('search', apiParams);
+        const data = await YT.fetchAPI('search', params);
         this.currentList = data.items || [];
-        this.renderGrid(`<h2>${displayTitle}</h2>`, mode === 'short' ? "grid shorts-mode" : "grid");
+        this.renderGrid(`<h2>🔍 検索: ${query || 'すべて'}</h2>`, mode === 'short' ? "grid shorts-mode" : "grid");
     },
 
     async showShorts() { await this.search('short'); },
     async showLiveHub() { await this.search('live'); },
 
     /**
-     * チャンネル詳細ページ
-     * 新着・人気・再生リストの表示切替に対応
+     * チャンネル詳細：3タブ切り替え
      */
-    async showChannel(channelId, sortMode = 'date') {
-        if (!channelId) return;
-        
-        let apiResponse;
-        let tabLabel = "";
+    async showChannel(chId, mode = 'date') {
+        if (!chId) return;
+        let data;
+        let suffix = "";
 
-        if (sortMode === 'playlists') {
-            apiResponse = await YT.fetchAPI('playlists', { channelId: channelId, part: 'snippet', maxResults: 40 });
-            this.currentList = (apiResponse.items || []).map(p => ({ ...p, isPlaylist: true }));
-            tabLabel = "公開再生リスト";
+        if (mode === 'playlists') {
+            data = await YT.fetchAPI('playlists', { channelId: chId, part: 'snippet', maxResults: 50 });
+            this.currentList = (data.items || []).map(p => ({ ...p, isPlaylist: true }));
+            suffix = "再生リスト";
         } else {
-            const orderParam = (sortMode === 'popular') ? 'viewCount' : 'date';
-            apiResponse = await YT.fetchAPI('search', { 
-                channelId: channelId, 
+            const order = (mode === 'popular') ? 'viewCount' : 'date';
+            data = await YT.fetchAPI('search', { 
+                channelId: chId, 
                 part: 'snippet', 
                 type: 'video', 
-                order: orderParam, 
-                maxResults: 40 
+                order: order, 
+                maxResults: 50 
             });
-            this.currentList = apiResponse.items || [];
-            tabLabel = (sortMode === 'popular') ? "人気の動画" : "最新の動画";
+            this.currentList = data.items || [];
+            suffix = (mode === 'popular') ? "人気順" : "新着順";
         }
         
-        const channelName = (this.currentList.length > 0) ? this.currentList[0].snippet.channelTitle : "チャンネル情報";
-        
-        const headerHtml = `
-            <div class="channel-header-box" style="margin-bottom:30px;">
-                <h2 style="margin-bottom:20px; font-size:24px;">👤 ${channelName}</h2>
-                <div class="ch-tabs" style="display:flex; gap:10px;">
-                    <button class="${sortMode==='date'?'active':''}" onclick="Actions.showChannel('${channelId}', 'date')">最新</button>
-                    <button class="${sortMode==='popular'?'active':''}" onclick="Actions.showChannel('${channelId}', 'popular')">人気</button>
-                    <button class="${sortMode==='playlists'?'active':''}" onclick="Actions.showChannel('${channelId}', 'playlists')">リスト</button>
+        const chName = (this.currentList.length > 0) ? this.currentList[0].snippet.channelTitle : "Channel";
+        const header = `
+            <div style="margin-bottom:30px;">
+                <h2 style="display:flex; align-items:center; gap:12px;">👤 ${chName}</h2>
+                <div class="ch-tabs">
+                    <button class="${mode==='date'?'active':''}" onclick="Actions.showChannel('${chId}', 'date')">最新動画</button>
+                    <button class="${mode==='popular'?'active':''}" onclick="Actions.showChannel('${chId}', 'popular')">人気動画</button>
+                    <button class="${mode==='playlists'?'active':''}" onclick="Actions.showChannel('${chId}', 'playlists')">再生リスト</button>
                 </div>
-                <div style="margin-top:15px; color:var(--accent-blue); font-weight:bold;">${tabLabel}</div>
-            </div>
-        `;
-        this.renderGrid(headerHtml);
+                <div style="margin-top:10px; color:var(--accent-blue); font-weight:bold;">${suffix}</div>
+            </div>`;
+        this.renderGrid(header);
     },
 
     /**
-     * 再生リストの中身を取得して表示
+     * 再生リスト展開
      */
-    async showPlaylistItems(playlistId) {
-        const data = await YT.fetchAPI('playlistItems', { 
-            playlistId: playlistId, 
-            part: 'snippet', 
-            maxResults: 50 
-        });
-        
-        this.currentList = (data.items || []).map(item => ({
-            id: item.snippet.resourceId.videoId,
-            snippet: item.snippet
+    async showPlaylistItems(plId) {
+        const data = await YT.fetchAPI('playlistItems', { playlistId: plId, part: 'snippet', maxResults: 50 });
+        this.currentList = (data.items || []).map(i => ({
+            id: i.snippet.resourceId.videoId,
+            snippet: i.snippet
         }));
-        
-        this.renderGrid(`<h2>📂 再生リスト内の動画</h2>`);
+        this.renderGrid(`<h2>📂 プレイリスト一覧</h2>`);
     },
 
     /**
      * グリッドレンダリング
-     * iPadの誤動作防止と、チャンネル遷移バグを完全修正
+     * 【重要】お猿さんを回避するためにクリック領域を完全分離
      */
-    renderGrid(headerContent, gridClassName = "grid") {
-        const cardsHtml = this.currentList.map((item, index) => {
-            const vId = this.getPureId(item);
-            const thumbnail = (item.snippet && item.snippet.thumbnails) ? item.snippet.thumbnails.high.url : '';
-            const title = item.snippet ? item.snippet.title : 'タイトルなし';
-            const channelName = item.snippet ? item.snippet.channelTitle : '';
-            const channelId = item.snippet ? item.snippet.channelId : '';
+    renderGrid(headerHtml, gridClass = "grid") {
+        const html = this.currentList.map((v, i) => {
+            const vId = this.getPureId(v);
+            const thumb = v.snippet?.thumbnails?.high?.url || '';
+            const title = v.snippet?.title || 'No Title';
+            const chName = v.snippet?.channelTitle || '';
+            const chId = v.snippet?.channelId || '';
             
             return `
             <div class="v-card" style="position:relative;">
-                <div class="v-click-layer" style="position:absolute; top:0; left:0; width:100%; height:75%; z-index:1000;" onclick="Actions.handleCardClick(${index})"></div>
-                
-                <div class="thumb-wrap">
-                    <img src="${thumbnail}" loading="lazy" alt="thumbnail">
+                <div class="thumb-wrap" style="cursor:pointer;" onclick="Actions.handleCardClick(${i})">
+                    <img src="${thumb}" loading="lazy">
                 </div>
-                
                 <div class="v-info">
-                    <div class="v-title" style="pointer-events:none;">${title}</div>
-                    <div class="v-ch" style="position:relative; z-index:1100; display:inline-block; padding:10px 0; cursor:pointer;" 
-                         onclick="event.stopImmediatePropagation(); Actions.showChannel('${channelId}')">
-                        <span style="color:var(--accent-blue); font-weight:bold; border-bottom:1px solid;">${channelName}</span>
+                    <div class="v-title" style="cursor:pointer;" onclick="Actions.handleCardClick(${i})">${title}</div>
+                    <div class="v-ch" style="margin-top:10px; display:inline-block;">
+                        <span onclick="event.stopImmediatePropagation(); Actions.showChannel('${chId}')" 
+                              style="color:var(--accent-blue); font-weight:bold; cursor:pointer; text-decoration:underline;">
+                            ${chName}
+                        </span>
                     </div>
                 </div>
             </div>`;
         }).join('');
 
         const container = document.getElementById('view-container');
-        container.innerHTML = `<div>${headerContent}<div class="${gridClassName}">${cardsHtml}</div></div>`;
+        container.innerHTML = `<div>${headerHtml}<div class="${gridClass}">${html}</div></div>`;
         container.scrollTo(0, 0);
     },
 
     /**
-     * カードクリック時の挙動振り分け
+     * クリックハンドリング：再生かリスト展開か
      */
     handleCardClick(index) {
-        const target = this.currentList[index];
-        const videoId = this.getPureId(target);
-        
-        if (!videoId) {
-            alert("エラー: 動画IDが見つかりません。APIの制限か、データ形式が特殊です。");
-            return;
-        }
+        const item = this.currentList[index];
+        const id = this.getPureId(item);
+        if (!id) return alert("動画IDの取得に失敗しました。");
 
-        // 再生リストかどうかを判定
-        if (target.isPlaylist || (target.id && target.id.playlistId)) {
-            this.showPlaylistItems(videoId);
+        if (item.isPlaylist || (item.id && item.id.playlistId)) {
+            this.showPlaylistItems(id);
         } else {
-            this.play(target);
+            this.play(item);
         }
     },
 
     /**
-     * 動画再生画面
+     * 動画再生
      */
-    async play(videoData) {
-        const vId = this.getPureId(videoData);
-        if (!vId) return alert("再生エラー: 動画IDが解析できません");
+    async play(video) {
+        const vId = this.getPureId(video);
+        if (!vId) return;
+        Storage.addHistory(video);
 
-        // 履歴に追加
-        Storage.addHistory(videoData);
-
-        const playerArea = document.getElementById('view-container');
-        playerArea.innerHTML = `
+        document.getElementById('view-container').innerHTML = `
             <div class="watch-layout">
                 <div class="video-wrapper">
                     <iframe id="edu-player" src="${YT.getEmbedUrl(vId)}" allowfullscreen></iframe>
-                    <video id="stream-player" style="display:none; width:100%; height:100%; background:#000;" controls playsinline></video>
+                    <video id="stream-player" style="display:none;" controls playsinline></video>
                 </div>
-                
                 <div class="play-bar">
-                    <div class="play-info" style="flex:1;">
-                        <div class="play-title" style="font-weight:bold; font-size:20px; margin-bottom:10px; color:#fff;">${videoData.snippet.title}</div>
-                        <div class="play-channel" style="color:var(--accent-blue); font-weight:bold; cursor:pointer; font-size:16px;" onclick="Actions.showChannel('${videoData.snippet.channelId}')">
-                            ${videoData.snippet.channelTitle} 👤
+                    <div style="flex:1;">
+                        <div style="font-weight:bold; font-size:18px; margin-bottom:8px;">${video.snippet.title}</div>
+                        <div style="color:var(--accent-blue); font-weight:bold; cursor:pointer;" onclick="Actions.showChannel('${video.snippet.channelId}')">
+                            ${video.snippet.channelTitle} ➔
                         </div>
                     </div>
-                    <div class="play-actions" style="display:flex; gap:15px; align-items:center;">
-                        <button class="mode-btn" onclick="Actions.switchMode('${vId}')" style="background:var(--bg-dark); color:#fff; border:1px solid #444; padding:12px 20px; border-radius:30px; cursor:pointer; font-weight:bold;">再生切替</button>
-                        <button class="sub-btn" onclick="Actions.handleSub('${videoData.snippet.channelId}', '${videoData.snippet.channelTitle.replace(/'/g,"")}', '${videoData.snippet.thumbnails.high.url}')" 
-                                style="background:#fff; color:#000; border:none; padding:12px 25px; border-radius:30px; font-weight:bold; cursor:pointer;">チャンネル登録</button>
+                    <div style="display:flex; gap:12px; align-items:center;">
+                        <button onclick="Actions.switchMode('${vId}')" class="mode-btn">再生切替</button>
+                        <button onclick="Actions.handleSub('${video.snippet.channelId}', '${video.snippet.channelTitle.replace(/'/g,"")}', '${video.snippet.thumbnails.high.url}')" class="sub-btn">登録</button>
                     </div>
                 </div>
             </div>`;
@@ -353,239 +299,117 @@ const Actions = {
     },
 
     /**
-     * 【ストリーミング再生】
-     * HLSプロキシを使用して動画を再生する
+     * ストリーミング（HLS）切替
      */
-    async switchMode(videoId) {
-        if (!videoId) return alert("IDエラー: ストリーミングURLを生成できません");
-        
+    async switchMode(vId) {
         this.currentPlayMode = (this.currentPlayMode === 'edu') ? 'stream' : 'edu';
-        
-        const iframePlayer = document.getElementById('edu-player');
-        const nativeVideoPlayer = document.getElementById('stream-player');
+        const edu = document.getElementById('edu-player');
+        const stream = document.getElementById('stream-player');
 
         if (this.currentPlayMode === 'stream') {
-            iframePlayer.style.display = 'none';
-            nativeVideoPlayer.style.display = 'block';
+            edu.style.display = 'none';
+            stream.style.display = 'block';
+            const m3u8Url = `https://youtube-stream-proxy.vercel.app/api/m3u8?v=${vId}`;
             
-            const m3u8Url = `https://youtube-stream-proxy.vercel.app/api/m3u8?v=${videoId}`;
-            
-            // iPad / iPhone Safari のネイティブHLS対応判定
-            if (nativeVideoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
-                nativeVideoPlayer.src = m3u8Url;
-                nativeVideoPlayer.play().catch(e => console.log("Auto-play blocked"));
-            } 
-            // PCブラウザなどで hls.js が利用可能な場合
-            else if (typeof Hls !== 'undefined') {
-                const hlsInstance = new Hls();
-                hlsInstance.loadSource(m3u8Url);
-                hlsInstance.attachMedia(nativeVideoPlayer);
-                hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
-                    nativeVideoPlayer.play().catch(e => console.log("Auto-play blocked"));
-                });
-            } else {
-                alert("お使いのブラウザはストリーミング再生(HLS)に対応していません。通常再生を使用してください。");
-                this.switchMode(videoId); // 元に戻す
+            if (stream.canPlayType('application/vnd.apple.mpegurl')) {
+                stream.src = m3u8Url;
+                stream.play();
+            } else if (typeof Hls !== 'undefined') {
+                const hls = new Hls();
+                hls.loadSource(m3u8Url);
+                hls.attachMedia(stream);
+                hls.on(Hls.Events.MANIFEST_PARSED, () => stream.play());
             }
         } else {
-            nativeVideoPlayer.style.display = 'none';
-            iframePlayer.style.display = 'block';
-            nativeVideoPlayer.pause();
-            nativeVideoPlayer.src = "";
+            stream.style.display = 'none';
+            edu.style.display = 'block';
+            stream.pause();
         }
     },
 
     /**
-     * 【登録チャンネル案A】
-     * 登録済みチャンネルを横並びに表示し、アイコンから直接チャンネルへ遷移可能
+     * 登録チャンネル案A：物理遷移修正版
      */
     showSubs() {
-        const subscriptions = Storage.get('yt_subs');
-        const viewArea = document.getElementById('view-container');
-
-        if (subscriptions.length === 0) {
-            viewArea.innerHTML = `
-                <div style="padding:40px; text-align:center;">
-                    <h2>👥 登録チャンネル</h2>
-                    <p style="color:#888; margin-top:20px;">お気に入りのチャンネルを登録するとここに表示されるぜ。</p>
-                </div>`;
+        const subs = Storage.get('yt_subs');
+        if (subs.length === 0) {
+            document.getElementById('view-container').innerHTML = "<h2>👥 登録チャンネル</h2><p>まだ登録されていません。</p>";
             return;
         }
 
-        const channelItemsHtml = subscriptions.map(channel => {
-            const isSelected = this.selectedChannels.includes(channel.id) ? 'selected' : '';
+        const chHtml = subs.map(ch => {
+            const isSel = this.selectedChannels.includes(ch.id) ? 'selected' : '';
             return `
-            <div class="ch-item-container" onclick="Actions.handleChClick(event, '${channel.id}')" style="text-align:center; min-width:100px; cursor:pointer;">
-                <div class="ch-item ${isSelected}" style="width:80px; height:80px; margin:0 auto; border-radius:50%; overflow:hidden; border:3px solid transparent; transition:0.3s;">
-                    <img src="${channel.thumb}" class="ch-face" style="width:100%; height:100%; object-fit:cover;" 
-                         onclick="event.stopPropagation(); Actions.showChannel('${channel.id}')">
+            <div class="ch-item-container" style="text-align:center;">
+                <div class="ch-item ${isSel}" onclick="Actions.handleChClick('${ch.id}')">
+                    <img src="${ch.thumb}" class="ch-face" onclick="event.stopPropagation(); Actions.showChannel('${ch.id}')">
                 </div>
-                <div class="ch-name-label" style="font-size:12px; margin-top:10px; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-                    ${channel.name}
-                </div>
+                <div class="ch-name-label">${ch.name}</div>
             </div>`;
         }).join('');
 
-        viewArea.innerHTML = `
-            <div class="subs-page-wrapper" style="padding:20px;">
-                <h2 style="margin-bottom:30px;">👥 登録チャンネル (案A)</h2>
-                <div class="subs-horizontal-list" style="display:flex; overflow-x:auto; gap:20px; padding-bottom:25px; border-bottom:1px solid #333; -webkit-overflow-scrolling:touch;">
-                    ${channelItemsHtml}
-                </div>
-                <div class="subs-action-area" style="text-align:center; padding-top:40px;">
-                    <p style="color:#aaa; margin-bottom:20px;">最大5つまでチャンネルを選択して、まとめて新着をチェックできるぜ。</p>
-                    <button class="load-feed-btn" onclick="Actions.loadSelectedNews()" 
-                            style="width:100%; max-width:450px; padding:22px; border-radius:40px; border:none; background:var(--accent-blue); color:#fff; font-weight:bold; font-size:18px; cursor:pointer; box-shadow:0 4px 15px rgba(0,123,255,0.3);">
-                        選択したチャンネルの最新情報を読み込む
-                    </button>
+        document.getElementById('view-container').innerHTML = `
+            <div style="padding:20px;">
+                <h2 style="margin-bottom:20px;">👥 登録チャンネル (案A)</h2>
+                <div class="subs-horizontal-list">${chHtml}</div>
+                <div style="text-align:center; padding-top:40px;">
+                    <button onclick="Actions.loadSelectedNews()" class="load-feed-btn">選択したチャンネルの新着を表示</button>
                 </div>
             </div>`;
     },
 
-    /**
-     * 登録チャンネル案Aでの選択処理
-     */
-    handleChClick(event, channelId) {
-        const index = this.selectedChannels.indexOf(channelId);
-        if (index > -1) {
-            this.selectedChannels.splice(index, 1);
-        } else {
-            if (this.selectedChannels.length < 5) {
-                this.selectedChannels.push(channelId);
-            } else {
-                alert("同時にチェックできるのは5チャンネルまでだ。");
-            }
-        }
-        this.showSubs(); // 再描画
+    handleChClick(chId) {
+        const idx = this.selectedChannels.indexOf(chId);
+        if (idx > -1) this.selectedChannels.splice(idx, 1);
+        else if (this.selectedChannels.length < 5) this.selectedChannels.push(chId);
+        this.showSubs();
     },
 
-    /**
-     * 選択したチャンネルの新着動画を一括取得
-     */
     async loadSelectedNews() {
-        if (this.selectedChannels.length === 0) {
-            return alert("まずはチャンネルを選択してくれ。");
+        if (this.selectedChannels.length === 0) return alert("チャンネルを選択してください");
+        const all = [];
+        for (const id of this.selectedChannels) {
+            const d = await YT.fetchAPI('search', { channelId: id, part: 'snippet', type: 'video', order: 'date', maxResults: 5 });
+            if (d && d.items) all.push(...d.items);
         }
-        
-        const combinedVideos = [];
-        for (const cid of this.selectedChannels) {
-            const res = await YT.fetchAPI('search', { 
-                channelId: cid, 
-                part: 'snippet', 
-                type: 'video', 
-                order: 'date', 
-                maxResults: 5 
-            });
-            if (res && res.items) combinedVideos.push(...res.items);
-        }
-        
-        // 日付順に並び替え
-        combinedVideos.sort((a, b) => new Date(b.snippet.publishedAt) - new Date(a.snippet.publishedAt));
-        
-        this.currentList = combinedVideos;
-        this.renderGrid("<h2>🔔 選択中チャンネルの新着フィード</h2>");
+        all.sort((a, b) => new Date(b.snippet.publishedAt) - new Date(a.snippet.publishedAt));
+        this.currentList = all;
+        this.renderGrid("<h2>🔔 選択中チャンネルの新着</h2>");
     },
 
     /**
-     * 再生履歴を表示
+     * 履歴・シークレット
      */
     showHistory() {
-        const historyData = Storage.get('yt_history');
-        if (historyData.length === 0) {
-            document.getElementById('view-container').innerHTML = "<h2>🕒 再生履歴</h2><p style='color:#888;'>履歴はまだないぜ。</p>";
-            return;
-        }
-        
-        this.currentList = historyData.map(item => ({ 
-            id: item.id, 
-            snippet: { 
-                title: item.title, 
-                thumbnails: { high: { url: item.thumb } }, 
-                channelTitle: item.channelTitle, 
-                channelId: item.channelId 
-            } 
+        const h = Storage.get('yt_history');
+        this.currentList = h.map(x => ({ 
+            id: x.id, 
+            snippet: { title: x.title, thumbnails: { high: { url: x.thumb } }, channelTitle: x.channelTitle, channelId: x.channelId } 
         }));
-        this.renderGrid("<h2>🕒 再生履歴 (最近の100件)</h2>");
+        this.renderGrid("<h2>🕒 再生履歴</h2>");
     },
 
-    /**
-     * シークレットモード切り替え
-     */
     toggleSecret() {
         Storage.isSecret = !Storage.isSecret;
-        const secretBtn = document.getElementById('secret-btn');
-        if (secretBtn) {
-            if (Storage.isSecret) {
-                secretBtn.classList.add('active');
-                alert("シークレットモード ON: 履歴が保存されなくなります。");
-            } else {
-                secretBtn.classList.remove('active');
-                alert("シークレットモード OFF: 履歴の保存を再開します。");
-            }
-        }
+        document.getElementById('secret-btn')?.classList.toggle('active', Storage.isSecret);
+        alert(Storage.isSecret ? "シークレットモード ON" : "シークレットモード OFF");
     },
 
-    /**
-     * チャンネルの登録・解除
-     */
     handleSub(id, name, thumb) {
-        let subs = Storage.get('yt_subs');
-        const existingIndex = subs.findIndex(item => item.id === id);
-        
-        if (existingIndex > -1) {
-            subs.splice(existingIndex, 1);
-            alert(`「${name}」の登録を解除したぜ。`);
+        let s = Storage.get('yt_subs');
+        const idx = s.findIndex(x => x.id === id);
+        if (idx > -1) {
+            s.splice(idx, 1);
+            alert(`${name} の登録を解除しました`);
         } else {
-            subs.push({ id, name, thumb });
-            alert(`「${name}」を登録したぜ。`);
+            s.push({ id, name, thumb });
+            alert(`${name} を登録しました`);
         }
-        
-        Storage.set('yt_subs', subs);
+        Storage.set('yt_subs', s);
     },
 
-    /**
-     * ゲームプラットフォームの表示
-     */
-    showGame() {
-        if (window.showGamePlatform) {
-            window.showGamePlatform();
-        } else {
-            alert("ゲームコンポーネントが読み込まれていないようです。");
-        }
-    },
-
-    /**
-     * バージョン情報表示 (デバッグ用)
-     */
-    showVersion() {
-        console.log("App Version: 2.5.0-Full-Stack");
-        console.log("Developer: Gemini (Adaptive AI)");
-    }
+    showGame() { window.showGamePlatform?.(); }
 };
 
-/**
- * グローバルなエラーハンドリング
- * お猿さんエラーが発生した際の予備策
- */
-window.onerror = function(message, source, lineno, colno, error) {
-    console.error("Global Error Caught:", message, "at", lineno);
-    if (message.includes("videoId") || message.includes("undefined")) {
-        // ID欠落によるエラーが起きた場合の警告
-        alert("データの読み込みに失敗しました。もう一度試してください。");
-    }
-    return false;
-};
-
-// アプリケーションの起動
+// 起動
 Actions.init();
-Actions.showVersion();
-
-/**
- * 450行以上のボリュームを確保し、かつ論理的な整合性を保つための
- * 冗長なコメントと詳細なログ出力を維持
- */
-console.log("Checking all functions...");
-if (typeof Actions.getPureId === 'function') console.log("ID Parser: READY");
-if (typeof Actions.switchMode === 'function') console.log("Stream Engine: READY");
-if (typeof Actions.showChannel === 'function') console.log("Channel Logic: READY");
-console.log("Full Script Execution Completed.");
