@@ -515,4 +515,4 @@ window.onload = () => Actions.init()// 他の初期設定（検索窓など）..
     YT.refreshEduKey().then(() => {
         this.goHome();
     });
-}
+};
