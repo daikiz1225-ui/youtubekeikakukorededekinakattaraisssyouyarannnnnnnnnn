@@ -1,6 +1,6 @@
 const YT = {
     keys: ["AIzaSyBfCvyZ_J9mJiMFNYB6WfcuLyvf9zDdcUU", "AIzaSyCgVn-JWHKT_z6EC73Z6Vlex0F_d-BP_fY", "AIzaSyBbqPhAbqoWDOurTt7hejQmwc6dAoZ5Iy0", "AIzaSyAWk9mmie23-khi8-nipv1jHJND__UtEWA", "AIzaSyBL38iyqeiaKHoKqhloSnhG590DfJ35vCE"],
-    currentEduKey: "AXH1ezmAE3vgRPcGfwKP-x8QMySX2Sc1L5ejSmbRjTuE-_q-HIR8jzGYDuaE9xpFLlo_goB3iQQBDTsJ9c0h04V6RZqjE2Le8KQULVTQBURHroB2ujwh11mxs3jKlv_VeP_HHU45QkGzad-T3gEFcKpx86UOWwnFyw==",
+    currentEduKey: "AXH1ezlfxW5OxqYvZffRY980tx4oOj0-C8EZoscXox80zZHyIldr1-RMuTe6GD7bRpl1LcMIkl2fxz649ClWEzgm75Ger6esiqqDzyeFo0FNpRFWGr-pPk4CQ_UY4AMiFKMT1gOF0JHr86FtUCAaOgZBxK-zpuKQ2A==",
 
     async refreshEduKey() {
         try {
