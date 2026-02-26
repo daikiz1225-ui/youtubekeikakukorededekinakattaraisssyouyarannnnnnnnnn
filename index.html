@@ -3,56 +3,39 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>YouTube Premium Client</title>
+    <title>Ultimate Tube</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 </head>
 <body>
     <header class="header">
         <div class="logo" onclick="Actions.goHome()">
-            <span class="logo-red">▶</span> Premium
+            <span class="logo-red">●</span><span>Tube</span>
         </div>
-        <div class="search-bar-container" style="position:relative; flex: 0 1 600px;">
+        <div class="search-bar-container">
             <div class="search-bar">
-                <input type="text" id="search-input" placeholder="検索" oninput="Actions.updateSuggest()" onkeydown="if(event.key==='Enter') Actions.search()">
-                <button id="search-btn" onclick="Actions.search()">🔍</button>
+                <input type="text" id="search-input" placeholder="検索">
+                <button id="search-btn" onclick="Actions.search('normal')">🔍</button>
             </div>
-            <div id="suggest-box" class="suggest-box"></div>
         </div>
         <div class="user-icons">
-            <div id="secret-btn" class="icon-circle" onclick="Actions.toggleSecret()" title="シークレットモード">👤</div>
-            <div class="icon-circle" onclick="Actions.showSubs()">🔔</div>
+            <button id="secret-btn" onclick="Actions.toggleSecret()">🕶️</button>
         </div>
     </header>
 
-    <div id="filter-bar" class="filter-bar" style="display:none;">
-        <button onclick="Actions.setFilter('none')">すべて</button>
-        <button onclick="Actions.setFilter('today')">今日</button>
-        <button onclick="Actions.setFilter('short')">4分以内</button>
-        <button onclick="Actions.setFilter('live')">ライブ中</button>
-    </div>
-
-    <div class="main-layout">
+    <div class="main-container">
         <nav class="sidebar">
-            <div class="nav-item" onclick="Actions.goHome()">🏠<span>ホーム</span></div>
-            <div class="nav-item" onclick="Actions.showShorts()">⚡<span>ショート</span></div>
-            <div class="nav-item" onclick="Actions.showLiveHub()" style="color: #ff4e45; font-weight: bold;">🔴<span>Live</span></div>
-            <div class="nav-item" onclick="Actions.showSubs()">👥<span>登録済み</span></div>
-            <div class="nav-item" onclick="Actions.showGame()" style="color: #4CAF50; font-weight: bold;">🎮<span>ゲーム</span></div>
-            <hr>
-            <div class="nav-item" onclick="Actions.showHistory()">🕒<span>履歴</span></div>
+            <div class="nav-item" onclick="Actions.goHome()"><span>🏠</span><span>ホーム</span></div>
+            <div class="nav-item" onclick="Actions.showShorts()"><span>🎬</span><span>ショート</span></div>
+            <div class="nav-item" onclick="Actions.showLiveHub()"><span>📡</span><span>ライブ</span></div>
+            <div class="nav-item" onclick="Actions.showSubs()"><span>👥</span><span>登録チャンネル</span></div>
+            <div class="nav-item" onclick="Actions.showHistory()"><span>🕒</span><span>履歴</span></div>
+            <div class="nav-item" onclick="Actions.showGame()"><span>🎮</span><span>ゲーム</span></div>
         </nav>
-        <main class="content" id="view-container"></main>
+        <main class="content" id="view-container">
+            </main>
     </div>
 
-    <script src="game.js"></script>
-    <script src="tetris.js"></script>
-    <script src="snake.js"></script>
-    <script src="reversi.js"></script>
-    <script src="shogi.js"></script>
-    <script src="blockblast.js"></script>
-    <script src="game2048.js"></script>
-    <script src="towerdefense.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
