@@ -1,27 +1,27 @@
 const YT = {
-    keys: ["AIzaSyBfCvyZ_J9mJiMFNYB6WfcuLyvf9zDdcUU", "AIzaSyCgVn-JWHKT_z6EC73Z6Vlex0F_d-BP_fY", "AIzaSyBbqPhAbqoWDOurTt7hejQmwc6dAoZ5Iy0", "AIzaSyAWk9mmie23-khi8-nipv1jHJND__UtEWA", "AIzaSyBL38iyqeiaKHoKqhloSnhG590DfJ35vCE"],
-    // 教育用キーはここには書かず、自動取得に任せます
-
-    const YT = { 
+    keys: ["AIzaSyBfCvyZ...", "AIzaSyCgVn..."], // Google APIキー
+    currentEduKey: "", // ここを空で定義しておく
 
     async refreshEduKey() {
         try {
-            // 自鯖（Python API）を叩く。同じドメインなので相対パスでOK
             const response = await fetch('/api/get_key');
-            if (!response.ok) throw new Error("APIアクセス失敗");
-            
             const data = await response.json();
-            
-            // JSONの中にある 'key' を取り出して反映
             if (data && data.key) {
                 this.currentEduKey = data.key;
-                console.log("自鯖経由で最新キーを自動収集完了✅: ", this.currentEduKey);
+                // 通知を出す（Actions.initより先に動く可能性があるのでチェック付き）
+                if (window.Actions && Actions.showStatusNotification) {
+                    Actions.showStatusNotification("キーを自動更新しました✅");
+                }
             }
-        } catch (error) { 
-            console.error("自動収集エラー:", error); 
-        }
+        } catch (error) { console.error("Key fetch error", error); }
     },
-    // ...以下、既存のコード
+
+// 起動処理をスッキリさせる
+window.onload = async () => {
+    Actions.init(); 
+    await YT.refreshEduKey(); // キー取得を待つ
+    Actions.goHome();         // 取得完了後にホームへ
+};
 
     // 取得状況を画面にふわっと出すための小さな関数
     showStatusNotification(text) {
