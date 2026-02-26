@@ -18,7 +18,7 @@ const YT = {
      * だいきが提示した本物の embed_config パラメータ。
      * これが1文字でも違うと、埋め込みプレイヤーで「お猿さん」が出る。
      */
-    currentEduKey: "AXH1ezmAE3vgRPcGfwKP-x8QMySX2Sc1L5ejSmbRjTuE-_q-HIR8jzGYDuaE9xpFLlo_goB3iQQBDTsJ9c0h04V6RZqjE2Le8KQULVTQBURHroB2ujwh11mxs3jKlv_VeP_HHU45QkGzad-T3gEFcKpx86UOWwnFyw==",
+    currentEduKey: "AXH1ezmvg6iUdTiaGjoe1KzFZp0yiKDDO10fYpRrUARJTE_xOb-Si0wnvyANnvgtAq1P0vvybDAzaUQE0kj0UOb1CJFCqJ8ioR6XmLTAGUJr8P6fldUMZ9ztL-l-TF72C7tVL48KX-vltV2J5abHajEpyWGzAj5SlQ==",
 
     /**
      * APIフェッチコア関数
