@@ -2,24 +2,26 @@ const YT = {
     keys: ["AIzaSyBfCvyZ_J9mJiMFNYB6WfcuLyvf9zDdcUU", "AIzaSyCgVn-JWHKT_z6EC73Z6Vlex0F_d-BP_fY", "AIzaSyBbqPhAbqoWDOurTt7hejQmwc6dAoZ5Iy0", "AIzaSyAWk9mmie23-khi8-nipv1jHJND__UtEWA", "AIzaSyBL38iyqeiaKHoKqhloSnhG590DfJ35vCE"],
     // 教育用キーはここには書かず、自動取得に任せます
 
+    const YT = { 
+
     async refreshEduKey() {
-    try {
-        const response = await fetch('https://apis.kahoot.it/media-api/youtube/key');
-        const data = await response.json();
-        
-        if (data && data.key) {
-            this.currentEduKey = data.key; // 取得したキーを保存
+        try {
+            // 自鯖（Python API）を叩く。同じドメインなので相対パスでOK
+            const response = await fetch('/api/get_key');
+            if (!response.ok) throw new Error("APIアクセス失敗");
             
-            // 画面に「取得完了」と出す命令を追加
-            const msg = document.createElement('div');
-            msg.innerHTML = '<div style="position:fixed;top:10px;left:50%;transform:translateX(-50%);background:green;color:white;padding:10px;z-index:9999;border-radius:10px;">キー取得完了✅</div>';
-            document.body.appendChild(msg);
-            setTimeout(() => msg.remove(), 3000); // 3秒で消す
+            const data = await response.json();
+            
+            // JSONの中にある 'key' を取り出して反映
+            if (data && data.key) {
+                this.currentEduKey = data.key;
+                console.log("自鯖経由で最新キーを自動収集完了✅: ", this.currentEduKey);
+            }
+        } catch (error) { 
+            console.error("自動収集エラー:", error); 
         }
-    } catch (error) {
-        alert("キーの取得に失敗しました。ネット接続やフィルターを確認してください❌");
-    }
-},
+    },
+    // ...以下、既存のコード
 
     // 取得状況を画面にふわっと出すための小さな関数
     showStatusNotification(text) {
