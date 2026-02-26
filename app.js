@@ -57,7 +57,7 @@ const Storage = {
 
 const Actions = {
     currentList: [],
-    relatedList: [], // 関連動画用のリストを保持
+    relatedList: [],
     currentIndex: -1,
     channelIcons: {},
     currentView: "home",
@@ -155,7 +155,6 @@ const Actions = {
         this.play(this.currentList[index]);
     },
 
-    // 関連動画からの再生用
     playFromRelated(index) {
         if (this.relatedList && this.relatedList[index]) {
             this.play(this.relatedList[index]);
@@ -180,8 +179,13 @@ const Actions = {
         }
     },
 
+    // ダウンロード機能の新規追加
+    downloadVideo(vId) {
+        const url = `https://www.youtube.com/watch?v=${vId}`;
+        window.open(`https://cobalt.tools/?u=${encodeURIComponent(url)}`, '_blank');
+    },
+
     async play(video) {
-        // ID取得ロジックの修正: プレイリストや検索結果などあらゆる形式に対応
         const vId = video.contentDetails?.videoId || 
                     (video.id?.videoId || (typeof video.id === 'string' ? video.id : null));
         
@@ -202,7 +206,10 @@ const Actions = {
                         <h3>${snip.title}</h3>
                         <div style="display:flex; align-items:center; justify-content:space-between;">
                             <span onclick="Actions.showChannel('${snip.channelId}')" style="cursor:pointer; color:#aaa;">${snip.channelTitle}</span>
-                            <button class="btn ${isSubbed ? 'subbed' : ''}" onclick="Actions.handleSub('${snip.channelId}', '${snip.channelTitle.replace(/'/g, "\\'")}', true)">${isSubbed ? '登録済み' : '登録'}</button>
+                            <div>
+                                <button class="btn ${isSubbed ? 'subbed' : ''}" onclick="Actions.handleSub('${snip.channelId}', '${snip.channelTitle.replace(/'/g, "\\'")}', true)">${isSubbed ? '登録済み' : '登録'}</button>
+                                <button class="btn-download" onclick="Actions.downloadVideo('${vId}')">📥</button>
+                            </div>
                         </div>
                     </div>
                 </div>`;
@@ -218,7 +225,10 @@ const Actions = {
                                     <img src="${this.channelIcons[snip.channelId] || ''}" style="width:40px; height:40px; border-radius:50%;">
                                     <span style="margin-left:10px; font-weight:bold;">${snip.channelTitle}</span>
                                 </div>
-                                <button id="sub-btn" class="btn ${isSubbed ? 'subbed' : ''}" onclick="Actions.handleSub('${snip.channelId}', '${snip.channelTitle.replace(/'/g, "\\'")}', true)">${isSubbed ? '登録済み' : 'チャンネル登録'}</button>
+                                <div style="display:flex; align-items:center;">
+                                    <button id="sub-btn" class="btn ${isSubbed ? 'subbed' : ''}" onclick="Actions.handleSub('${snip.channelId}', '${snip.channelTitle.replace(/'/g, "\\'")}', true)">${isSubbed ? '登録済み' : 'チャンネル登録'}</button>
+                                    <button class="btn-download" onclick="Actions.downloadVideo('${vId}')">📥 ダウンロード</button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -228,7 +238,6 @@ const Actions = {
             const qK = snip.title.replace(/[【】「」]/g, ' ').split(' ').filter(w => w.length > 1).slice(0, 3).join(' ');
             const rel = await YT.fetchAPI('search', { q: qK, type: 'video', part: 'snippet', maxResults: 15 });
             
-            // バグ修正: 関連動画リストを保存し、インデックスで呼び出す
             this.relatedList = rel.items;
             document.getElementById('side-content-box').innerHTML = rel.items.map((i, idx) => `
                 <div class="v-card" style="display:flex; gap:10px; margin-bottom:12px;" onclick="Actions.playFromRelated(${idx})">
@@ -297,8 +306,8 @@ const Actions = {
     showSubs() {
         this.currentView = "subs";
         const subs = Storage.get('yt_subs');
-        const html = subs.map(ch => `<div class="v-card" style="padding:20px; text-align:center; background:var(--card-bg);" onclick="Actions.showChannel('${ch.id}')"><img src="${ch.thumb}" style="width:100px; height:100px; border-radius:50%;"><h3>${ch.name}</h3><button class="btn subbed" onclick="event.stopPropagation(); Actions.handleSub('${ch.id}', '${ch.name}', true); Actions.showSubs();">解除</button></div>`).join('');
-        document.getElementById('view-container').innerHTML = `<div style="padding:20px;"><h2>登録済み</h2><div class="grid">${html}</div></div>`;
+        const html = subs.map(ch => `<div class=\"v-card\" style=\"padding:20px; text-align:center; background:var(--card-bg);\" onclick=\"Actions.showChannel('${ch.id}')\"><img src=\"${ch.thumb}\" style=\"width:100px; height:100px; border-radius:50%;\"><h3>${ch.name}</h3><button class=\"btn subbed\" onclick=\"event.stopPropagation(); Actions.handleSub('${ch.id}', '${ch.name}', true); Actions.showSubs();\">解除</button></div>`).join('');
+        document.getElementById('view-container').innerHTML = `<div style=\"padding:20px;\"><h2>登録済み</h2><div class=\"grid\">${html}</div></div>`;
     },
 
     showHistory() {
@@ -314,4 +323,3 @@ const Actions = {
     }
 };
 window.onload = () => Actions.init();
-
