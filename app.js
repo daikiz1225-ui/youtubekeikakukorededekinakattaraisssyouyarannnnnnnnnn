@@ -1,5 +1,5 @@
-/* app vr3.js - AI Recommendation Update
-  既存機能を保持し、AIおすすめ機能のみを追加 
+/* app vr4_updated.js - YouTube Education & m3u8 Hybrid Player
+  既存のAIおすすめ等の機能を完全に保持し、m3u8再生機能を追加
 */
 
 const YT = {
@@ -27,6 +27,10 @@ const YT = {
                 func: 'seekTo',
                 args: [seconds, true]
             }), '*');
+        } else {
+            // m3u8(videoタグ)用のシーク処理
+            const video = document.querySelector('.video-wrapper video');
+            if (video) video.currentTime += seconds;
         }
     },
 
@@ -105,14 +109,12 @@ const Actions = {
         
         const sidebar = document.querySelector('.sidebar');
         if (sidebar) {
-            // 後で見るボタンの追加
             if (!document.getElementById('nav-watch-later')) {
                 const historyNav = document.querySelector('.sidebar .nav-item[onclick="Actions.showHistory()"]');
                 if (historyNav) {
                     historyNav.insertAdjacentHTML('beforebegin', '<div id="nav-watch-later" class="nav-item" onclick="Actions.showWatchLater()">📌<span>後で見る</span></div>');
                 }
             }
-            // AIおすすめボタンの追加 (NEW!)
             if (!document.getElementById('nav-ai-recommend')) {
                 const homeNav = document.querySelector('.sidebar .nav-item[onclick="Actions.goHome()"]');
                 if (homeNav) {
@@ -122,18 +124,15 @@ const Actions = {
         }
     },
 
-    // --- AIおすすめ機能 (NEW!) ---
     async showAIRecommendations() {
         this.currentView = "ai_recommend";
         const container = document.getElementById('view-container');
         container.innerHTML = `<div style="padding:20px;"><h2>🤖 AIが好みを分析中...</h2></div>`;
-
         const history = Storage.get('yt_history');
         if (history.length < 3) {
             container.innerHTML = `<div style="padding:20px;"><h2>🤖 分析にはあと ${3 - history.length} 件の視聴履歴が必要です。</h2></div>`;
             return;
         }
-
         try {
             const resp = await fetch('/api/get_recommend', {
                 method: 'POST',
@@ -141,7 +140,6 @@ const Actions = {
                 body: JSON.stringify({ history: history })
             });
             const aiData = await resp.json();
-            
             this.currentParams = { q: aiData.query, part: 'snippet', maxResults: 24, type: 'video' };
             const data = await YT.fetchAPI('search', this.currentParams);
             this.currentList = data.items || [];
@@ -265,6 +263,9 @@ const Actions = {
         const iframe = document.querySelector('.video-wrapper iframe, .shorts-container iframe');
         if (iframe) {
             iframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'setPlaybackRate', args: [rate] }), '*');
+        } else {
+            const video = document.querySelector('.video-wrapper video');
+            if (video) video.playbackRate = rate;
         }
     },
 
@@ -277,11 +278,15 @@ const Actions = {
         }
     },
 
+    // --- 強化された再生関数 ---
     async play(video) {
-        const vId = video.contentDetails?.videoId || (video.id?.videoId || (typeof video.id === 'string' ? video.id : null));
+        let vId = video.contentDetails?.videoId || (video.id?.videoId || (typeof video.id === 'string' ? video.id : null));
         const snip = video.snippet;
         const isSubbed = Storage.get('yt_subs').some(x => x.id === snip.channelId);
         const isWatchLater = Storage.isWatchLater(vId);
+        
+        // m3u8判定ロジック
+        const isM3U8 = vId && (vId.startsWith('http') && vId.includes('.m3u8'));
         const isShorts = this.currentView === "shorts" || snip.title.includes("#Shorts") || (snip.description && snip.description.includes("#Shorts"));
         
         const safeTitle = snip.title.replace(/'/g, "\\'").replace(/"/g, '&quot;');
@@ -290,13 +295,23 @@ const Actions = {
 
         window.scrollTo(0, 0);
 
+        // プレイヤー部分のHTML生成
+        let playerHtml = "";
+        if (isM3U8) {
+            // M3U8(videoタグ)再生
+            playerHtml = `<video id="m3u8-player" controls autoplay style="width:100%; height:100%; background:#000;"></video>`;
+        } else {
+            // 通常のYouTube Education
+            playerHtml = `<iframe src="${YT.getEmbedUrl(vId, isShorts)}" style="width:100%; height:100%; border:none;" allowfullscreen allow="autoplay"></iframe>`;
+        }
+
         if (isShorts) {
             document.getElementById('view-container').innerHTML = `
                 <div class="shorts-container">
                     <div class="nav-arrow arrow-prev" onclick="Actions.playRelative(-1)">←</div>
                     <div class="nav-arrow arrow-next" onclick="Actions.playRelative(1)">→</div>
                     <div style="width:360px; height:640px; background:#000; border-radius:15px; overflow:hidden;">
-                        <iframe src="${YT.getEmbedUrl(vId, true)}" style="width:100%; height:100%; border:none;"></iframe>
+                        ${playerHtml}
                     </div>
                     <div style="width:360px; margin-top:15px;">
                         <h3>${snip.title}</h3>
@@ -314,7 +329,7 @@ const Actions = {
             document.getElementById('view-container').innerHTML = `
                 <div class="watch-layout">
                     <div class="player-area">
-                        <div class="video-wrapper"><iframe src="${YT.getEmbedUrl(vId)}" style="width:100%; height:100%; border:none;" allowfullscreen allow="autoplay"></iframe></div>
+                        <div class="video-wrapper">${playerHtml}</div>
                         <div style="margin-top:15px; display:flex; gap:10px; align-items:center; background:#1e1e1e; padding:10px 20px; border-radius:10px; flex-wrap:wrap;">
                             <span style="font-size:14px; color:#aaa; font-weight:bold; margin-right:10px;">再生速度:</span>
                             <button class="btn" style="padding:6px 12px;" onclick="Actions.changeSpeed(0.5)">0.5x</button>
@@ -359,6 +374,19 @@ const Actions = {
                     <div style="font-size:12px;"><div style="font-weight:bold; line-clamp:2; display:-webkit-box; -webkit-box-orient:vertical; overflow:hidden;">${i.snippet.title}</div><div style="color:#aaa;">${i.snippet.channelTitle}</div></div>
                 </div>`).join('');
         }
+
+        // m3u8プレイヤーの初期化
+        if (isM3U8 && typeof Hls !== 'undefined') {
+            const videoElement = document.getElementById('m3u8-player');
+            if (Hls.isSupported()) {
+                const hls = new Hls();
+                hls.loadSource(vId);
+                hls.attachMedia(videoElement);
+            } else if (videoElement.canPlayType('application/vnd.apple.mpegurl')) {
+                videoElement.src = vId;
+            }
+        }
+
         Storage.addHistory({ id: vId, title: snip.title, thumb: snip.thumbnails.high?.url, channelTitle: snip.channelTitle });
     },
 
