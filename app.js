@@ -1,6 +1,6 @@
 const YT = {
     keys: ["AIzaSyBfCvyZ_J9mJiMFNYB6WfcuLyvf9zDdcUU", "AIzaSyCgVn-JWHKT_z6EC73Z6Vlex0F_d-BP_fY", "AIzaSyBbqPhAbqoWDOurTt7hejQmwc6dAoZ5Iy0", "AIzaSyAWk9mmie23-khi8-nipv1jHJND__UtEWA", "AIzaSyBL38iyqeiaKHoKqhloSnhG590DfJ35vCE"],
-    // 更新されたEDUキー
+    // ご指定の最新EDUキーに更新
     currentEduKey: "AXH1ezlfxW5OxqYvZffRY980tx4oOj0-C8EZoscXox80zZHyIldr1-RMuTe6GD7bRpl1LcMIkl2fxz649ClWEzgm75Ger6esiqqDzyeFo0FNpRFWGr-pPk4CQ_UY4AMiFKMT1gOF0JHr86FtUCAaOgZBxK-zpuKQ2A==",
 
     async refreshEduKey() {
@@ -180,16 +180,17 @@ const Actions = {
         }
     },
 
-    // ダウンロード機能の修正: SaveFrom.netを動画エリアに埋め込む
+    // ダウンロード機能の修正: 埋め込み可能なダウンローダー(loader.to API)を使用
     downloadVideo(vId) {
-        const youtubeUrl = `https://www.youtube.com/watch?v=${vId}`;
-        const downloadUrl = `https://ja.savefrom.net/1-youtube-video-downloader-175dk.html?url=${encodeURIComponent(youtubeUrl)}`;
+        // 埋め込み用APIカードURL（画質選択などが自動で表示される）
+        const downloadUrl = `https://loader.to/api/card/?url=https://www.youtube.com/watch?v=${vId}`;
         
-        // 通常動画のラッパーまたはショート動画のラッパーを探す
+        // 再生プレイヤーのラッパー要素を取得
         const playerWrapper = document.querySelector('.video-wrapper') || 
                               document.querySelector('.shorts-container div[style*="background:#000"]');
         
         if (playerWrapper) {
+            // プレイヤーエリアをダウンローダーに書き換え
             playerWrapper.innerHTML = `<iframe src="${downloadUrl}" style="width:100%; height:100%; border:none;" allowfullscreen></iframe>`;
         }
     },
