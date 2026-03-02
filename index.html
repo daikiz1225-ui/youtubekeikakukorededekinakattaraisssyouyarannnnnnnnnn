@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>404 Not Found</title>
+    <title>Device Authorization</title>
     <link rel="stylesheet" href="style.css">
 
     <script src="allowlist.js"></script>
 
     <script>
     (function() {
-        // デバイス固有IDの生成
+        // デバイス固有IDの生成（履歴・Wi-Fi・劣化に強い）
         async function getSecureID() {
             const canvas = document.createElement('canvas');
             const gl = canvas.getContext('webgl');
@@ -22,7 +22,7 @@
                 screen.width + "x" + screen.height,
                 navigator.hardwareConcurrency,
                 renderer,
-                "YT_PREMIUM_SECURE_v2"
+                "YT_PREMIUM_SECURE_v3" // ソルト
             ].join('|');
 
             let hash = 0;
@@ -40,49 +40,56 @@
             const isAllowed = (typeof ALLOWED_IDS !== 'undefined' && ALLOWED_IDS.includes(currentID));
 
             if (isAllowed) {
+                // 承認済み：そのままサイトを表示
                 document.title = "YouTube Premium Client";
+                console.log("Authorized.");
             } else {
-                // 未承認時の404画面（タイトル全体がスイッチ）
+                // 未承認：承認待ち専用画面を表示
                 document.documentElement.innerHTML = `
                     <style>
-                        body { font-family: sans-serif; text-align: center; padding: 50px; background: #fff; color: #000; overflow: hidden; }
-                        .error-title { font-size: 50px; margin-bottom: 10px; cursor: default; user-select: none; padding: 20px; }
-                        p { font-size: 20px; }
-                        .id-overlay { 
-                            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-                            background: #000; color: #fff; z-index: 10000; 
-                            flex-direction: column; align-items: center; justify-content: center; padding: 20px;
+                        body { 
+                            background: #0f0f0f; color: #fff; font-family: sans-serif; 
+                            margin: 0; height: 100vh; display: flex; align-items: center; justify-content: center;
                         }
-                        .id-code { background: #222; padding: 20px; border-radius: 10px; color: #0f0; font-size: 30px; font-family: monospace; margin: 20px 0; border: 1px solid #444; }
-                        .copy-btn { background: #0055ff; color: white; border: none; padding: 15px 30px; border-radius: 30px; font-size: 18px; font-weight: bold; }
+                        .container { text-align: center; padding: 20px; width: 90%; max-width: 500px; }
+                        h1 { color: #ff4e45; font-size: 28px; margin-bottom: 10px; }
+                        .id-card { 
+                            background: #1e1e1e; padding: 30px; border-radius: 20px; 
+                            border: 2px solid #333; margin: 25px 0; 
+                        }
+                        .id-label { color: #888; font-size: 14px; margin-bottom: 10px; }
+                        .id-value { 
+                            color: #00ff00; font-size: 32px; font-family: monospace; 
+                            word-break: break-all; letter-spacing: 2px;
+                        }
+                        .copy-btn { 
+                            background: #0055ff; color: white; border: none; padding: 18px 40px; 
+                            border-radius: 35px; font-size: 18px; font-weight: bold; cursor: pointer;
+                            box-shadow: 0 5px 15px rgba(0,85,255,0.3); width: 100%;
+                        }
+                        .msg { color: #aaa; line-height: 1.6; margin-top: 20px; }
                     </style>
-                    <h1 class="error-title" onclick="handleSecretClick()">404 Not Found</h1>
-                    <p>The requested URL was not found on this server.</p>
-                    <hr><address>Apache Server at ${window.location.hostname} Port 443</address>
-                    
-                    <div id="idOverlay" class="id-overlay">
-                        <h1>端末承認が必要</h1>
-                        <p>このIDをコピーして開発者に送ってください：</p>
-                        <div class="id-code">${currentID}</div>
-                        <button class="copy-btn" onclick="copyText('${currentID}')">IDをコピーする</button>
-                        <p style="margin-top:40px; color:#555;" onclick="location.reload()">閉じる</p>
+                    <div class="container">
+                        <h1>承認が必要です</h1>
+                        <p class="msg">この端末はまだ登録されていません。<br>以下のIDをコピーして開発者に送ってください。</p>
+                        
+                        <div class="id-card">
+                            <div class="id-label">あなたの許可ID</div>
+                            <div class="id-value">${currentID}</div>
+                        </div>
+
+                        <button class="copy-btn" onclick="copyID('${currentID}')">IDをコピーする</button>
+                        
+                        <p style="margin-top:40px; font-size:12px; color:#444;">IDを送った後、開発者が追加すると利用可能になります。</p>
                     </div>
 
                     <script>
-                        let clickTimer = null;
-                        let clicks = 0;
-                        function handleSecretClick() {
-                            clicks++;
-                            if (clicks >= 5) { // 5回連続タップで発動
-                                document.getElementById('idOverlay').style.display = 'flex';
-                                clicks = 0;
-                            }
-                            clearTimeout(clickTimer);
-                            clickTimer = setTimeout(() => { clicks = 0; }, 2000); // 2秒間操作がないとリセット
-                        }
-                        function copyText(text) {
-                            navigator.clipboard.writeText(text);
-                            alert("コピーしました！");
+                        function copyID(id) {
+                            navigator.clipboard.writeText(id).then(() => {
+                                alert("IDをコピーしました！Teams等で送ってください。");
+                            }).catch(() => {
+                                alert("コピーに失敗しました。直接メモしてください: " + id);
+                            });
                         }
                     <\/script>
                 `;
@@ -120,15 +127,6 @@
         <main class="content" id="view-container"></main>
     </div>
 
-    <script src="game.js"></script>
-    <script src="tetris.js"></script>
-    <script src="snake.js"></script>
-    <script src="reversi.js"></script>
-    <script src="shogi.js"></script>
-    <script src="blockblast.js"></script>
-    <script src="game2048.js"></script>
-    <script src="towerdefense.js"></script>
-    <script src="airhockey.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <script src="app.js"></script>
 </body>
