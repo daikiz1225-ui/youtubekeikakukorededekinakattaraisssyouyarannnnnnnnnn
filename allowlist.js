@@ -4,4 +4,4 @@
 */
 const ALLOWED_IDS = [
     "DEV-XCHJET","DEV-NHQB6M", // まずは自分のIDを後で入れる
-   ;
+   ];
