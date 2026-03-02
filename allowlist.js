@@ -1,1 +1,1 @@
-const ALLOWED_IDS = ["${finalID}"];
+const ALLOWED_IDS = ["ID-PYRHMD"];
