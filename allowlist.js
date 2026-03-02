@@ -3,5 +3,5 @@
    例: "DEV-ABC12345", "DEV-XYZ67890"
 */
 const ALLOWED_IDS = [
-    "YOUR_OWN_ID_WILL_GO_HERE", // まずは自分のIDを後で入れる
+    "DEV-XCHJET", // まずは自分のIDを後で入れる
 ];
