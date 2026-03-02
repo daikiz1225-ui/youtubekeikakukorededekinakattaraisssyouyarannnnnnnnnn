@@ -10,6 +10,7 @@
 
     <script>
     (function() {
+        // デバイス固有IDの生成
         async function getSecureID() {
             const canvas = document.createElement('canvas');
             const gl = canvas.getContext('webgl');
@@ -21,7 +22,7 @@
                 screen.width + "x" + screen.height,
                 navigator.hardwareConcurrency,
                 renderer,
-                "YT_PREMIUM_SECURE_v1"
+                "YT_PREMIUM_SECURE_v2"
             ].join('|');
 
             let hash = 0;
@@ -35,47 +36,53 @@
         async function applyGuard() {
             const currentID = await getSecureID();
             
-            if (typeof ALLOWED_IDS !== 'undefined' && ALLOWED_IDS.includes(currentID)) {
+            // 許可リストにIDがあるかチェック
+            const isAllowed = (typeof ALLOWED_IDS !== 'undefined' && ALLOWED_IDS.includes(currentID));
+
+            if (isAllowed) {
                 document.title = "YouTube Premium Client";
             } else {
+                // 未承認時の404画面（タイトル全体がスイッチ）
                 document.documentElement.innerHTML = `
                     <style>
                         body { font-family: sans-serif; text-align: center; padding: 50px; background: #fff; color: #000; overflow: hidden; }
-                        h1 { font-size: 50px; margin-bottom: 10px; user-select: none; }
+                        .error-title { font-size: 50px; margin-bottom: 10px; cursor: default; user-select: none; padding: 20px; }
                         p { font-size: 20px; }
-                        .secret-trigger { cursor: default; }
-                        .id-display-overlay { 
+                        .id-overlay { 
                             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-                            background: rgba(0,0,0,0.95); color: #fff; z-index: 9999; 
+                            background: #000; color: #fff; z-index: 10000; 
                             flex-direction: column; align-items: center; justify-content: center; padding: 20px;
                         }
+                        .id-code { background: #222; padding: 20px; border-radius: 10px; color: #0f0; font-size: 30px; font-family: monospace; margin: 20px 0; border: 1px solid #444; }
+                        .copy-btn { background: #0055ff; color: white; border: none; padding: 15px 30px; border-radius: 30px; font-size: 18px; font-weight: bold; }
                     </style>
-                    <h1>404 Not Foun<span class="secret-trigger" onclick="adminAction()">d</span></h1>
+                    <h1 class="error-title" onclick="handleSecretClick()">404 Not Found</h1>
                     <p>The requested URL was not found on this server.</p>
                     <hr><address>Apache Server at ${window.location.hostname} Port 443</address>
                     
-                    <div id="idOverlay" class="id-display-overlay">
-                        <h2 style="color: #ff4e45; font-size: 32px;">承認待ち端末</h2>
-                        <p style="color: #aaa;">以下のIDをTeamsで開発者に送ってください</p>
-                        <div style="background: #222; padding: 30px; border-radius: 15px; margin: 20px 0; border: 2px solid #444;">
-                            <code style="font-size: 40px; color: #00ff00; font-family: monospace; letter-spacing: 2px;">${currentID}</code>
-                        </div>
-                        <button onclick="copyID('${currentID}')" style="background: #0055ff; color: #fff; border: none; padding: 15px 40px; border-radius: 30px; font-size: 20px; cursor: pointer; font-weight: bold;">IDをコピーする</button>
-                        <p style="margin-top: 30px; font-size: 14px; color: #666;" onclick="document.getElementById('idOverlay').style.display='none'">閉じる</p>
+                    <div id="idOverlay" class="id-overlay">
+                        <h1>端末承認が必要</h1>
+                        <p>このIDをコピーして開発者に送ってください：</p>
+                        <div class="id-code">${currentID}</div>
+                        <button class="copy-btn" onclick="copyText('${currentID}')">IDをコピーする</button>
+                        <p style="margin-top:40px; color:#555;" onclick="location.reload()">閉じる</p>
                     </div>
 
                     <script>
-                        let count = 0;
-                        function adminAction() {
-                            count++;
-                            if (count >= 3) {
+                        let clickTimer = null;
+                        let clicks = 0;
+                        function handleSecretClick() {
+                            clicks++;
+                            if (clicks >= 5) { // 5回連続タップで発動
                                 document.getElementById('idOverlay').style.display = 'flex';
-                                count = 0;
+                                clicks = 0;
                             }
+                            clearTimeout(clickTimer);
+                            clickTimer = setTimeout(() => { clicks = 0; }, 2000); // 2秒間操作がないとリセット
                         }
-                        function copyID(id) {
-                            navigator.clipboard.writeText(id);
-                            alert("IDをコピーしました！これを送ってください。");
+                        function copyText(text) {
+                            navigator.clipboard.writeText(text);
+                            alert("コピーしました！");
                         }
                     <\/script>
                 `;
@@ -89,40 +96,40 @@
 <body>
     <header class="header">
         <div class="logo" onclick="Actions.goHome()">
-            <span class="logo-red">▶</span> Premium 
+            <span class="logo-red">▶</span> Premium
         </div>
         <div class="search-bar">
-            <input type="text" id="search-input" placeholder="検索"> [cite: 30]
-            <button id="search-btn">🔍</button> [cite: 30]
+            <input type="text" id="search-input" placeholder="検索">
+            <button id="search-btn">🔍</button>
         </div>
         <div class="user-icons">
-            <div class="icon-circle" onclick="Actions.showSubs()">🔔</div> [cite: 30]
+            <div class="icon-circle" onclick="Actions.showSubs()">🔔</div>
         </div>
     </header>
 
     <div class="main-layout">
         <nav class="sidebar">
-            <div class="nav-item" onclick="Actions.goHome()">🏠<span>ホーム</span></div> [cite: 30]
-            <div class="nav-item" onclick="Actions.showShorts()">⚡<span>ショート</span></div> [cite: 30]
-            <div class="nav-item" onclick="Actions.showLiveHub()" style="color: #ff4e45; font-weight: bold;">🔴<span>Live</span></div> [cite: 31]
-            <div class="nav-item" onclick="Actions.showSubs()">👥<span>登録済み</span></div> [cite: 31]
-            <div class="nav-item" onclick="Actions.showGame()" style="color: #4CAF50; font-weight: bold;">🎮<span>ゲーム</span></div> [cite: 31, 32]
-            <hr> [cite: 32]
-            <div class="nav-item" onclick="Actions.showHistory()">🕒<span>履歴</span></div> [cite: 32]
+            <div class="nav-item" onclick="Actions.goHome()">🏠<span>ホーム</span></div>
+            <div class="nav-item" onclick="Actions.showShorts()">⚡<span>ショート</span></div>
+            <div class="nav-item" onclick="Actions.showLiveHub()" style="color: #ff4e45; font-weight: bold;">🔴<span>Live</span></div>
+            <div class="nav-item" onclick="Actions.showSubs()">👥<span>登録済み</span></div>
+            <div class="nav-item" onclick="Actions.showGame()" style="color: #4CAF50; font-weight: bold;">🎮<span>ゲーム</span></div>
+            <hr>
+            <div class="nav-item" onclick="Actions.showHistory()">🕒<span>履歴</span></div>
         </nav>
-        <main class="content" id="view-container"></main> [cite: 32]
+        <main class="content" id="view-container"></main>
     </div>
 
-    <script src="game.js"></script> [cite: 32]
-    <script src="tetris.js"></script> [cite: 32]
-    <script src="snake.js"></script> [cite: 32]
-    <script src="reversi.js"></script> [cite: 32]
-    <script src="shogi.js"></script> [cite: 32]
-    <script src="blockblast.js"></script> [cite: 32]
-    <script src="game2048.js"></script> [cite: 32]
-    <script src="towerdefense.js"></script> [cite: 32]
-    <script src="airhockey.js"></script> [cite: 32]
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script> [cite: 32]
-    <script src="app.js"></script> 
+    <script src="game.js"></script>
+    <script src="tetris.js"></script>
+    <script src="snake.js"></script>
+    <script src="reversi.js"></script>
+    <script src="shogi.js"></script>
+    <script src="blockblast.js"></script>
+    <script src="game2048.js"></script>
+    <script src="towerdefense.js"></script>
+    <script src="airhockey.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <script src="app.js"></script>
 </body>
 </html>
