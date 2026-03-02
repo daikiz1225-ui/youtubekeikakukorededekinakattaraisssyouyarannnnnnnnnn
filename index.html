@@ -3,29 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>404 Not Found</title> <link rel="stylesheet" href="style.css">
+    <title>404 Not Found</title>
+    <link rel="stylesheet" href="style.css">
 
     <script src="allowlist.js"></script>
 
     <script>
     (function() {
-        // 2. 端末固有の指紋（ID）を生成（履歴消去やWi-Fiに左右されないスペック情報を利用）
         async function getSecureID() {
             const canvas = document.createElement('canvas');
             const gl = canvas.getContext('webgl');
             const debugInfo = gl ? gl.getExtension('WEBGL_debug_renderer_info') : null;
             const renderer = debugInfo ? gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) : "unknown";
             
-            // デバイスの物理的な特徴を合成
             const specs = [
                 navigator.userAgent,
                 screen.width + "x" + screen.height,
-                navigator.hardwareConcurrency, // CPUコア数
-                renderer,                     // グラフィックチップ名（描画癖の源）
-                "YT_PREMIUM_SECURE_v1"        // 固定ソルト
+                navigator.hardwareConcurrency,
+                renderer,
+                "YT_PREMIUM_SECURE_v1"
             ].join('|');
 
-            // 数値ハッシュ化
             let hash = 0;
             for (let i = 0; i < specs.length; i++) {
                 hash = ((hash << 5) - hash) + specs.charCodeAt(i);
@@ -34,42 +32,54 @@
             return "DEV-" + Math.abs(hash).toString(36).toUpperCase();
         }
 
-        // 3. 認証ガードの実行
         async function applyGuard() {
             const currentID = await getSecureID();
             
-            // 許可リスト（ALLOWED_IDS）に自分のIDがあるか確認
             if (typeof ALLOWED_IDS !== 'undefined' && ALLOWED_IDS.includes(currentID)) {
-                // 承認済み：本来のタイトルに戻してサイトを表示
                 document.title = "YouTube Premium Client";
-                console.log("Welcome back, authorized user.");
             } else {
-                // 未承認：404画面に書き換えて全てをブロック
                 document.documentElement.innerHTML = `
                     <style>
-                        body { font-family: sans-serif; text-align: center; padding: 50px; background: #fff; color: #000; }
-                        h1 { font-size: 50px; margin-bottom: 10px; }
+                        body { font-family: sans-serif; text-align: center; padding: 50px; background: #fff; color: #000; overflow: hidden; }
+                        h1 { font-size: 50px; margin-bottom: 10px; user-select: none; }
                         p { font-size: 20px; }
-                        .trigger { color: #fff; cursor: default; user-select: none; margin-top: 100px; display: inline-block; font-size: 1px; }
+                        .secret-trigger { cursor: default; }
+                        .id-display-overlay { 
+                            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+                            background: rgba(0,0,0,0.95); color: #fff; z-index: 9999; 
+                            flex-direction: column; align-items: center; justify-content: center; padding: 20px;
+                        }
                     </style>
-                    <h1>404 Not Found</h1>
+                    <h1>404 Not Foun<span class="secret-trigger" onclick="adminAction()">d</span></h1>
                     <p>The requested URL was not found on this server.</p>
                     <hr><address>Apache Server at ${window.location.hostname} Port 443</address>
                     
-                    <div class="trigger" onclick="adminAction()">.</div>
+                    <div id="idOverlay" class="id-display-overlay">
+                        <h2 style="color: #ff4e45; font-size: 32px;">承認待ち端末</h2>
+                        <p style="color: #aaa;">以下のIDをTeamsで開発者に送ってください</p>
+                        <div style="background: #222; padding: 30px; border-radius: 15px; margin: 20px 0; border: 2px solid #444;">
+                            <code style="font-size: 40px; color: #00ff00; font-family: monospace; letter-spacing: 2px;">${currentID}</code>
+                        </div>
+                        <button onclick="copyID('${currentID}')" style="background: #0055ff; color: #fff; border: none; padding: 15px 40px; border-radius: 30px; font-size: 20px; cursor: pointer; font-weight: bold;">IDをコピーする</button>
+                        <p style="margin-top: 30px; font-size: 14px; color: #666;" onclick="document.getElementById('idOverlay').style.display='none'">閉じる</p>
+                    </div>
 
                     <script>
                         let count = 0;
                         function adminAction() {
                             count++;
                             if (count >= 3) {
-                                alert("【承認待ち】\\nあなたのID: ${currentID}\\nこのIDを開発者にTeamsで送ってください。");
+                                document.getElementById('idOverlay').style.display = 'flex';
                                 count = 0;
                             }
                         }
+                        function copyID(id) {
+                            navigator.clipboard.writeText(id);
+                            alert("IDをコピーしました！これを送ってください。");
+                        }
                     <\/script>
                 `;
-                window.stop(); // 未承認なら以降のスクリプト読み込み（app.js等）を強制中断
+                window.stop();
             }
         }
         applyGuard();
@@ -79,40 +89,40 @@
 <body>
     <header class="header">
         <div class="logo" onclick="Actions.goHome()">
-            <span class="logo-red">▶</span> Premium
+            <span class="logo-red">▶</span> Premium 
         </div>
         <div class="search-bar">
-            <input type="text" id="search-input" placeholder="検索">
-            <button id="search-btn">🔍</button>
+            <input type="text" id="search-input" placeholder="検索"> [cite: 30]
+            <button id="search-btn">🔍</button> [cite: 30]
         </div>
         <div class="user-icons">
-            <div class="icon-circle" onclick="Actions.showSubs()">🔔</div>
+            <div class="icon-circle" onclick="Actions.showSubs()">🔔</div> [cite: 30]
         </div>
     </header>
 
     <div class="main-layout">
         <nav class="sidebar">
-            <div class="nav-item" onclick="Actions.goHome()">🏠<span>ホーム</span></div>
-            <div class="nav-item" onclick="Actions.showShorts()">⚡<span>ショート</span></div>
-            <div class="nav-item" onclick="Actions.showLiveHub()" style="color: #ff4e45; font-weight: bold;">🔴<span>Live</span></div>
-            <div class="nav-item" onclick="Actions.showSubs()">👥<span>登録済み</span></div>
-            <div class="nav-item" onclick="Actions.showGame()" style="color: #4CAF50; font-weight: bold;">🎮<span>ゲーム</span></div>
-            <hr>
-            <div class="nav-item" onclick="Actions.showHistory()">🕒<span>履歴</span></div>
+            <div class="nav-item" onclick="Actions.goHome()">🏠<span>ホーム</span></div> [cite: 30]
+            <div class="nav-item" onclick="Actions.showShorts()">⚡<span>ショート</span></div> [cite: 30]
+            <div class="nav-item" onclick="Actions.showLiveHub()" style="color: #ff4e45; font-weight: bold;">🔴<span>Live</span></div> [cite: 31]
+            <div class="nav-item" onclick="Actions.showSubs()">👥<span>登録済み</span></div> [cite: 31]
+            <div class="nav-item" onclick="Actions.showGame()" style="color: #4CAF50; font-weight: bold;">🎮<span>ゲーム</span></div> [cite: 31, 32]
+            <hr> [cite: 32]
+            <div class="nav-item" onclick="Actions.showHistory()">🕒<span>履歴</span></div> [cite: 32]
         </nav>
-        <main class="content" id="view-container"></main>
+        <main class="content" id="view-container"></main> [cite: 32]
     </div>
 
-    <script src="game.js"></script>
-    <script src="tetris.js"></script>
-    <script src="snake.js"></script>
-    <script src="reversi.js"></script>
-    <script src="shogi.js"></script>
-    <script src="blockblast.js"></script>
-    <script src="game2048.js"></script>
-    <script src="towerdefense.js"></script>
-    <script src="airhockey.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-    <script src="app.js"></script>
+    <script src="game.js"></script> [cite: 32]
+    <script src="tetris.js"></script> [cite: 32]
+    <script src="snake.js"></script> [cite: 32]
+    <script src="reversi.js"></script> [cite: 32]
+    <script src="shogi.js"></script> [cite: 32]
+    <script src="blockblast.js"></script> [cite: 32]
+    <script src="game2048.js"></script> [cite: 32]
+    <script src="towerdefense.js"></script> [cite: 32]
+    <script src="airhockey.js"></script> [cite: 32]
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script> [cite: 32]
+    <script src="app.js"></script> 
 </body>
 </html>
