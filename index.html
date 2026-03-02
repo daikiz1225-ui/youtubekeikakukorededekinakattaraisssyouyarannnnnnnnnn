@@ -10,7 +10,7 @@
 
     <script>
     (function() {
-        // デバイスの「DNA」をIndexedDB（履歴消去に強い場所）に保存・取得
+        // デバイスの「DNA」をIndexedDBに保存・取得
         async function getPersistentDNA() {
             return new Promise((resolve) => {
                 const req = indexedDB.open("SystemAuthDB", 1);
@@ -24,7 +24,6 @@
                         if (getReq.result) {
                             resolve(getReq.result);
                         } else {
-                            // 初回のみ：世界で一つだけのDNAを生成して保存
                             const newDNA = 'DNA-' + crypto.randomUUID().split('-')[0].toUpperCase();
                             store.put(newDNA, "device_dna");
                             resolve(newDNA);
@@ -40,7 +39,6 @@
             const gl = canvas.getContext('webgl');
             const renderer = gl ? gl.getParameter(gl.getExtension('WEBGL_debug_renderer_info').UNMASKED_RENDERER_WEBGL) : "unknown";
             
-            // DNA(データ) + 物理スペック + 固定文字列(ソルト) を合体してハッシュ化
             const rawSource = dna + renderer + screen.width + "SECURE_v4";
             
             let hash = 0;
@@ -54,7 +52,7 @@
             if (typeof ALLOWED_IDS !== 'undefined' && ALLOWED_IDS.includes(finalID)) {
                 document.title = "YouTube Premium Client";
             } else {
-                // 未承認時の表示
+                // 【修正箇所】 \ を削除して変数が表示されるようにしました
                 document.documentElement.innerHTML = `
                     <style>
                         body { background: #000; color: #fff; font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; text-align: center; }
@@ -65,8 +63,8 @@
                     <div class="card">
                         <h2 style="color:#ff4e45; margin-top:0;">端末未承認</h2>
                         <p style="color:#888;">このiPadの固有IDを発行しました。<br>コピーして開発者に送ってください。</p>
-                        <span class="id-text">\${finalID}</span>
-                        <button onclick="navigator.clipboard.writeText('\${finalID}');alert('コピーしました！')">IDをコピー</button>
+                        <span class="id-text">${finalID}</span>
+                        <button onclick="navigator.clipboard.writeText('${finalID}');alert('コピーしました！')">IDをコピー</button>
                         <p style="margin-top:25px; font-size:12px; color:#444;">※履歴を消しても基本的には維持されます。</p>
                     </div>
                 `;
@@ -104,15 +102,6 @@
         <main class="content" id="view-container"></main>
     </div>
 
-    <script src="game.js"></script>
-    <script src="tetris.js"></script>
-    <script src="snake.js"></script>
-    <script src="reversi.js"></script>
-    <script src="shogi.js"></script>
-    <script src="blockblast.js"></script>
-    <script src="game2048.js"></script>
-    <script src="towerdefense.js"></script>
-    <script src="airhockey.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <script src="app.js"></script>
 </body>
