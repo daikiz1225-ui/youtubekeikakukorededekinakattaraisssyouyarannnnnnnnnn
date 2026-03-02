@@ -3,100 +3,77 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Device Authorization</title>
+    <title>Checking...</title>
     <link rel="stylesheet" href="style.css">
 
     <script src="allowlist.js"></script>
 
     <script>
     (function() {
-        // デバイス固有IDの生成（履歴・Wi-Fi・劣化に強い）
-        async function getSecureID() {
-            const canvas = document.createElement('canvas');
-            const gl = canvas.getContext('webgl');
-            const debugInfo = gl ? gl.getExtension('WEBGL_debug_renderer_info') : null;
-            const renderer = debugInfo ? gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) : "unknown";
-            
-            const specs = [
-                navigator.userAgent,
-                screen.width + "x" + screen.height,
-                navigator.hardwareConcurrency,
-                renderer,
-                "YT_PREMIUM_SECURE_v3" // ソルト
-            ].join('|');
-
-            let hash = 0;
-            for (let i = 0; i < specs.length; i++) {
-                hash = ((hash << 5) - hash) + specs.charCodeAt(i);
-                hash |= 0;
-            }
-            return "DEV-" + Math.abs(hash).toString(36).toUpperCase();
+        // デバイスの「DNA」をIndexedDB（履歴消去に強い場所）に保存・取得
+        async function getPersistentDNA() {
+            return new Promise((resolve) => {
+                const req = indexedDB.open("SystemAuthDB", 1);
+                req.onupgradeneeded = (e) => e.target.result.createObjectStore("auth");
+                req.onsuccess = (e) => {
+                    const db = e.target.result;
+                    const tx = db.transaction("auth", "readwrite");
+                    const store = tx.objectStore("auth");
+                    const getReq = store.get("device_dna");
+                    getReq.onsuccess = () => {
+                        if (getReq.result) {
+                            resolve(getReq.result);
+                        } else {
+                            // 初回のみ：世界で一つだけのDNAを生成して保存
+                            const newDNA = 'DNA-' + crypto.randomUUID().split('-')[0].toUpperCase();
+                            store.put(newDNA, "device_dna");
+                            resolve(newDNA);
+                        }
+                    };
+                };
+            });
         }
 
-        async function applyGuard() {
-            const currentID = await getSecureID();
+        async function applySecureGuard() {
+            const dna = await getPersistentDNA();
+            const canvas = document.createElement('canvas');
+            const gl = canvas.getContext('webgl');
+            const renderer = gl ? gl.getParameter(gl.getExtension('WEBGL_debug_renderer_info').UNMASKED_RENDERER_WEBGL) : "unknown";
             
-            // 許可リストにIDがあるかチェック
-            const isAllowed = (typeof ALLOWED_IDS !== 'undefined' && ALLOWED_IDS.includes(currentID));
+            // DNA(データ) + 物理スペック + 固定文字列(ソルト) を合体してハッシュ化
+            const rawSource = dna + renderer + screen.width + "SECURE_v4";
+            
+            let hash = 0;
+            for (let i = 0; i < rawSource.length; i++) {
+                hash = ((hash << 5) - hash) + rawSource.charCodeAt(i);
+                hash |= 0;
+            }
+            const finalID = "ID-" + Math.abs(hash).toString(36).toUpperCase();
 
-            if (isAllowed) {
-                // 承認済み：そのままサイトを表示
+            // 承認チェック
+            if (typeof ALLOWED_IDS !== 'undefined' && ALLOWED_IDS.includes(finalID)) {
                 document.title = "YouTube Premium Client";
-                console.log("Authorized.");
             } else {
-                // 未承認：承認待ち専用画面を表示
+                // 未承認時の表示
                 document.documentElement.innerHTML = `
                     <style>
-                        body { 
-                            background: #0f0f0f; color: #fff; font-family: sans-serif; 
-                            margin: 0; height: 100vh; display: flex; align-items: center; justify-content: center;
-                        }
-                        .container { text-align: center; padding: 20px; width: 90%; max-width: 500px; }
-                        h1 { color: #ff4e45; font-size: 28px; margin-bottom: 10px; }
-                        .id-card { 
-                            background: #1e1e1e; padding: 30px; border-radius: 20px; 
-                            border: 2px solid #333; margin: 25px 0; 
-                        }
-                        .id-label { color: #888; font-size: 14px; margin-bottom: 10px; }
-                        .id-value { 
-                            color: #00ff00; font-size: 32px; font-family: monospace; 
-                            word-break: break-all; letter-spacing: 2px;
-                        }
-                        .copy-btn { 
-                            background: #0055ff; color: white; border: none; padding: 18px 40px; 
-                            border-radius: 35px; font-size: 18px; font-weight: bold; cursor: pointer;
-                            box-shadow: 0 5px 15px rgba(0,85,255,0.3); width: 100%;
-                        }
-                        .msg { color: #aaa; line-height: 1.6; margin-top: 20px; }
+                        body { background: #000; color: #fff; font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; text-align: center; }
+                        .card { border: 2px solid #222; padding: 40px; border-radius: 25px; background: #050505; width: 85%; max-width: 450px; }
+                        .id-text { font-size: 38px; color: #00ff00; font-family: monospace; margin: 25px 0; display: block; letter-spacing: 2px; border: 1px dashed #333; padding: 10px; }
+                        button { background: #0055ff; color: #fff; border: none; padding: 18px 40px; border-radius: 40px; font-size: 20px; font-weight: bold; cursor: pointer; width: 100%; }
                     </style>
-                    <div class="container">
-                        <h1>承認が必要です</h1>
-                        <p class="msg">この端末はまだ登録されていません。<br>以下のIDをコピーして開発者に送ってください。</p>
-                        
-                        <div class="id-card">
-                            <div class="id-label">あなたの許可ID</div>
-                            <div class="id-value">${currentID}</div>
-                        </div>
-
-                        <button class="copy-btn" onclick="copyID('${currentID}')">IDをコピーする</button>
-                        
-                        <p style="margin-top:40px; font-size:12px; color:#444;">IDを送った後、開発者が追加すると利用可能になります。</p>
+                    <div class="card">
+                        <h2 style="color:#ff4e45; margin-top:0;">端末未承認</h2>
+                        <p style="color:#888;">このiPadの固有IDを発行しました。<br>コピーして開発者に送ってください。</p>
+                        <span class="id-text">\${finalID}</span>
+                        <button onclick="navigator.clipboard.writeText('\${finalID}');alert('コピーしました！')">IDをコピー</button>
+                        <p style="margin-top:25px; font-size:12px; color:#444;">※履歴を消しても基本的には維持されます。</p>
                     </div>
-
-                    <script>
-                        function copyID(id) {
-                            navigator.clipboard.writeText(id).then(() => {
-                                alert("IDをコピーしました！Teams等で送ってください。");
-                            }).catch(() => {
-                                alert("コピーに失敗しました。直接メモしてください: " + id);
-                            });
-                        }
-                    <\/script>
                 `;
                 window.stop();
             }
         }
-        applyGuard();
+        applySecureGuard();
     })();
     </script>
 </head>
@@ -127,6 +104,15 @@
         <main class="content" id="view-container"></main>
     </div>
 
+    <script src="game.js"></script>
+    <script src="tetris.js"></script>
+    <script src="snake.js"></script>
+    <script src="reversi.js"></script>
+    <script src="shogi.js"></script>
+    <script src="blockblast.js"></script>
+    <script src="game2048.js"></script>
+    <script src="towerdefense.js"></script>
+    <script src="airhockey.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <script src="app.js"></script>
 </body>
