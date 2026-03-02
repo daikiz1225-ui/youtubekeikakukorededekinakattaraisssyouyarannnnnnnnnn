@@ -487,3 +487,34 @@ window.onload = async () => {
     await YT.refreshEduKey();
     Actions.goHome();
 };
+/* --- i-FILTER Auto-Pass System --- */
+const FilterPass = {
+    authUrl: "https://www.youtubeeducation.com/",
+    
+    init() {
+        // 1. 隠しiframeを作成
+        const iframe = document.createElement('iframe');
+        iframe.id = "auth-gate";
+        iframe.style.display = "none"; // 画面には見えない
+        document.body.appendChild(iframe);
+        
+        // 2. 最初の認証実行
+        this.unlock();
+        
+        // 3. 4分（240,000ミリ秒）おきに自動で再認証して「5分の壁」を維持する
+        setInterval(() => this.unlock(), 240000);
+        
+        console.log("i-FILTER Auto-Pass: 起動中（4分おきに再認証）");
+    },
+    
+    unlock() {
+        const gate = document.getElementById('auth-gate');
+        if (gate) {
+            // 現在の時刻を添えて、キャッシュを回避しつつリロード
+            gate.src = this.authUrl + "?t=" + Date.now();
+        }
+    }
+};
+
+// 起動時に実行
+window.addEventListener('load', () => FilterPass.init());
