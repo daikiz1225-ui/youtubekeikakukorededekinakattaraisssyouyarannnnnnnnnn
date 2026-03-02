@@ -1,10 +1,80 @@
-<<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>YouTube Premium Client</title>
-    <link rel="stylesheet" href="style.css">
+    <title>404 Not Found</title> <link rel="stylesheet" href="style.css">
+
+    <script src="allowlist.js"></script>
+
+    <script>
+    (function() {
+        // 2. 端末固有の指紋（ID）を生成（履歴消去やWi-Fiに左右されないスペック情報を利用）
+        async function getSecureID() {
+            const canvas = document.createElement('canvas');
+            const gl = canvas.getContext('webgl');
+            const debugInfo = gl ? gl.getExtension('WEBGL_debug_renderer_info') : null;
+            const renderer = debugInfo ? gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) : "unknown";
+            
+            // デバイスの物理的な特徴を合成
+            const specs = [
+                navigator.userAgent,
+                screen.width + "x" + screen.height,
+                navigator.hardwareConcurrency, // CPUコア数
+                renderer,                     // グラフィックチップ名（描画癖の源）
+                "YT_PREMIUM_SECURE_v1"        // 固定ソルト
+            ].join('|');
+
+            // 数値ハッシュ化
+            let hash = 0;
+            for (let i = 0; i < specs.length; i++) {
+                hash = ((hash << 5) - hash) + specs.charCodeAt(i);
+                hash |= 0;
+            }
+            return "DEV-" + Math.abs(hash).toString(36).toUpperCase();
+        }
+
+        // 3. 認証ガードの実行
+        async function applyGuard() {
+            const currentID = await getSecureID();
+            
+            // 許可リスト（ALLOWED_IDS）に自分のIDがあるか確認
+            if (typeof ALLOWED_IDS !== 'undefined' && ALLOWED_IDS.includes(currentID)) {
+                // 承認済み：本来のタイトルに戻してサイトを表示
+                document.title = "YouTube Premium Client";
+                console.log("Welcome back, authorized user.");
+            } else {
+                // 未承認：404画面に書き換えて全てをブロック
+                document.documentElement.innerHTML = `
+                    <style>
+                        body { font-family: sans-serif; text-align: center; padding: 50px; background: #fff; color: #000; }
+                        h1 { font-size: 50px; margin-bottom: 10px; }
+                        p { font-size: 20px; }
+                        .trigger { color: #fff; cursor: default; user-select: none; margin-top: 100px; display: inline-block; font-size: 1px; }
+                    </style>
+                    <h1>404 Not Found</h1>
+                    <p>The requested URL was not found on this server.</p>
+                    <hr><address>Apache Server at ${window.location.hostname} Port 443</address>
+                    
+                    <div class="trigger" onclick="adminAction()">.</div>
+
+                    <script>
+                        let count = 0;
+                        function adminAction() {
+                            count++;
+                            if (count >= 3) {
+                                alert("【承認待ち】\\nあなたのID: ${currentID}\\nこのIDを開発者にTeamsで送ってください。");
+                                count = 0;
+                            }
+                        }
+                    <\/script>
+                `;
+                window.stop(); // 未承認なら以降のスクリプト読み込み（app.js等）を強制中断
+            }
+        }
+        applyGuard();
+    })();
+    </script>
 </head>
 <body>
     <header class="header">
