@@ -153,12 +153,12 @@ const Actions = {
         }
     },
 
-    // ★追加: ストリーミング切り替え
+    // ★追記: ストリーミング切り替え用
     switchToStreaming() {
         const wrapper = document.querySelector('.video-wrapper');
         if (wrapper && typeof M3U8Player !== 'undefined') {
             M3U8Player.renderPlayer(wrapper);
-            this.showStatusNotification("ストリーミング再生を開始📡");
+            this.showStatusNotification("📡 外部プレイヤーに切り替えました");
         }
     },
 
@@ -392,8 +392,8 @@ const Actions = {
         const thumbUrl = `/api/thumb?id=${vId}`;
         window.scrollTo(0, 0);
 
-        // ストリーミング停止処理
-        if (typeof M3U8Player !== 'undefined') M3U8Player.stopPlayer();
+        // ストリーミング停止処理を念のため入れる
+        if (typeof M3U8Player !== 'undefined' && M3U8Player.stopPlayer) M3U8Player.stopPlayer();
 
         if (isShorts) {
             document.getElementById('view-container').innerHTML = `
@@ -583,7 +583,7 @@ const Actions = {
 
     showGame() {
         window.scrollTo(0, 0);
-        if (typeof M3U8Player !== 'undefined') M3U8Player.stopPlayer();
+        if (typeof M3U8Player !== 'undefined' && M3U8Player.stopPlayer) M3U8Player.stopPlayer();
         GameModule.renderGameMenu();
     }
 };
