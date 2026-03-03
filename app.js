@@ -445,7 +445,7 @@ const Actions = {
     }
 };
 
-window.onload = async () => { Actions.init(); await YT.refreshEduKey(); Actions.goHome(); };
+window.onload = async () => { Actions.init(); await YT.refreshEduKey(); };
 
 /* --- 各種ゲーム起動用関数 --- */
 function startTetris() { if (typeof initTetris === 'function') initTetris(); else Actions.showStatusNotification("エラー"); }
