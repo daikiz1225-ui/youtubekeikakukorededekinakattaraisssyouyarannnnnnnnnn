@@ -1,11 +1,12 @@
-/* app.js - YouTube & Streaming Hybrid Version (Fixed)
-  プレイリスト・AIおすすめ・ゲーム機能を完全保持 
+/* app vr3.js - AI Recommendation Update
+  既存機能を保持し、AIおすすめ機能のみを追加 
 */
 
 const YT = {
     keys: ["AIzaSyBfCvyZ_J9mJiMFNYB6WfcuLyvf9zDdcUU", "AIzaSyCgVn-JWHKT_z6EC73Z6Vlex0F_d-BP_fY", "AIzaSyBbqPhAbqoWDOurTt7hejQmwc6dAoZ5Iy0", "AIzaSyAWk9mmie23-khi8-nipv1jHJND__UtEWA", "AIzaSyBL38iyqeiaKHoKqhloSnhG590DfJ35vCE"],
     currentEduKey: "",
 
+    // ★追加: サムネイルを自前API経由に変換する関数
     getProxiedThumb(video) {
         if (!video || !video.snippet || !video.snippet.thumbnails) return "";
         const id = video.contentDetails?.videoId || (typeof video.id === 'string' ? video.id : (video.id?.videoId || ""));
@@ -88,6 +89,7 @@ const Storage = {
     },
     isWatchLater(id) { return this.get('yt_watchlater').some(x => x.id === id); },
 
+    // ★プレイリスト管理用
     getMyPlaylists() { const d = localStorage.getItem('yt_my_playlists'); return d ? JSON.parse(d) : {}; },
     setMyPlaylists(data) { localStorage.setItem('yt_my_playlists', JSON.stringify(data)); },
     createPlaylist(name) {
@@ -126,7 +128,7 @@ const Actions = {
     nextToken: "",
     currentParams: {},
     selectedSubs: [],
-    activePlaylistName: null,
+    activePlaylistName: null, // 現在再生中のプレイリスト名
 
     init() {
         const input = document.getElementById('search-input');
@@ -139,6 +141,7 @@ const Actions = {
                 const historyNav = document.querySelector('.sidebar .nav-item[onclick="Actions.showHistory()"]');
                 if (historyNav) historyNav.insertAdjacentHTML('beforebegin', '<div id="nav-watch-later" class="nav-item" onclick="Actions.showWatchLater()">📌<span>後で見る</span></div>');
             }
+            // プレイリストナビ
             if (!document.getElementById('nav-playlist')) {
                 const wlNav = document.getElementById('nav-watch-later');
                 if (wlNav) wlNav.insertAdjacentHTML('afterend', '<div id="nav-playlist" class="nav-item" onclick="Actions.showMyPlaylists()" style="color:#3ea6ff;">📂<span>プレイリスト</span></div>');
@@ -150,17 +153,16 @@ const Actions = {
         }
     },
 
+    // ★追加: ストリーミング切り替え
     switchToStreaming() {
         const wrapper = document.querySelector('.video-wrapper');
-        if (!wrapper) return;
-        if (typeof M3U8Player !== 'undefined') {
+        if (wrapper && typeof M3U8Player !== 'undefined') {
             M3U8Player.renderPlayer(wrapper);
-            this.showStatusNotification("ストリーミングモードに切り替えました📡");
-        } else {
-            alert("streaming.js が読み込まれていないようです！");
+            this.showStatusNotification("ストリーミング再生を開始📡");
         }
     },
 
+    // プレイリスト一覧画面
     showMyPlaylists() {
         this.currentView = "my_playlists";
         const dict = Storage.getMyPlaylists();
@@ -173,6 +175,7 @@ const Actions = {
                 </div>
                 <div class="grid" style="margin-top:20px;">
         `;
+        
         Object.keys(dict).forEach(name => {
             const count = dict[name].length;
             const thumb = count > 0 ? dict[name][0].thumb : "";
@@ -186,7 +189,8 @@ const Actions = {
                         <h3>${name}</h3>
                         <button class="btn" onclick="event.stopPropagation(); Actions.deletePlaylistConfirm('${name.replace(/'/g, "\\'")}')" style="margin-top:5px; font-size:11px; padding:2px 8px;">削除</button>
                     </div>
-                </div>`;
+                </div>
+            `;
         });
         html += `</div></div>`;
         container.innerHTML = html;
@@ -207,6 +211,7 @@ const Actions = {
         const dict = Storage.getMyPlaylists();
         const list = dict[name] || [];
         this.currentList = list.map(v => ({ id: v.id, snippet: { title: v.title, thumbnails: { high: { url: v.thumb } }, channelTitle: v.channelTitle } }));
+        
         const container = document.getElementById('view-container');
         container.innerHTML = `
             <div style="padding:20px;">
@@ -221,12 +226,17 @@ const Actions = {
                                 <p>${v.channelTitle}</p>
                                 <button class="btn" onclick="Actions.removeFromPlaylistAndRefresh('${name.replace(/'/g, "\\'")}', '${v.id}')" style="font-size:11px; padding:2px 8px;">削除</button>
                             </div>
-                        </div>`).join('')}
+                        </div>
+                    `).join('')}
                 </div>
-            </div>`;
+            </div>
+        `;
     },
 
-    removeFromPlaylistAndRefresh(name, id) { Storage.removeFromPlaylist(name, id); this.viewPlaylistDetail(name); },
+    removeFromPlaylistAndRefresh(name, id) {
+        Storage.removeFromPlaylist(name, id);
+        this.viewPlaylistDetail(name);
+    },
 
     async showAIRecommendations() {
         this.currentView = "ai_recommend";
@@ -339,7 +349,7 @@ const Actions = {
     playRelative(offset) {
         const newIndex = this.currentIndex + offset;
         if (newIndex >= 0 && newIndex < this.currentList.length) this.playFromList(newIndex);
-        else if (newIndex >= this.currentList.length && this.activePlaylistName) this.playFromList(0);
+        else if (newIndex >= this.currentList.length && this.activePlaylistName) this.playFromList(0); // プレイリスト末尾なら最初へ
     },
 
     async fetchMissingIcons(ids) {
@@ -382,7 +392,8 @@ const Actions = {
         const thumbUrl = `/api/thumb?id=${vId}`;
         window.scrollTo(0, 0);
 
-        if (typeof M3U8Player !== 'undefined') M3U8Player.stop();
+        // ストリーミング停止処理
+        if (typeof M3U8Player !== 'undefined') M3U8Player.stopPlayer();
 
         if (isShorts) {
             document.getElementById('view-container').innerHTML = `
@@ -448,6 +459,8 @@ const Actions = {
                     <div class="related-area"><h3 id="side-title" style="margin-top:0;">関連動画</h3><div id="side-content-box"></div></div>
                 </div>`;
             const sideBox = document.getElementById('side-content-box');
+            
+            // プレイリスト再生中なら右側をプレイリストにする
             if (this.activePlaylistName) {
                 document.getElementById('side-title').innerText = `再生中: ${this.activePlaylistName}`;
                 this.relatedList = this.currentList;
@@ -456,6 +469,7 @@ const Actions = {
                 const rel = await YT.fetchAPI('search', { q: qK, type: 'video', part: 'snippet', maxResults: 15 });
                 this.relatedList = rel.items || [];
             }
+            
             sideBox.innerHTML = this.relatedList.map((i, idx) => `
                 <div class="v-card" style="display:flex; gap:10px; margin-bottom:12px; ${idx === this.currentIndex && this.activePlaylistName ? 'background:#333; border-left:4px solid #3ea6ff;' : ''}" onclick="Actions.playFromRelated(${idx})">
                     <img src="${YT.getProxiedThumb(i)}" style="width:140px; aspect-ratio:16/9; object-fit:cover; border-radius:8px;">
@@ -515,7 +529,7 @@ const Actions = {
     toggleSubSelect(chId) {
         if (this.selectedSubs.includes(chId)) this.selectedSubs = this.selectedSubs.filter(id => id !== chId);
         else if (this.selectedSubs.length < 5) this.selectedSubs.push(chId);
-        else alert("最大5件までです。");
+        else alert("選択できるのは最大5件までです。");
         this.showSubs(); 
     },
 
@@ -523,7 +537,7 @@ const Actions = {
         if (this.selectedSubs.length === 0) return;
         this.currentView = "latest_subs";
         const container = document.getElementById('view-container');
-        container.innerHTML = `<div style="padding:20px;"><h2>キャッチ中...</h2></div>`;
+        container.innerHTML = `<div style="padding:20px;"><h2>最新動画をキャッチ中...</h2></div>`;
         const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
         let allVideos = [];
         const promises = this.selectedSubs.map(chId => YT.fetchAPI('search', { channelId: chId, part: 'snippet', type: 'video', order: 'date', publishedAfter: twoDaysAgo, maxResults: 10 }));
@@ -531,7 +545,7 @@ const Actions = {
         results.forEach(res => { if (res.items) allVideos = allVideos.concat(res.items); });
         allVideos.sort((a, b) => new Date(b.snippet.publishedAt) - new Date(a.snippet.publishedAt));
         this.currentList = allVideos; this.nextToken = ""; 
-        this.renderGrid(`<h2>最新動画</h2>`);
+        this.renderGrid(`<h2>選択した ${this.selectedSubs.length} 件の最新動画</h2>`);
     },
 
     showSubs() {
@@ -540,15 +554,16 @@ const Actions = {
         this.selectedSubs = this.selectedSubs.filter(id => subs.some(s => s.id === id));
         const html = subs.map(ch => {
             const isSel = this.selectedSubs.includes(ch.id);
+            const borderStyle = isSel ? 'border: 4px solid #0055ff; box-shadow: 0 0 15px rgba(0,85,255,0.8);' : 'border: 4px solid #444;';
             return `<div class="v-card" style="padding:20px; text-align:center; background:var(--card-bg);" onclick="Actions.showChannel('${ch.id}')">
-                <div style="display:inline-block; border-radius:50%; padding:4px; ${isSel ? 'border: 4px solid #0055ff;' : 'border: 4px solid #444;'} cursor:pointer;" onclick="event.stopPropagation(); Actions.toggleSubSelect('${ch.id}')">
+                <div style="display:inline-block; border-radius:50%; padding:4px; ${borderStyle} cursor:pointer; transition:0.2s;" onclick="event.stopPropagation(); Actions.toggleSubSelect('${ch.id}')">
                     <img src="${ch.thumb}" style="width:92px; height:92px; border-radius:50%; display:block; object-fit:cover;">
                 </div>
                 <h3 style="margin-top:10px;">${ch.name}</h3>
                 <button class="btn subbed" onclick="event.stopPropagation(); Actions.handleSub('${ch.id}', '${ch.name}', true); Actions.showSubs();">解除</button>
             </div>`;
         }).join('');
-        let btnHtml = this.selectedSubs.length > 0 ? `<div style="position:fixed; bottom:30px; left:50%; transform:translateX(-50%); z-index:1000;"><button class="btn" style="background:#0055ff; color:#fff; padding:15px 30px; border-radius:30px;" onclick="Actions.catchLatestSubVideos()">${this.selectedSubs.length}件をキャッチ</button></div>` : "";
+        let btnHtml = this.selectedSubs.length > 0 ? `<div style="position:fixed; bottom:30px; left:50%; transform:translateX(-50%); z-index:1000;"><button class="btn" style="background:#0055ff; color:#fff; padding:15px 30px; font-size:16px; border-radius:30px; box-shadow:0 10px 20px rgba(0,0,0,0.5);" onclick="Actions.catchLatestSubVideos()">${this.selectedSubs.length}件の最新動画をキャッチ</button></div>` : "";
         document.getElementById('view-container').innerHTML = `<div style="padding:20px; padding-bottom:100px;"><h2>登録済み</h2><div class="grid">${html}</div></div>${btnHtml}`;
     },
 
@@ -566,7 +581,11 @@ const Actions = {
         this.renderGrid("<h2>履歴</h2>");
     },
 
-    showGame() { window.scrollTo(0, 0); if (typeof M3U8Player !== 'undefined') M3U8Player.stop(); GameModule.renderGameMenu(); }
+    showGame() {
+        window.scrollTo(0, 0);
+        if (typeof M3U8Player !== 'undefined') M3U8Player.stopPlayer();
+        GameModule.renderGameMenu();
+    }
 };
 
 window.onload = async () => { Actions.init(); await YT.refreshEduKey(); Actions.goHome(); };
