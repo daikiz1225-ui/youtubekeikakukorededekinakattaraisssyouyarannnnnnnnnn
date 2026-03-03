@@ -1,84 +1,66 @@
 /**
- * state.js - 操作連動型リロード & 状態復元システム
- * 元の app.js を一切書き換えずに、上から機能を上書きするぜ！
+ * state.js - 操作連動型リロード & 状態復元システム（完全版）
  */
 
 const StateManager = {
-    // 1. URLから情報を読み取って、適切な画面を出す
-    restoreState() {
-        const params = new URLSearchParams(window.location.search);
-        
-        // 検索ワードがある場合
-        if (params.has('q')) {
-            const query = params.get('q');
-            document.getElementById('search-input').value = query;
-            setTimeout(() => Actions.search(), 500); // 起動後に検索実行
-        }
-        
-        // 動画IDがある場合
-        if (params.has('v')) {
-            const videoId = params.get('v');
-            // ダミーのビデオオブジェクトを作って再生させる
-            setTimeout(() => Actions.play({ id: { videoId: videoId }, snippet: { title: "読込中...", channelTitle: "" } }), 800);
-        }
-
-        // 表示モード（Live, ショートなど）がある場合
-        if (params.get('view') === 'live') setTimeout(() => Actions.showLiveHub(), 300);
-        if (params.get('view') === 'shorts') setTimeout(() => Actions.showShorts(), 300);
-    },
-
-    // 2. URLを書き換えて強制リロードする
-    reloadWithState(paramMap) {
-        const url = new URL(window.location.href);
-        // 一旦今のパラメータをクリア
-        url.search = ""; 
-        // 新しい状態をセット
-        for (const [key, value] of Object.entries(paramMap)) {
+    // URLを更新してリロードする
+    reloadWith(params) {
+        const url = new URL(window.location.origin + window.location.pathname);
+        for (const [key, value] of Object.entries(params)) {
             url.searchParams.set(key, value);
         }
-        // ★ ここで運命のリロード！
-        window.location.href = url.toString();
+        window.location.href = url.toString(); // ここで強制リロード
+    },
+
+    // ページが開かれた時に、URLを見て中身を再現する
+    restore() {
+        const p = new URLSearchParams(window.location.search);
+        
+        // 検索結果の復元
+        if (p.has('q')) {
+            const q = p.get('q');
+            const input = document.getElementById('search-input');
+            if (input) input.value = q;
+            // app.jsが読み込まれるのを待ってから検索実行
+            setTimeout(() => { if(window.Actions) Actions.search(); }, 500);
+        }
+
+        // 動画再生の復元
+        if (p.has('v')) {
+            const vId = p.get('v');
+            setTimeout(() => {
+                if(window.Actions) Actions.play({ id: { videoId: vId }, snippet: { title: "読込中...", thumbnails:{high:{url:""}} } });
+            }, 800);
+        }
     }
 };
 
-// --- 元の Actions の関数を「リロード版」にアップグレード ---
-
-// 検索をリロード式にする
-const originalSearch = Actions.search;
-Actions.search = function() {
-    const q = document.getElementById('search-input').value;
-    if (q) {
-        StateManager.reloadWithState({ q: q });
-    } else {
-        originalSearch.apply(this);
-    }
-};
-
-// 動画再生をリロード式にする
-const originalPlay = Actions.play;
-Actions.play = function(video) {
-    const vId = video.contentDetails?.videoId || (video.id?.videoId || (typeof video.id === 'string' ? video.id : null));
-    const params = new URLSearchParams(window.location.search);
+// --- ボタンの動きを「リロード式」に上書きする ---
+window.addEventListener('DOMContentLoaded', () => {
     
-    // まだURLにこの動画IDが乗っていない時だけリロード（無限ループ防止）
-    if (vId && params.get('v') !== vId) {
-        StateManager.reloadWithState({ v: vId });
-    } else {
-        originalPlay.apply(this, [video]);
+    // 1. 検索ボタンの上書き
+    const searchBtn = document.getElementById('search-btn');
+    if (searchBtn) {
+        searchBtn.onclick = (e) => {
+            e.preventDefault();
+            const q = document.getElementById('search-input').value;
+            if (q) StateManager.reloadWith({ q: q });
+        };
     }
-};
 
-// サイドバーの各ボタンもリロード対応にする
-const originalShowLiveHub = Actions.showLiveHub;
-Actions.showLiveHub = function() {
-    if (new URLSearchParams(window.location.search).get('view') !== 'live') {
-        StateManager.reloadWithState({ view: 'live' });
-    } else {
-        originalShowLiveHub.apply(this);
-    }
-};
+    // 2. サイドバーの「Live」や「ゲーム」の上書き
+    // onclick属性を無効化して、リロード付きの動きに変える
+    document.querySelectorAll('.nav-item').forEach(item => {
+        const text = item.innerText;
+        if (text.includes('Live')) {
+            item.onclick = () => StateManager.reloadWith({ view: 'live' });
+        } else if (text.includes('ゲーム')) {
+            item.onclick = () => StateManager.reloadWith({ view: 'game' });
+        } else if (text.includes('ホーム')) {
+            item.onclick = () => window.location.href = window.location.origin + window.location.pathname;
+        }
+    });
 
-// ページ読み込み完了時に復元を実行
-window.addEventListener('load', () => {
-    StateManager.restoreState();
+    // 3. 復元処理の実行
+    StateManager.restore();
 });
