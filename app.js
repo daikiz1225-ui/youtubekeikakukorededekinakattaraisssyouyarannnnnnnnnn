@@ -1,12 +1,11 @@
-/* app vr3.js - AI Recommendation Update
-  既存機能を保持し、AIおすすめ機能のみを追加 
+/* app.js - YouTube & Streaming Hybrid Version
+  プレイリスト・AIおすすめ・ゲーム機能を完全保持し、再生画面に外部再生切り替えを追加 
 */
 
 const YT = {
     keys: ["AIzaSyBfCvyZ_J9mJiMFNYB6WfcuLyvf9zDdcUU", "AIzaSyCgVn-JWHKT_z6EC73Z6Vlex0F_d-BP_fY", "AIzaSyBbqPhAbqoWDOurTt7hejQmwc6dAoZ5Iy0", "AIzaSyAWk9mmie23-khi8-nipv1jHJND__UtEWA", "AIzaSyBL38iyqeiaKHoKqhloSnhG590DfJ35vCE"],
     currentEduKey: "",
 
-    // ★追加: サムネイルを自前API経由に変換する関数
     getProxiedThumb(video) {
         if (!video || !video.snippet || !video.snippet.thumbnails) return "";
         const id = video.contentDetails?.videoId || (typeof video.id === 'string' ? video.id : (video.id?.videoId || ""));
@@ -89,7 +88,6 @@ const Storage = {
     },
     isWatchLater(id) { return this.get('yt_watchlater').some(x => x.id === id); },
 
-    // ★プレイリスト管理用
     getMyPlaylists() { const d = localStorage.getItem('yt_my_playlists'); return d ? JSON.parse(d) : {}; },
     setMyPlaylists(data) { localStorage.setItem('yt_my_playlists', JSON.stringify(data)); },
     createPlaylist(name) {
@@ -128,7 +126,7 @@ const Actions = {
     nextToken: "",
     currentParams: {},
     selectedSubs: [],
-    activePlaylistName: null, // 現在再生中のプレイリスト名
+    activePlaylistName: null,
 
     init() {
         const input = document.getElementById('search-input');
@@ -141,7 +139,6 @@ const Actions = {
                 const historyNav = document.querySelector('.sidebar .nav-item[onclick="Actions.showHistory()"]');
                 if (historyNav) historyNav.insertAdjacentHTML('beforebegin', '<div id="nav-watch-later" class="nav-item" onclick="Actions.showWatchLater()">📌<span>後で見る</span></div>');
             }
-            // プレイリストナビ
             if (!document.getElementById('nav-playlist')) {
                 const wlNav = document.getElementById('nav-watch-later');
                 if (wlNav) wlNav.insertAdjacentHTML('afterend', '<div id="nav-playlist" class="nav-item" onclick="Actions.showMyPlaylists()" style="color:#3ea6ff;">📂<span>プレイリスト</span></div>');
@@ -153,7 +150,18 @@ const Actions = {
         }
     },
 
-    // プレイリスト一覧画面
+    // ★追加: ストリーミングモードへの切り替え
+    switchToStreaming() {
+        const wrapper = document.querySelector('.video-wrapper');
+        if (!wrapper) return;
+        if (typeof M3U8Player !== 'undefined') {
+            M3U8Player.renderPlayer(wrapper);
+            this.showStatusNotification("ストリーミングモードに切り替えました📡");
+        } else {
+            alert("streaming.js が読み込まれていないようです！");
+        }
+    },
+
     showMyPlaylists() {
         this.currentView = "my_playlists";
         const dict = Storage.getMyPlaylists();
@@ -171,7 +179,7 @@ const Actions = {
             const count = dict[name].length;
             const thumb = count > 0 ? dict[name][0].thumb : "";
             html += `
-                <div class="v-card" onclick="Actions.viewPlaylistDetail('${name.replace(/'/g, "\\'")}')">
+                <div class="v-card" onclick="Actions.viewPlaylistDetail('${name.replace(/'/g, "\\"')}')">
                     <div class="thumb-container" style="background:#333; display:flex; align-items:center; justify-content:center;">
                         ${thumb ? `<img src="${thumb}" class="main-thumb">` : '<span style="font-size:40px;">📂</span>'}
                         <div style="position:absolute; bottom:5px; right:5px; background:rgba(0,0,0,0.8); padding:2px 8px; border-radius:4px; font-size:12px;">${count}本</div>
@@ -340,7 +348,7 @@ const Actions = {
     playRelative(offset) {
         const newIndex = this.currentIndex + offset;
         if (newIndex >= 0 && newIndex < this.currentList.length) this.playFromList(newIndex);
-        else if (newIndex >= this.currentList.length && this.activePlaylistName) this.playFromList(0); // プレイリスト末尾なら最初へ
+        else if (newIndex >= this.currentList.length && this.activePlaylistName) this.playFromList(0);
     },
 
     async fetchMissingIcons(ids) {
@@ -382,6 +390,9 @@ const Actions = {
         const safeChTitle = snip.channelTitle.replace(/'/g, "\\'").replace(/"/g, '&quot;');
         const thumbUrl = `/api/thumb?id=${vId}`;
         window.scrollTo(0, 0);
+
+        // ★ストリーミング再生を停止
+        if (typeof M3U8Player !== 'undefined') M3U8Player.stopPlayer();
 
         if (isShorts) {
             document.getElementById('view-container').innerHTML = `
@@ -436,6 +447,7 @@ const Actions = {
                                     <span style="margin-left:10px; font-weight:bold;">${snip.channelTitle}</span>
                                 </div>
                                 <div style="display:flex; align-items:center; gap:8px;">
+                                    <button class="btn" style="background:#ff4b4b; color:#fff;" onclick="Actions.switchToStreaming()">📡 外部再生</button>
                                     <button id="sub-btn" class="btn ${isSubbed ? 'subbed' : ''}" onclick="Actions.handleSub('${snip.channelId}', '${safeChTitle}', true)">${isSubbed ? '登録済み' : 'チャンネル登録'}</button>
                                     <button class="btn ${isWatchLater ? 'subbed' : ''}" onclick="Actions.handleWatchLater('${vId}', '${safeTitle}', '${safeChTitle}', '${thumbUrl}', '${snip.channelId}')">${isWatchLater ? '保存済み' : '📌 後で見る'}</button>
                                     <button class="btn-download" onclick="Actions.downloadVideo('${vId}')">📥 ダウンロード</button>
@@ -447,7 +459,6 @@ const Actions = {
                 </div>`;
             const sideBox = document.getElementById('side-content-box');
             
-            // プレイリスト再生中なら右側をプレイリストにする
             if (this.activePlaylistName) {
                 document.getElementById('side-title').innerText = `再生中: ${this.activePlaylistName}`;
                 this.relatedList = this.currentList;
@@ -464,8 +475,6 @@ const Actions = {
                 </div>`).join('');
         }
         Storage.addHistory({ id: vId, title: snip.title, thumb: thumbUrl, channelTitle: snip.channelTitle });
-        
-        // ★自動再生の仕掛け: 動画が終わったら次へ（iframe経由は難しいので簡易的にボタン追加かタイマー検討だが、まずはRelatedクリックで次へ行けるようにした）
     },
 
     async showChannel(chId) {
