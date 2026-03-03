@@ -87,6 +87,14 @@ const Storage = {
         if (i > -1) list.splice(i, 1); else list.unshift(v);
         this.set('yt_watchlater', list);
     },
+    // ★追加: プレイリスト保存機能
+    addPlaylist(v) {
+        let list = this.get('yt_playlists');
+        if (list.some(x => x.id === v.id)) { alert("既に保存されています"); return; }
+        list.unshift(v);
+        this.set('yt_playlists', list);
+        alert("プレイリストに保存しました！");
+    },
     isWatchLater(id) { return this.get('yt_watchlater').some(x => x.id === id); }
 };
 
@@ -110,6 +118,11 @@ const Actions = {
             if (!document.getElementById('nav-watch-later')) {
                 const historyNav = document.querySelector('.sidebar .nav-item[onclick="Actions.showHistory()"]');
                 if (historyNav) historyNav.insertAdjacentHTML('beforebegin', '<div id="nav-watch-later" class="nav-item" onclick="Actions.showWatchLater()">📌<span>後で見る</span></div>');
+            }
+            // ★追加: プレイリスト項目の追加
+            if (!document.getElementById('nav-playlist')) {
+                const watchLaterNav = document.getElementById('nav-watch-later');
+                if (watchLaterNav) watchLaterNav.insertAdjacentHTML('afterend', '<div id="nav-playlist" class="nav-item" onclick="Actions.showPlaylist()" style="color:#3ea6ff;">📂<span>プレイリスト</span></div>');
             }
             if (!document.getElementById('nav-ai-recommend')) {
                 const homeNav = document.querySelector('.sidebar .nav-item[onclick="Actions.goHome()"]');
@@ -304,7 +317,10 @@ const Actions = {
                             <button class="btn" onclick="YT.seek(10)">10s ⏩</button>
                         </div>
                         <div style="padding-top:15px;">
-                            <h2>${snip.title}</h2>
+                            <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+                                <h2 style="margin:0;">${snip.title}</h2>
+                                <button class="btn" onclick="Storage.addPlaylist({id:'${vId}', title:'${safeTitle}', thumb:'${thumbUrl}', channelTitle:'${safeChTitle}'})" style="background:#3ea6ff; color:#fff;">📂 プレイリストに保存</button>
+                            </div>
                             <div style="display:flex; align-items:center; justify-content:space-between; margin-top:15px; flex-wrap:wrap; gap:10px;">
                                 <div style="display:flex; align-items:center; cursor:pointer;" onclick="Actions.showChannel('${snip.channelId}')">
                                     <img src="${this.channelIcons[snip.channelId] || ''}" style="width:40px; height:40px; border-radius:50%;">
@@ -364,13 +380,13 @@ const Actions = {
             grid.innerHTML = this.renderCards(this.currentList);
         } else if (type === 'playlists') {
             const data = await YT.fetchAPI('playlists', { channelId: chId, part: 'snippet', maxResults: 24 });
-            grid.innerHTML = data.items.map(pl => `<div class="v-card" onclick="Actions.showPlaylist('${pl.id}', '${pl.snippet.title.replace(/'/g, "\\")}')"><div class="thumb-container"><img src="${YT.getProxiedThumb(pl)}" class="main-thumb"></div><div class="v-text"><h3>${pl.snippet.title}</h3></div></div>`).join('');
+            grid.innerHTML = data.items.map(pl => `<div class="v-card" onclick="Actions.showPlaylistView('${pl.id}', '${pl.snippet.title.replace(/'/g, "\\")}')"><div class="thumb-container"><img src="${YT.getProxiedThumb(pl)}" class="main-thumb"></div><div class="v-text"><h3>${pl.snippet.title}</h3></div></div>`).join('');
             this.nextToken = "";
         }
         document.getElementById('more-btn-area').innerHTML = this.nextToken ? `<button class="btn" onclick="Actions.loadMore()" style="width:100%; margin:20px 0;">もっと読む</button>` : "";
     },
 
-    async showPlaylist(plId, title) {
+    async showPlaylistView(plId, title) {
         this.currentView = "playlist";
         this.currentParams = { playlistId: plId, part: 'snippet,contentDetails', maxResults: 24 };
         const data = await YT.fetchAPI('playlistItems', this.currentParams);
@@ -431,6 +447,13 @@ const Actions = {
         this.renderGrid("<h2>📌 後で見る</h2>");
     },
 
+    showPlaylist() {
+        this.currentView = "playlist_mine";
+        const list = Storage.get('yt_playlists');
+        this.currentList = list.map(x => ({ id: x.id, snippet: { title: x.title, thumbnails: { high: { url: x.thumb } }, channelTitle: x.channelTitle } }));
+        this.renderGrid("<h2>📂 マイプレイリスト</h2>");
+    },
+
     showHistory() {
         this.currentView = "history";
         const history = Storage.get('yt_history');
@@ -445,7 +468,7 @@ const Actions = {
     }
 };
 
-window.onload = async () => { Actions.init(); await YT.refreshEduKey();Actions.goHome(); };
+window.onload = async () => { Actions.init(); await YT.refreshEduKey(); Actions.goHome(); };
 
 /* --- 各種ゲーム起動用関数 --- */
 function startTetris() { if (typeof initTetris === 'function') initTetris(); else Actions.showStatusNotification("エラー"); }
