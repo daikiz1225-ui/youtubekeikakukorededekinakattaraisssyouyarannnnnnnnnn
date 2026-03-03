@@ -1,66 +1,76 @@
 /**
- * state.js - 操作連動型リロード & 状態復元システム（完全版）
+ * state.js - 履歴（戻る・進む）対応 & 操作連動ロード
  */
 
 const StateManager = {
-    // URLを更新してリロードする
-    reloadWith(params) {
+    // URLを更新して履歴を作りつつリロード
+    pushAndReload(params) {
         const url = new URL(window.location.origin + window.location.pathname);
         for (const [key, value] of Object.entries(params)) {
             url.searchParams.set(key, value);
         }
-        window.location.href = url.toString(); // ここで強制リロード
+        // これで履歴に残り、なおかつリロードされる
+        window.location.href = url.toString();
     },
 
-    // ページが開かれた時に、URLを見て中身を再現する
-    restore() {
+    // 起動時にURLを見て「何を表示するか」決める
+    initFromUrl() {
         const p = new URLSearchParams(window.location.search);
         
-        // 検索結果の復元
-        if (p.has('q')) {
-            const q = p.get('q');
-            const input = document.getElementById('search-input');
-            if (input) input.value = q;
-            // app.jsが読み込まれるのを待ってから検索実行
-            setTimeout(() => { if(window.Actions) Actions.search(); }, 500);
-        }
+        // app.jsが読み込まれるのを待つ
+        const checkActions = setInterval(() => {
+            if (window.Actions && Actions.init) {
+                clearInterval(checkActions);
+                
+                // 1. まず初期化
+                Actions.init();
 
-        // 動画再生の復元
-        if (p.has('v')) {
-            const vId = p.get('v');
-            setTimeout(() => {
-                if(window.Actions) Actions.play({ id: { videoId: vId }, snippet: { title: "読込中...", thumbnails:{high:{url:""}} } });
-            }, 800);
-        }
+                // 2. URLに応じた復元（ここが大事！）
+                if (p.has('q')) {
+                    document.getElementById('search-input').value = p.get('q');
+                    Actions.search();
+                } else if (p.has('v')) {
+                    Actions.play({ id: { videoId: p.get('v') }, snippet: { title: "読込中...", thumbnails:{high:{url:""}} } });
+                } else if (p.get('view') === 'live') {
+                    Actions.showLiveHub();
+                } else if (p.get('view') === 'game') {
+                    Actions.showGame();
+                } else {
+                    Actions.goHome(); // 何もなければホーム
+                }
+            }
+        }, 100);
     }
 };
 
-// --- ボタンの動きを「リロード式」に上書きする ---
+// --- 元の Actions の機能を奪わずに、リロード機能を「被せる」 ---
 window.addEventListener('DOMContentLoaded', () => {
-    
-    // 1. 検索ボタンの上書き
-    const searchBtn = document.getElementById('search-btn');
-    if (searchBtn) {
-        searchBtn.onclick = (e) => {
-            e.preventDefault();
+    // 1. app.js の onload を無効化する（勝手に goHome させないため）
+    window.onload = null;
+
+    // 2. 検索ボタンの乗っ取り
+    const sBtn = document.getElementById('search-btn');
+    if (sBtn) {
+        sBtn.onclick = (e) => {
+            e.stopPropagation();
             const q = document.getElementById('search-input').value;
-            if (q) StateManager.reloadWith({ q: q });
+            if (q) StateManager.pushAndReload({ q: q });
         };
     }
 
-    // 2. サイドバーの「Live」や「ゲーム」の上書き
-    // onclick属性を無効化して、リロード付きの動きに変える
+    // 3. サイドバー項目の乗っ取り
     document.querySelectorAll('.nav-item').forEach(item => {
         const text = item.innerText;
-        if (text.includes('Live')) {
-            item.onclick = () => StateManager.reloadWith({ view: 'live' });
-        } else if (text.includes('ゲーム')) {
-            item.onclick = () => StateManager.reloadWith({ view: 'game' });
-        } else if (text.includes('ホーム')) {
-            item.onclick = () => window.location.href = window.location.origin + window.location.pathname;
-        }
+        item.removeAttribute('onclick'); // 元のクリックを消す
+        
+        item.onclick = () => {
+            if (text.includes('ホーム')) window.location.href = window.location.origin + window.location.pathname;
+            else if (text.includes('Live')) StateManager.pushAndReload({ view: 'live' });
+            else if (text.includes('ゲーム')) StateManager.pushAndReload({ view: 'game' });
+            else if (text.includes('ショート')) StateManager.pushAndReload({ view: 'shorts' });
+        };
     });
 
-    // 3. 復元処理の実行
-    StateManager.restore();
+    // 4. 実行開始
+    StateManager.initFromUrl();
 });
