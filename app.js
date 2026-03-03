@@ -1,12 +1,11 @@
-/* app vr3.js - AI Recommendation Update
-  既存機能を保持し、AIおすすめ機能のみを追加 
+/* app vr3.js - AI Recommendation & Education Key Fixed
+  既存のEducationキー取得機能を完全に保持し、外部再生機能を追加
 */
 
 const YT = {
     keys: ["AIzaSyBfCvyZ_J9mJiMFNYB6WfcuLyvf9zDdcUU", "AIzaSyCgVn-JWHKT_z6EC73Z6Vlex0F_d-BP_fY", "AIzaSyBbqPhAbqoWDOurTt7hejQmwc6dAoZ5Iy0", "AIzaSyAWk9mmie23-khi8-nipv1jHJND__UtEWA", "AIzaSyBL38iyqeiaKHoKqhloSnhG590DfJ35vCE"],
-    currentEduKey: "",
+    currentEduKey: "", // これが空だとEducation再生ができない
 
-    // ★追加: サムネイルを自前API経由に変換する関数
     getProxiedThumb(video) {
         if (!video || !video.snippet || !video.snippet.thumbnails) return "";
         const id = video.contentDetails?.videoId || (typeof video.id === 'string' ? video.id : (video.id?.videoId || ""));
@@ -14,6 +13,7 @@ const YT = {
         return `/api/thumb?id=${id}`;
     },
 
+    // 心臓部：サーバーからEducationキーを取得
     async refreshEduKey() {
         try {
             const response = await fetch('/api/get_key');
@@ -61,6 +61,7 @@ const YT = {
     },
 
     getEmbedUrl(id, isShort = false) {
+        // ここで currentEduKey を使用しているため、refreshEduKeyが重要
         const config = { enc: this.currentEduKey, hideTitle: true };
         const params = new URLSearchParams({
             autoplay: 1, origin: location.origin,
@@ -89,7 +90,6 @@ const Storage = {
     },
     isWatchLater(id) { return this.get('yt_watchlater').some(x => x.id === id); },
 
-    // ★プレイリスト管理用
     getMyPlaylists() { const d = localStorage.getItem('yt_my_playlists'); return d ? JSON.parse(d) : {}; },
     setMyPlaylists(data) { localStorage.setItem('yt_my_playlists', JSON.stringify(data)); },
     createPlaylist(name) {
@@ -128,7 +128,7 @@ const Actions = {
     nextToken: "",
     currentParams: {},
     selectedSubs: [],
-    activePlaylistName: null, // 現在再生中のプレイリスト名
+    activePlaylistName: null,
 
     init() {
         const input = document.getElementById('search-input');
@@ -141,7 +141,6 @@ const Actions = {
                 const historyNav = document.querySelector('.sidebar .nav-item[onclick="Actions.showHistory()"]');
                 if (historyNav) historyNav.insertAdjacentHTML('beforebegin', '<div id="nav-watch-later" class="nav-item" onclick="Actions.showWatchLater()">📌<span>後で見る</span></div>');
             }
-            // プレイリストナビ
             if (!document.getElementById('nav-playlist')) {
                 const wlNav = document.getElementById('nav-watch-later');
                 if (wlNav) wlNav.insertAdjacentHTML('afterend', '<div id="nav-playlist" class="nav-item" onclick="Actions.showMyPlaylists()" style="color:#3ea6ff;">📂<span>プレイリスト</span></div>');
@@ -153,7 +152,7 @@ const Actions = {
         }
     },
 
-    // ★追記: ストリーミング切り替え用
+    // 追加機能: 外部ストリーミングプレイヤーへの切り替え
     switchToStreaming() {
         const wrapper = document.querySelector('.video-wrapper');
         if (wrapper && typeof M3U8Player !== 'undefined') {
@@ -162,7 +161,6 @@ const Actions = {
         }
     },
 
-    // プレイリスト一覧画面
     showMyPlaylists() {
         this.currentView = "my_playlists";
         const dict = Storage.getMyPlaylists();
@@ -175,7 +173,6 @@ const Actions = {
                 </div>
                 <div class="grid" style="margin-top:20px;">
         `;
-        
         Object.keys(dict).forEach(name => {
             const count = dict[name].length;
             const thumb = count > 0 ? dict[name][0].thumb : "";
@@ -189,8 +186,7 @@ const Actions = {
                         <h3>${name}</h3>
                         <button class="btn" onclick="event.stopPropagation(); Actions.deletePlaylistConfirm('${name.replace(/'/g, "\\'")}')" style="margin-top:5px; font-size:11px; padding:2px 8px;">削除</button>
                     </div>
-                </div>
-            `;
+                </div>`;
         });
         html += `</div></div>`;
         container.innerHTML = html;
@@ -211,7 +207,6 @@ const Actions = {
         const dict = Storage.getMyPlaylists();
         const list = dict[name] || [];
         this.currentList = list.map(v => ({ id: v.id, snippet: { title: v.title, thumbnails: { high: { url: v.thumb } }, channelTitle: v.channelTitle } }));
-        
         const container = document.getElementById('view-container');
         container.innerHTML = `
             <div style="padding:20px;">
@@ -226,11 +221,9 @@ const Actions = {
                                 <p>${v.channelTitle}</p>
                                 <button class="btn" onclick="Actions.removeFromPlaylistAndRefresh('${name.replace(/'/g, "\\'")}', '${v.id}')" style="font-size:11px; padding:2px 8px;">削除</button>
                             </div>
-                        </div>
-                    `).join('')}
+                        </div>`).join('')}
                 </div>
-            </div>
-        `;
+            </div>`;
     },
 
     removeFromPlaylistAndRefresh(name, id) {
@@ -349,7 +342,7 @@ const Actions = {
     playRelative(offset) {
         const newIndex = this.currentIndex + offset;
         if (newIndex >= 0 && newIndex < this.currentList.length) this.playFromList(newIndex);
-        else if (newIndex >= this.currentList.length && this.activePlaylistName) this.playFromList(0); // プレイリスト末尾なら最初へ
+        else if (newIndex >= this.currentList.length && this.activePlaylistName) this.playFromList(0);
     },
 
     async fetchMissingIcons(ids) {
@@ -392,7 +385,7 @@ const Actions = {
         const thumbUrl = `/api/thumb?id=${vId}`;
         window.scrollTo(0, 0);
 
-        // ストリーミング停止処理を念のため入れる
+        // 動画切り替え時にストリーミングが動いていれば停止
         if (typeof M3U8Player !== 'undefined' && M3U8Player.stopPlayer) M3U8Player.stopPlayer();
 
         if (isShorts) {
@@ -459,8 +452,6 @@ const Actions = {
                     <div class="related-area"><h3 id="side-title" style="margin-top:0;">関連動画</h3><div id="side-content-box"></div></div>
                 </div>`;
             const sideBox = document.getElementById('side-content-box');
-            
-            // プレイリスト再生中なら右側をプレイリストにする
             if (this.activePlaylistName) {
                 document.getElementById('side-title').innerText = `再生中: ${this.activePlaylistName}`;
                 this.relatedList = this.currentList;
@@ -469,7 +460,6 @@ const Actions = {
                 const rel = await YT.fetchAPI('search', { q: qK, type: 'video', part: 'snippet', maxResults: 15 });
                 this.relatedList = rel.items || [];
             }
-            
             sideBox.innerHTML = this.relatedList.map((i, idx) => `
                 <div class="v-card" style="display:flex; gap:10px; margin-bottom:12px; ${idx === this.currentIndex && this.activePlaylistName ? 'background:#333; border-left:4px solid #3ea6ff;' : ''}" onclick="Actions.playFromRelated(${idx})">
                     <img src="${YT.getProxiedThumb(i)}" style="width:140px; aspect-ratio:16/9; object-fit:cover; border-radius:8px;">
@@ -588,9 +578,10 @@ const Actions = {
     }
 };
 
+// 起動時にEducationキーを取得
 window.onload = async () => { Actions.init(); await YT.refreshEduKey(); Actions.goHome(); };
 
-/* --- 各種ゲーム起動用関数 --- */
+/* 各種ゲーム起動用関数 */
 function startTetris() { if (typeof initTetris === 'function') initTetris(); else Actions.showStatusNotification("エラー"); }
 function startSnake() { if (typeof initSnake === 'function') initSnake(); else Actions.showStatusNotification("エラー"); }
 function startReversi() { if (typeof initReversi === 'function') initReversi(); else Actions.showStatusNotification("エラー"); }
