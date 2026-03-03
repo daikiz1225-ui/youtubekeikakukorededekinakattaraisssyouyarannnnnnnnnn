@@ -1,31 +1,23 @@
 /**
- * playlist.js - プレイリスト管理システム（改良版）
+ * playlist.js - プレイリスト管理システム（超・執念版）
  */
 
 const PlaylistManager = {
     storageKey: 'yt_playlists',
 
+    // 1. 保存ロジック
     save(video) {
-        // IDの取得（app.jsと同じロジック）
-        const id = video.contentDetails?.videoId || (video.id?.videoId || video.id);
         let list = JSON.parse(localStorage.getItem(this.storageKey) || "[]");
-        
-        if (list.some(v => v.id === id)) {
+        if (list.some(v => v.id === video.id)) {
             alert("既にプレイリストにあります！");
             return;
         }
-
-        list.unshift({
-            id: id,
-            title: video.snippet.title,
-            thumb: video.snippet.thumbnails?.high?.url || "",
-            channelTitle: video.snippet.channelTitle
-        });
-
+        list.unshift(video);
         localStorage.setItem(this.storageKey, JSON.stringify(list));
         alert("プレイリストに保存しました！");
     },
 
+    // 2. 表示ロジック
     show() {
         Actions.currentView = "playlist";
         const list = JSON.parse(localStorage.getItem(this.storageKey) || "[]");
@@ -40,34 +32,54 @@ const PlaylistManager = {
         Actions.renderGrid("📂 マイプレイリスト");
     },
 
-    // ボタンを画面にねじ込む関数
-    injectButton() {
+    // 3. サイドバーに項目をねじ込む
+    injectSidebar() {
+        const sidebar = document.querySelector('.sidebar');
+        if (!sidebar || sidebar.querySelector('.nav-playlist')) return;
+
+        const div = document.createElement('div');
+        div.className = 'nav-item nav-playlist';
+        div.style.color = '#3ea6ff';
+        div.innerHTML = '📂<span>プレイリスト</span>';
+        div.onclick = () => PlaylistManager.show();
+
+        // 履歴(🕒)のアイコンを探して、その上に入れる
+        const items = sidebar.querySelectorAll('.nav-item');
+        let inserted = false;
+        items.forEach(item => {
+            if (item.innerText.includes('履歴')) {
+                sidebar.insertBefore(div, item);
+                inserted = true;
+            }
+        });
+        if (!inserted) sidebar.appendChild(div);
+    },
+
+    // 4. 再生画面にボタンをねじ込む
+    injectSaveButton() {
         const playerArea = document.querySelector('.player-area');
         if (!playerArea) return;
 
         const titleElement = playerArea.querySelector('h1');
-        // すでにボタンがある場合は何もしない
         if (!titleElement || titleElement.querySelector('.playlist-add-btn')) return;
 
+        // タイトルの横にボタンを作成
         const btn = document.createElement('button');
         btn.className = 'btn playlist-add-btn';
-        btn.style.marginLeft = '10px';
-        btn.style.background = '#3ea6ff';
-        btn.style.color = '#fff';
-        btn.style.fontSize = '14px';
+        btn.style.cssText = 'margin-left:15px; background:#3ea6ff; color:#fff; font-size:13px; padding:5px 15px; cursor:pointer; vertical-align:middle;';
         btn.innerText = '📂 プレイリストに保存';
-        
-        // 再生中の動画データを取得（ちょっと強引だけどActionsから取る）
+
         btn.onclick = () => {
-            // 現在表示されているタイトルとURLからデータを推測
-            const videoId = new URL(playerArea.querySelector('iframe').src).pathname.split('/').pop();
+            const iframe = playerArea.querySelector('iframe');
+            if (!iframe) return;
+            
+            // 現在の動画情報を抽出
+            const videoId = iframe.src.split('embed/')[1]?.split('?')[0];
             const videoData = {
                 id: videoId,
-                snippet: {
-                    title: titleElement.innerText.replace('📂 プレイリストに保存', '').trim(),
-                    channelTitle: playerArea.querySelector('p')?.innerText || "Unknown",
-                    thumbnails: { high: { url: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` } }
-                }
+                title: titleElement.innerText.replace('📂 プレイリストに保存', '').trim(),
+                channelTitle: playerArea.querySelector('p')?.innerText || "不明なチャンネル",
+                thumb: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`
             };
             this.save(videoData);
         };
@@ -78,31 +90,8 @@ const PlaylistManager = {
     }
 };
 
-// --- 監視スタート ---
-const observer = new MutationObserver(() => {
-    PlaylistManager.injectButton();
-});
-
-window.addEventListener('load', () => {
-    // 1. サイドバーに項目を追加（少し遅らせる）
-    setTimeout(() => {
-        const sidebar = document.querySelector('.sidebar');
-        if (sidebar && !sidebar.querySelector('.nav-playlist')) {
-            const div = document.createElement('div');
-            div.className = 'nav-item nav-playlist';
-            div.style.color = '#3ea6ff';
-            div.innerHTML = '📂<span>プレイリスト</span>';
-            div.onclick = () => PlaylistManager.show();
-            // 履歴（最後から2番目くらい）の前に入れる
-            const hr = sidebar.querySelector('hr');
-            if (hr) sidebar.insertBefore(div, hr);
-            else sidebar.appendChild(div);
-        }
-    }, 500);
-
-    // 2. 画面の変化を監視開始
-    const container = document.getElementById('view-container');
-    if (container) {
-        observer.observe(container, { childList: true, subtree: true });
-    }
-});
+// --- しつこく実行し続ける ---
+setInterval(() => {
+    PlaylistManager.injectSidebar();
+    PlaylistManager.injectSaveButton();
+}, 1000); // 1秒ごとにチェック
