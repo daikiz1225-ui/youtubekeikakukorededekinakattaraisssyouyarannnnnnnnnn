@@ -87,15 +87,36 @@ const Storage = {
         if (i > -1) list.splice(i, 1); else list.unshift(v);
         this.set('yt_watchlater', list);
     },
-    // ★追加: プレイリスト保存機能
-    addPlaylist(v) {
-        let list = this.get('yt_playlists');
-        if (list.some(x => x.id === v.id)) { alert("既に保存されています"); return; }
-        list.unshift(v);
-        this.set('yt_playlists', list);
-        alert("プレイリストに保存しました！");
+    isWatchLater(id) { return this.get('yt_watchlater').some(x => x.id === id); },
+
+    // ★プレイリスト管理用
+    getMyPlaylists() { const d = localStorage.getItem('yt_my_playlists'); return d ? JSON.parse(d) : {}; },
+    setMyPlaylists(data) { localStorage.setItem('yt_my_playlists', JSON.stringify(data)); },
+    createPlaylist(name) {
+        let dict = this.getMyPlaylists();
+        if (dict[name]) return alert("既に同じ名前のリストがあります");
+        dict[name] = [];
+        this.setMyPlaylists(dict);
     },
-    isWatchLater(id) { return this.get('yt_watchlater').some(x => x.id === id); }
+    deletePlaylist(name) {
+        let dict = this.getMyPlaylists();
+        delete dict[name];
+        this.setMyPlaylists(dict);
+    },
+    addToPlaylist(name, video) {
+        let dict = this.getMyPlaylists();
+        if (!dict[name]) return;
+        if (dict[name].some(v => v.id === video.id)) return alert("既に入っています");
+        dict[name].push(video);
+        this.setMyPlaylists(dict);
+        alert(`「${name}」に追加しました！`);
+    },
+    removeFromPlaylist(name, videoId) {
+        let dict = this.getMyPlaylists();
+        if (!dict[name]) return;
+        dict[name] = dict[name].filter(v => v.id !== videoId);
+        this.setMyPlaylists(dict);
+    }
 };
 
 const Actions = {
@@ -107,6 +128,7 @@ const Actions = {
     nextToken: "",
     currentParams: {},
     selectedSubs: [],
+    activePlaylistName: null, // 現在再生中のプレイリスト名
 
     init() {
         const input = document.getElementById('search-input');
@@ -119,16 +141,92 @@ const Actions = {
                 const historyNav = document.querySelector('.sidebar .nav-item[onclick="Actions.showHistory()"]');
                 if (historyNav) historyNav.insertAdjacentHTML('beforebegin', '<div id="nav-watch-later" class="nav-item" onclick="Actions.showWatchLater()">📌<span>後で見る</span></div>');
             }
-            // ★追加: プレイリスト項目の追加
+            // プレイリストナビ
             if (!document.getElementById('nav-playlist')) {
-                const watchLaterNav = document.getElementById('nav-watch-later');
-                if (watchLaterNav) watchLaterNav.insertAdjacentHTML('afterend', '<div id="nav-playlist" class="nav-item" onclick="Actions.showPlaylist()" style="color:#3ea6ff;">📂<span>プレイリスト</span></div>');
+                const wlNav = document.getElementById('nav-watch-later');
+                if (wlNav) wlNav.insertAdjacentHTML('afterend', '<div id="nav-playlist" class="nav-item" onclick="Actions.showMyPlaylists()" style="color:#3ea6ff;">📂<span>プレイリスト</span></div>');
             }
             if (!document.getElementById('nav-ai-recommend')) {
                 const homeNav = document.querySelector('.sidebar .nav-item[onclick="Actions.goHome()"]');
                 if (homeNav) homeNav.insertAdjacentHTML('afterend', '<div id="nav-ai-recommend" class="nav-item" onclick="Actions.showAIRecommendations()">🤖<span>AIおすすめ</span></div>');
             }
         }
+    },
+
+    // プレイリスト一覧画面
+    showMyPlaylists() {
+        this.currentView = "my_playlists";
+        const dict = Storage.getMyPlaylists();
+        const container = document.getElementById('view-container');
+        let html = `
+            <div style="padding:20px;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <h2>📂 マイプレイリスト</h2>
+                    <button class="btn" onclick="Actions.createNewPlaylistPrompt()" style="background:#3ea6ff; color:#fff;">＋ 新規作成</button>
+                </div>
+                <div class="grid" style="margin-top:20px;">
+        `;
+        
+        Object.keys(dict).forEach(name => {
+            const count = dict[name].length;
+            const thumb = count > 0 ? dict[name][0].thumb : "";
+            html += `
+                <div class="v-card" onclick="Actions.viewPlaylistDetail('${name.replace(/'/g, "\\'")}')">
+                    <div class="thumb-container" style="background:#333; display:flex; align-items:center; justify-content:center;">
+                        ${thumb ? `<img src="${thumb}" class="main-thumb">` : '<span style="font-size:40px;">📂</span>'}
+                        <div style="position:absolute; bottom:5px; right:5px; background:rgba(0,0,0,0.8); padding:2px 8px; border-radius:4px; font-size:12px;">${count}本</div>
+                    </div>
+                    <div class="v-text">
+                        <h3>${name}</h3>
+                        <button class="btn" onclick="event.stopPropagation(); Actions.deletePlaylistConfirm('${name.replace(/'/g, "\\'")}')" style="margin-top:5px; font-size:11px; padding:2px 8px;">削除</button>
+                    </div>
+                </div>
+            `;
+        });
+        html += `</div></div>`;
+        container.innerHTML = html;
+    },
+
+    createNewPlaylistPrompt() {
+        const name = prompt("プレイリスト名を入力してください:");
+        if (name) { Storage.createPlaylist(name); this.showMyPlaylists(); }
+    },
+
+    deletePlaylistConfirm(name) {
+        if (confirm(`プレイリスト「${name}」を削除しますか？`)) { Storage.deletePlaylist(name); this.showMyPlaylists(); }
+    },
+
+    viewPlaylistDetail(name) {
+        this.currentView = "playlist_detail";
+        this.activePlaylistName = name;
+        const dict = Storage.getMyPlaylists();
+        const list = dict[name] || [];
+        this.currentList = list.map(v => ({ id: v.id, snippet: { title: v.title, thumbnails: { high: { url: v.thumb } }, channelTitle: v.channelTitle } }));
+        
+        const container = document.getElementById('view-container');
+        container.innerHTML = `
+            <div style="padding:20px;">
+                <h2>📂 ${name}</h2>
+                <button class="btn" onclick="Actions.playFromList(0)" style="margin-bottom:20px; background:#fff; color:#000;">▶ すべて再生</button>
+                <div class="grid">
+                    ${list.map((v, i) => `
+                        <div class="v-card">
+                            <div class="thumb-container" onclick="Actions.playFromList(${i})"><img src="${v.thumb}" class="main-thumb"></div>
+                            <div class="v-text">
+                                <h3>${v.title}</h3>
+                                <p>${v.channelTitle}</p>
+                                <button class="btn" onclick="Actions.removeFromPlaylistAndRefresh('${name.replace(/'/g, "\\'")}', '${v.id}')" style="font-size:11px; padding:2px 8px;">削除</button>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    },
+
+    removeFromPlaylistAndRefresh(name, id) {
+        Storage.removeFromPlaylist(name, id);
+        this.viewPlaylistDetail(name);
     },
 
     async showAIRecommendations() {
@@ -157,6 +255,7 @@ const Actions = {
 
     async goHome() {
         this.currentView = "home";
+        this.activePlaylistName = null;
         this.currentParams = { chart: 'mostPopular', regionCode: 'JP', part: 'snippet', maxResults: 24 };
         const data = await YT.fetchAPI('videos', this.currentParams);
         this.currentList = data.items || [];
@@ -166,6 +265,7 @@ const Actions = {
 
     async showShorts() {
         this.currentView = "shorts";
+        this.activePlaylistName = null;
         this.currentParams = { q: '#Shorts', part: 'snippet', type: 'video', videoDuration: 'short', maxResults: 24 };
         const data = await YT.fetchAPI('search', this.currentParams);
         this.currentList = data.items || [];
@@ -175,6 +275,7 @@ const Actions = {
 
     async showLiveHub() {
         this.currentView = "live";
+        this.activePlaylistName = null;
         this.currentParams = { q: 'live', part: 'snippet', type: 'video', eventType: 'live', regionCode: 'JP', maxResults: 24 };
         const data = await YT.fetchAPI('search', this.currentParams);
         this.currentList = data.items || [];
@@ -185,6 +286,7 @@ const Actions = {
     async search() {
         const q = document.getElementById('search-input').value;
         if (!q) return;
+        this.activePlaylistName = null;
         this.currentParams = { q, part: 'snippet', maxResults: 24, type: 'video' };
         if (this.currentView === "shorts") {
             this.currentParams.videoDuration = "short";
@@ -238,6 +340,7 @@ const Actions = {
     playRelative(offset) {
         const newIndex = this.currentIndex + offset;
         if (newIndex >= 0 && newIndex < this.currentList.length) this.playFromList(newIndex);
+        else if (newIndex >= this.currentList.length && this.activePlaylistName) this.playFromList(0); // プレイリスト末尾なら最初へ
     },
 
     async fetchMissingIcons(ids) {
@@ -319,7 +422,13 @@ const Actions = {
                         <div style="padding-top:15px;">
                             <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
                                 <h2 style="margin:0;">${snip.title}</h2>
-                                <button class="btn" onclick="Storage.addPlaylist({id:'${vId}', title:'${safeTitle}', thumb:'${thumbUrl}', channelTitle:'${safeChTitle}'})" style="background:#3ea6ff; color:#fff;">📂 プレイリストに保存</button>
+                                <div style="display:flex; gap:10px;">
+                                    <select id="plist-select" class="btn" style="background:#333; color:#fff; border:none;">
+                                        <option value="">📂 プレイリストを選択</option>
+                                        ${Object.keys(Storage.getMyPlaylists()).map(name => `<option value="${name}">${name}</option>`).join('')}
+                                    </select>
+                                    <button class="btn" onclick="const n=document.getElementById('plist-select').value; if(n) Storage.addToPlaylist(n, {id:'${vId}', title:'${safeTitle}', thumb:'${thumbUrl}', channelTitle:'${safeChTitle}'}); else alert('リストを選択してね');" style="background:#3ea6ff; color:#fff;">追加</button>
+                                </div>
                             </div>
                             <div style="display:flex; align-items:center; justify-content:space-between; margin-top:15px; flex-wrap:wrap; gap:10px;">
                                 <div style="display:flex; align-items:center; cursor:pointer;" onclick="Actions.showChannel('${snip.channelId}')">
@@ -337,19 +446,26 @@ const Actions = {
                     <div class="related-area"><h3 id="side-title" style="margin-top:0;">関連動画</h3><div id="side-content-box"></div></div>
                 </div>`;
             const sideBox = document.getElementById('side-content-box');
-            if (this.currentView === "playlist") { document.getElementById('side-title').innerText = "再生リスト"; this.relatedList = this.currentList; }
-            else {
+            
+            // プレイリスト再生中なら右側をプレイリストにする
+            if (this.activePlaylistName) {
+                document.getElementById('side-title').innerText = `再生中: ${this.activePlaylistName}`;
+                this.relatedList = this.currentList;
+            } else {
                 const qK = snip.title.replace(/[【】「」]/g, ' ').split(' ').filter(w => w.length > 1).slice(0, 3).join(' ');
                 const rel = await YT.fetchAPI('search', { q: qK, type: 'video', part: 'snippet', maxResults: 15 });
                 this.relatedList = rel.items || [];
             }
+            
             sideBox.innerHTML = this.relatedList.map((i, idx) => `
-                <div class="v-card" style="display:flex; gap:10px; margin-bottom:12px;" onclick="Actions.playFromRelated(${idx})">
+                <div class="v-card" style="display:flex; gap:10px; margin-bottom:12px; ${idx === this.currentIndex && this.activePlaylistName ? 'background:#333; border-left:4px solid #3ea6ff;' : ''}" onclick="Actions.playFromRelated(${idx})">
                     <img src="${YT.getProxiedThumb(i)}" style="width:140px; aspect-ratio:16/9; object-fit:cover; border-radius:8px;">
                     <div style="font-size:12px;"><div style="font-weight:bold;">${i.snippet.title}</div><div style="color:#aaa;">${i.snippet.channelTitle}</div></div>
                 </div>`).join('');
         }
         Storage.addHistory({ id: vId, title: snip.title, thumb: thumbUrl, channelTitle: snip.channelTitle });
+        
+        // ★自動再生の仕掛け: 動画が終わったら次へ（iframe経由は難しいので簡易的にボタン追加かタイマー検討だが、まずはRelatedクリックで次へ行けるようにした）
     },
 
     async showChannel(chId) {
@@ -445,13 +561,6 @@ const Actions = {
         const list = Storage.get('yt_watchlater');
         this.currentList = list.map(x => ({ id: x.id, snippet: { title: x.title, thumbnails: { high: { url: x.thumb } }, channelTitle: x.channelTitle, channelId: x.channelId } }));
         this.renderGrid("<h2>📌 後で見る</h2>");
-    },
-
-    showPlaylist() {
-        this.currentView = "playlist_mine";
-        const list = Storage.get('yt_playlists');
-        this.currentList = list.map(x => ({ id: x.id, snippet: { title: x.title, thumbnails: { high: { url: x.thumb } }, channelTitle: x.channelTitle } }));
-        this.renderGrid("<h2>📂 マイプレイリスト</h2>");
     },
 
     showHistory() {
