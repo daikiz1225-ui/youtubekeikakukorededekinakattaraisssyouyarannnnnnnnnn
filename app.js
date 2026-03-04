@@ -1,4 +1,4 @@
-/* app.js - Administrator & UI/Hybrid Search Update */
+/* app.js - Full Update (Fixed Search & Playlist Sidebar) */
 
 // --- ユーティリティ: 時間の変換 ---
 function timeAgo(dateString) {
@@ -147,7 +147,7 @@ const Actions = {
     currentParams: {},
     selectedSubs: [],
     activePlaylistName: null,
-    videoStats: {}, // ★視聴回数キャッシュ用
+    videoStats: {},
 
     init() {
         const input = document.getElementById('search-input');
@@ -186,7 +186,6 @@ const Actions = {
         }
     },
 
-    // ★追加: リスト内の動画の統計情報を一括取得
     async fillStats(items) {
         const ids = items
             .map(i => i.id?.videoId || (typeof i.id === 'string' ? i.id : null))
@@ -324,19 +323,16 @@ const Actions = {
         this.renderGrid("<h2>🔴 ライブ配信</h2>");
     },
 
-    // ★強化版検索: 動画＋人気プレイリストのミックス
+    // ★修正: モードに合わせた検索パラメータを適用
     async search() {
         const q = document.getElementById('search-input').value;
         if (!q) return;
-        this.activePlaylistName = null;
-        this.currentView = "search";
-
-        // 検索パラメータの構築
         const vParams = { q, part: 'snippet', maxResults: 15, type: 'video' };
+        
+        // モード判定
         if (this.currentView === "shorts") vParams.videoDuration = "short";
         if (this.currentView === "live") vParams.eventType = "live";
 
-        // 並列で「動画」と「再生リスト」を取得
         const [vData, plData] = await Promise.all([
             YT.fetchAPI('search', vParams),
             YT.fetchAPI('search', { q, part: 'snippet', maxResults: 5, type: 'playlist' })
@@ -344,11 +340,11 @@ const Actions = {
 
         this.currentList = [...(plData.items || []), ...(vData.items || [])];
         this.nextToken = vData.nextPageToken || "";
+        this.activePlaylistName = null; // 検索時は通常の視聴に戻す
         await this.fillStats(this.currentList);
         this.renderGrid(`<h2>"${q}" の検索結果 (動画 & リスト)</h2>`);
     },
 
-    // ★UI更新: 視聴回数と時間を表示
     renderCards(items) {
         return items.map((item, index) => {
             const snip = item.snippet;
@@ -400,7 +396,13 @@ const Actions = {
     },
 
     playFromList(index) { this.currentIndex = index; this.play(this.currentList[index]); },
-    playFromRelated(index) { if (this.relatedList && this.relatedList[index]) this.play(this.relatedList[index]); },
+    playFromRelated(index) { 
+        if (this.activePlaylistName) {
+            this.playFromList(index);
+        } else if (this.relatedList && this.relatedList[index]) {
+            this.play(this.relatedList[index]); 
+        }
+    },
     playRelative(offset) {
         const newIndex = this.currentIndex + offset;
         if (newIndex >= 0 && newIndex < this.currentList.length) this.playFromList(newIndex);
@@ -436,6 +438,7 @@ const Actions = {
         else if (this.currentView === "watchlater") this.showWatchLater();
     },
 
+    // ★修正: 再生リスト再生時は側面をリストの中身に固定
     async play(video) {
         const vId = video.contentDetails?.videoId || (video.id?.videoId || (typeof video.id === 'string' ? video.id : null));
         const snip = video.snippet;
@@ -478,20 +481,16 @@ const Actions = {
                             <button class="btn" style="background:#444;" onclick="Actions.changeSpeed(1.0)">1.0x</button>
                             <button class="btn" onclick="Actions.changeSpeed(1.5)">1.5x</button>
                             <button class="btn" onclick="Actions.changeSpeed(2.0)">2.0x</button>
-                            <div style="border-left:1px solid #333; height:20px; margin:0 10px;"></div>
-                            <span style="font-size:14px; color:#aaa; font-weight:bold;">スキップ:</span>
-                            <button class="btn" onclick="YT.seek(-10)">⏪ 10s</button>
-                            <button class="btn" onclick="YT.seek(10)">10s ⏩</button>
                         </div>
                         <div style="padding-top:15px;">
                             <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
                                 <h2 style="margin:0;">${snip.title}</h2>
                                 <div style="display:flex; gap:10px;">
                                     <select id="plist-select" class="btn" style="background:#333; color:#fff; border:none;">
-                                        <option value="">📂 プレイリストを選択</option>
+                                        <option value="">📂 リスト選択</option>
                                         ${Object.keys(Storage.getMyPlaylists()).map(name => `<option value="${name}">${name}</option>`).join('')}
                                     </select>
-                                    <button class="btn" onclick="const n=document.getElementById('plist-select').value; if(n) Storage.addToPlaylist(n, {id:'${vId}', title:'${safeTitle}', thumb:'${thumbUrl}', channelTitle:'${safeChTitle}'}); else alert('リストを選択してね');" style="background:#3ea6ff; color:#fff;">追加</button>
+                                    <button class="btn" onclick="const n=document.getElementById('plist-select').value; if(n) Storage.addToPlaylist(n, {id:'${vId}', title:'${safeTitle}', thumb:'${thumbUrl}', channelTitle:'${safeChTitle}'}); else alert('選択してね');" style="background:#3ea6ff; color:#fff;">追加</button>
                                 </div>
                             </div>
                             <p style="color:#aaa; font-size:14px; margin-top:5px;">${formatViews(this.videoStats[vId])} • ${timeAgo(snip.publishedAt)}</p>
@@ -502,28 +501,30 @@ const Actions = {
                                 </div>
                                 <div style="display:flex; align-items:center; gap:8px;">
                                     <button id="sub-btn" class="btn ${isSubbed ? 'subbed' : ''}" onclick="Actions.handleSub('${snip.channelId}', '${safeChTitle}', true)">${isSubbed ? '登録済み' : 'チャンネル登録'}</button>
-                                    <button class="btn ${isWatchLater ? 'subbed' : ''}" onclick="Actions.handleWatchLater('${vId}', '${safeTitle}', '${safeChTitle}', '${thumbUrl}', '${snip.channelId}')">${isWatchLater ? '保存済み' : '📌 後で見る'}</button>
-                                    <button class="btn-download" onclick="Actions.downloadVideo('${vId}')">📥 ダウンロード</button>
+                                    <button class="btn ${isWatchLater ? 'subbed' : ''}" onclick="Actions.handleWatchLater('${vId}', '${safeTitle}', '${safeChTitle}', '${thumbUrl}', '${snip.channelId}')">${isWatchLater ? '保存済み' : '📌 後で'}</button>
+                                    <button class="btn-download" onclick="Actions.downloadVideo('${vId}')">📥 DL</button>
                                 </div>
                             </div>
                         </div>
                     </div>
                     <div class="related-area"><h3 id="side-title" style="margin-top:0;">関連動画</h3><div id="side-content-box"></div></div>
                 </div>`;
+
             const sideBox = document.getElementById('side-content-box');
             if (this.activePlaylistName) {
                 document.getElementById('side-title').innerText = `再生中: ${this.activePlaylistName}`;
-                this.relatedList = this.currentList;
+                this.relatedList = this.currentList; // 再生リスト時は中身をそのまま代入
             } else {
                 const qK = snip.title.replace(/[【】「」]/g, ' ').split(' ').filter(w => w.length > 1).slice(0, 3).join(' ');
                 const rel = await YT.fetchAPI('search', { q: qK, type: 'video', part: 'snippet', maxResults: 15 });
                 this.relatedList = rel.items || [];
                 await this.fillStats(this.relatedList);
             }
+
             sideBox.innerHTML = this.relatedList.map((i, idx) => `
                 <div class="v-card" style="display:flex; gap:10px; margin-bottom:12px; ${idx === this.currentIndex && this.activePlaylistName ? 'background:#333; border-left:4px solid #3ea6ff;' : ''}" onclick="Actions.playFromRelated(${idx})">
                     <img src="${YT.getProxiedThumb(i)}" style="width:140px; aspect-ratio:16/9; object-fit:cover; border-radius:8px;">
-                    <div style="font-size:12px;"><div style="font-weight:bold; line-clamp:2; display:-webkit-box; -webkit-box-orient:vertical; overflow:hidden;">${i.snippet.title}</div><div style="color:#aaa;">${i.snippet.channelTitle}</div><div style="color:#888;">${formatViews(this.videoStats[i.id?.videoId])}</div></div>
+                    <div style="font-size:12px;"><div style="font-weight:bold; line-clamp:2; display:-webkit-box; -webkit-box-orient:vertical; overflow:hidden;">${i.snippet.title}</div><div style="color:#aaa;">${i.snippet.channelTitle}</div><div style="color:#888;">${formatViews(this.videoStats[i.id?.videoId || i.contentDetails?.videoId])}</div></div>
                 </div>`).join('');
         }
         Storage.addHistory({ id: vId, title: snip.title, thumb: thumbUrl, channelTitle: snip.channelTitle });
@@ -540,9 +541,9 @@ const Actions = {
                 <div style="display:flex; align-items:center; padding:20px;">
                     <img src="${ch.snippet.thumbnails.medium.url}" style="width:80px; height:80px; border-radius:50%;">
                     <div style="margin-left:20px;"><h1>${ch.snippet.title}</h1><p style="color:#aaa;">${ch.snippet.customUrl}</p></div>
-                    <button class="btn ${isSubbed ? 'subbed' : ''}" style="margin-left:auto;" onclick="Actions.handleSub('${chId}', '${ch.snippet.title.replace(/'/g, "\\'")}', true)">${isSubbed ? '登録済み' : 'チャンネル登録'}</button>
+                    <button class="btn ${isSubbed ? 'subbed' : ''}" style="margin-left:auto;" onclick="Actions.handleSub('${chId}', '${ch.snippet.title.replace(/'/g, "\\'")}', true)">${isSubbed ? '登録済み' : '登録'}</button>
                 </div>
-                <div class="tabs"><div class="tab active" onclick="Actions.loadChannelTab('${chId}', 'videos', 'date')">最新</div><div class="tab" onclick="Actions.loadChannelTab('${chId}', 'videos', 'viewCount')">人気順</div><div class="tab" onclick="Actions.loadChannelTab('${chId}', 'playlists')">再生リスト</div></div>
+                <div class="tabs"><div class="tab active" onclick="Actions.loadChannelTab('${chId}', 'videos', 'date')">最新</div><div class="tab" onclick="Actions.loadChannelTab('${chId}', 'videos', 'viewCount')">人気</div><div class="tab" onclick="Actions.loadChannelTab('${chId}', 'playlists')">再生リスト</div></div>
             </div><div id="channel-content-grid" class="grid"></div><div id="more-btn-area"></div>`;
         this.loadChannelTab(chId, 'videos', 'date');
     },
@@ -566,6 +567,7 @@ const Actions = {
 
     async showPlaylistView(plId, title) {
         this.currentView = "playlist";
+        this.activePlaylistName = title; // リスト名を保持
         this.currentParams = { playlistId: plId, part: 'snippet,contentDetails', maxResults: 24 };
         const data = await YT.fetchAPI('playlistItems', this.currentParams);
         this.currentList = data.items || []; this.nextToken = data.nextPageToken || "";
@@ -581,7 +583,7 @@ const Actions = {
     toggleSubSelect(chId) {
         if (this.selectedSubs.includes(chId)) this.selectedSubs = this.selectedSubs.filter(id => id !== chId);
         else if (this.selectedSubs.length < 5) this.selectedSubs.push(chId);
-        else alert("選択できるのは最大5件までです。");
+        else alert("最大5件までです。");
         this.showSubs(); 
     },
 
@@ -591,7 +593,7 @@ const Actions = {
         if (targetIds.length === 0) return;
         this.currentView = "latest_subs";
         const container = document.getElementById('view-container');
-        container.innerHTML = `<div style="padding:20px;"><h2>最新動画をキャッチ中... (${targetIds.length}ch分析中)</h2></div>`;
+        container.innerHTML = `<div style="padding:20px;"><h2>最新動画をキャッチ中...</h2></div>`;
         const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
         let allVideos = [];
         const promises = targetIds.map(chId => YT.fetchAPI('search', { channelId: chId, part: 'snippet', type: 'video', order: 'date', publishedAfter: twoDaysAgo, maxResults: 5 }));
@@ -599,8 +601,9 @@ const Actions = {
         results.forEach(res => { if (res.items) allVideos = allVideos.concat(res.items); });
         allVideos.sort((a, b) => new Date(b.snippet.publishedAt) - new Date(a.snippet.publishedAt));
         this.currentList = allVideos; this.nextToken = ""; 
+        this.activePlaylistName = null;
         await this.fillStats(this.currentList);
-        this.renderGrid(`<h2>${Storage.isAdmin() ? '管理者特権：全登録チャンネル' : '選択したチャンネル'}の最新動画</h2>`);
+        this.renderGrid(`<h2>最新動画</h2>`);
     },
 
     showSubs() {
@@ -610,30 +613,23 @@ const Actions = {
         this.selectedSubs = this.selectedSubs.filter(id => subs.some(s => s.id === id));
         const html = subs.map(ch => {
             const isSel = this.selectedSubs.includes(ch.id);
-            const borderStyle = isSel ? 'border: 4px solid #0055ff; box-shadow: 0 0 15px rgba(0,85,255,0.8);' : 'border: 4px solid #444;';
-            return `<div class="v-card" style="padding:20px; text-align:center; background:var(--card-bg);" onclick="Actions.showChannel('${ch.id}')">
-                <div style="display:inline-block; border-radius:50%; padding:4px; ${borderStyle} cursor:pointer; transition:0.2s;" onclick="event.stopPropagation(); ${isAdmin ? '' : "Actions.toggleSubSelect('"+ch.id+"')" }">
-                    <img src="${ch.thumb}" style="width:92px; height:92px; border-radius:50%; display:block; object-fit:cover;">
+            const borderStyle = isSel ? 'border: 4px solid #0055ff;' : 'border: 4px solid #444;';
+            return `<div class="v-card" style="padding:20px; text-align:center;" onclick="Actions.showChannel('${ch.id}')">
+                <div style="display:inline-block; border-radius:50%; padding:4px; ${borderStyle} cursor:pointer;" onclick="event.stopPropagation(); ${isAdmin ? '' : "Actions.toggleSubSelect('"+ch.id+"')" }">
+                    <img src="${ch.thumb}" style="width:92px; height:92px; border-radius:50%;">
                 </div>
                 <h3 style="margin-top:10px;">${ch.name}</h3>
-                <button class="btn subbed" onclick="event.stopPropagation(); Actions.handleSub('${ch.id}', '${ch.name}', true); Actions.showSubs();">解除</button>
             </div>`;
         }).join('');
-        let btnHtml = "";
-        if (isAdmin) {
-            btnHtml = `<div style="position:fixed; bottom:30px; left:50%; transform:translateX(-50%); z-index:1000;"><button class="btn" style="background:linear-gradient(45deg, #ff0000, #ff4e45); color:#fff; padding:15px 30px; font-size:16px; border-radius:30px; box-shadow:0 10px 20px rgba(0,0,0,0.5);" onclick="Actions.catchLatestSubVideos()">👑 全チャンネル最新キャッチ</button></div>`;
-        } else if (this.selectedSubs.length > 0) {
-            btnHtml = `<div style="position:fixed; bottom:30px; left:50%; transform:translateX(-50%); z-index:1000;"><button class="btn" style="background:#0055ff; color:#fff; padding:15px 30px; font-size:16px; border-radius:30px; box-shadow:0 10px 20px rgba(0,0,0,0.5);" onclick="Actions.catchLatestSubVideos()">${this.selectedSubs.length}件の最新動画をキャッチ</button></div>`;
-        }
-        const adminMsg = isAdmin ? `<p style="color:#ff4e45; margin-bottom:20px;">管理者モード：全 ${subs.length} チャンネルから自動取得可能です</p>` : "";
-        document.getElementById('view-container').innerHTML = `<div style="padding:20px; padding-bottom:100px;"><h2>登録済み</h2>${adminMsg}<div class="grid">${html}</div></div>${btnHtml}`;
+        let btnHtml = isAdmin ? `<button class="btn" onclick="Actions.catchLatestSubVideos()">👑 全ch最新キャッチ</button>` : (this.selectedSubs.length > 0 ? `<button class="btn" onclick="Actions.catchLatestSubVideos()">最新をキャッチ</button>` : "");
+        document.getElementById('view-container').innerHTML = `<div style="padding:20px;"><h2>登録済み</h2><div class="grid">${html}</div><div style="text-align:center; margin-top:20px;">${btnHtml}</div></div>`;
     },
 
     showWatchLater() {
         this.currentView = "watchlater";
         const list = Storage.get('yt_watchlater');
         this.currentList = list.map(x => ({ id: x.id, snippet: { title: x.title, thumbnails: { high: { url: x.thumb } }, channelTitle: x.channelTitle, channelId: x.channelId, publishedAt: new Date().toISOString() } }));
-        // 「後で見る」の視聴回数はキャッシュにあれば表示される
+        this.activePlaylistName = "後で見る"; // 後で見るもリストとして扱う
         this.renderGrid("<h2>📌 後で見る</h2>");
     },
 
@@ -641,6 +637,7 @@ const Actions = {
         this.currentView = "history";
         const history = Storage.get('yt_history');
         this.currentList = history.map(x => ({ id: x.id, snippet: { title: x.title, thumbnails: { high: { url: x.thumb } }, channelTitle: x.channelTitle, publishedAt: new Date().toISOString() } }));
+        this.activePlaylistName = null;
         this.renderGrid("<h2>履歴</h2>");
     },
 
@@ -653,7 +650,7 @@ const Actions = {
 
 window.onload = async () => { Actions.init(); await YT.refreshEduKey(); Actions.goHome(); };
 
-// ゲーム起動用関数 (既存)
+/* --- 各種ゲーム起動用関数 --- */
 function startTetris() { if (typeof initTetris === 'function') initTetris(); else Actions.showStatusNotification("エラー"); }
 function startSnake() { if (typeof initSnake === 'function') initSnake(); else Actions.showStatusNotification("エラー"); }
 function startReversi() { if (typeof initReversi === 'function') initReversi(); else Actions.showStatusNotification("エラー"); }
