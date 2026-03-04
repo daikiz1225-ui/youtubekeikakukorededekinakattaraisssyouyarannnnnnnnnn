@@ -1,4 +1,25 @@
-/* app.js - Administrator Update */
+/* app.js - Administrator & UI/Hybrid Search Update */
+
+// --- ユーティリティ: 時間の変換 ---
+function timeAgo(dateString) {
+    const now = new Date();
+    const past = new Date(dateString);
+    const diff = Math.floor((now - past) / 1000);
+    if (diff < 60) return `${diff}秒前`;
+    if (diff < 3600) return `${Math.floor(diff / 60)}分前`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}時間前`;
+    return `${Math.floor(diff / 86400)}日前`;
+}
+
+// --- ユーティリティ: 視聴回数の整形 ---
+function formatViews(views) {
+    if (!views) return "0回";
+    const num = parseInt(views);
+    if (num >= 100000000) return `${(num / 100000000).toFixed(1)}億回`;
+    if (num >= 10000) return `${(num / 10000).toFixed(1)}万回`;
+    if (num >= 1000) return `${(num / 1000).toFixed(1)}千回`;
+    return `${num}回`;
+}
 
 const YT = {
     keys: ["AIzaSyBfCvyZ_J9mJiMFNYB6WfcuLyvf9zDdcUU", "AIzaSyCgVn-JWHKT_z6EC73Z6Vlex0F_d-BP_fY", "AIzaSyBbqPhAbqoWDOurTt7hejQmwc6dAoZ5Iy0", "AIzaSyAWk9mmie23-khi8-nipv1jHJND__UtEWA", "AIzaSyBL38iyqeiaKHoKqhloSnhG590DfJ35vCE"],
@@ -6,7 +27,7 @@ const YT = {
 
     getProxiedThumb(video) {
         if (!video || !video.snippet || !video.snippet.thumbnails) return "";
-        const id = video.contentDetails?.videoId || (typeof video.id === 'string' ? video.id : (video.id?.videoId || ""));
+        const id = video.contentDetails?.videoId || (typeof video.id === 'string' ? video.id : (video.id?.videoId || video.id?.playlistId || ""));
         if (!id) return video.snippet.thumbnails.high?.url || "";
         return `/api/thumb?id=${id}`;
     },
@@ -71,11 +92,8 @@ const YT = {
 const Storage = {
     get(key) { const data = localStorage.getItem(key); try { return data ? JSON.parse(data) : []; } catch (e) { return []; } },
     set(key, value) { localStorage.setItem(key, JSON.stringify(value)); },
-    
-    // ★管理者ログイン用
     isAdmin() { return localStorage.getItem('is_admin') === 'true'; },
     setAdmin(status) { localStorage.setItem('is_admin', status); },
-
     addHistory(v) { let h = this.get('yt_history'); h = [v, ...h.filter(x => x.id !== v.id)].slice(0, 50); this.set('yt_history', h); },
     toggleSub(ch) {
         let s = this.get('yt_subs');
@@ -90,7 +108,6 @@ const Storage = {
         this.set('yt_watchlater', list);
     },
     isWatchLater(id) { return this.get('yt_watchlater').some(x => x.id === id); },
-
     getMyPlaylists() { const d = localStorage.getItem('yt_my_playlists'); return d ? JSON.parse(d) : {}; },
     setMyPlaylists(data) { localStorage.setItem('yt_my_playlists', JSON.stringify(data)); },
     createPlaylist(name) {
@@ -130,6 +147,7 @@ const Actions = {
     currentParams: {},
     selectedSubs: [],
     activePlaylistName: null,
+    videoStats: {}, // ★視聴回数キャッシュ用
 
     init() {
         const input = document.getElementById('search-input');
@@ -150,14 +168,12 @@ const Actions = {
                 const homeNav = document.querySelector('.sidebar .nav-item[onclick="Actions.goHome()"]');
                 if (homeNav) homeNav.insertAdjacentHTML('afterend', '<div id="nav-ai-recommend" class="nav-item" onclick="Actions.showAIRecommendations()">🤖<span>AIおすすめ</span></div>');
             }
-            // 管理者ログインボタン（サイドバー末尾）
             if (!document.getElementById('nav-admin-login')) {
                 sidebar.insertAdjacentHTML('beforeend', `<hr><div id="nav-admin-login" class="nav-item" onclick="Actions.adminLogin()" style="opacity:0.5; font-size:12px;">🔑<span>${Storage.isAdmin() ? '管理者ログイン済み' : '管理者ログイン'}</span></div>`);
             }
         }
     },
 
-    // ★管理者ログイン処理
     adminLogin() {
         if (Storage.isAdmin()) return alert("既に管理者としてログインしています。");
         const pass = prompt("管理者パスワードを入力してください:");
@@ -167,6 +183,19 @@ const Actions = {
             location.reload();
         } else {
             alert("パスワードが違います。");
+        }
+    },
+
+    // ★追加: リスト内の動画の統計情報を一括取得
+    async fillStats(items) {
+        const ids = items
+            .map(i => i.id?.videoId || (typeof i.id === 'string' ? i.id : null))
+            .filter(id => id)
+            .join(',');
+        if (!ids) return;
+        const data = await YT.fetchAPI('videos', { id: ids, part: 'statistics' });
+        if (data.items) {
+            data.items.forEach(v => { this.videoStats[v.id] = v.statistics.viewCount; });
         }
     },
 
@@ -182,7 +211,6 @@ const Actions = {
                 </div>
                 <div class="grid" style="margin-top:20px;">
         `;
-        
         Object.keys(dict).forEach(name => {
             const count = dict[name].length;
             const thumb = count > 0 ? dict[name][0].thumb : "";
@@ -192,12 +220,8 @@ const Actions = {
                         ${thumb ? `<img src="${thumb}" class="main-thumb">` : '<span style="font-size:40px;">📂</span>'}
                         <div style="position:absolute; bottom:5px; right:5px; background:rgba(0,0,0,0.8); padding:2px 8px; border-radius:4px; font-size:12px;">${count}本</div>
                     </div>
-                    <div class="v-text">
-                        <h3>${name}</h3>
-                        <button class="btn" onclick="event.stopPropagation(); Actions.deletePlaylistConfirm('${name.replace(/'/g, "\\'")}')" style="margin-top:5px; font-size:11px; padding:2px 8px;">削除</button>
-                    </div>
-                </div>
-            `;
+                    <div class="v-text"><h3>${name}</h3><button class="btn" onclick="event.stopPropagation(); Actions.deletePlaylistConfirm('${name.replace(/'/g, "\\'")}')" style="margin-top:5px; font-size:11px; padding:2px 8px;">削除</button></div>
+                </div>`;
         });
         html += `</div></div>`;
         container.innerHTML = html;
@@ -218,7 +242,6 @@ const Actions = {
         const dict = Storage.getMyPlaylists();
         const list = dict[name] || [];
         this.currentList = list.map(v => ({ id: v.id, snippet: { title: v.title, thumbnails: { high: { url: v.thumb } }, channelTitle: v.channelTitle } }));
-        
         const container = document.getElementById('view-container');
         container.innerHTML = `
             <div style="padding:20px;">
@@ -233,11 +256,9 @@ const Actions = {
                                 <p>${v.channelTitle}</p>
                                 <button class="btn" onclick="Actions.removeFromPlaylistAndRefresh('${name.replace(/'/g, "\\'")}', '${v.id}')" style="font-size:11px; padding:2px 8px;">削除</button>
                             </div>
-                        </div>
-                    `).join('')}
+                        </div>`).join('')}
                 </div>
-            </div>
-        `;
+            </div>`;
     },
 
     removeFromPlaylistAndRefresh(name, id) {
@@ -258,6 +279,7 @@ const Actions = {
             const data = await YT.fetchAPI('search', this.currentParams);
             this.currentList = data.items || [];
             this.nextToken = data.nextPageToken || "";
+            await this.fillStats(this.currentList);
             this.renderGrid(`<h2>🤖 AIおすすめ: ${aiData.query}</h2><p style="color:#aaa; margin:-10px 0 20px 0;">${aiData.explanation}</p>`);
         } catch (e) { container.innerHTML = `<div style="padding:20px;"><h2>AI分析エラーが発生しました。</h2></div>`; }
     },
@@ -276,6 +298,7 @@ const Actions = {
         const data = await YT.fetchAPI('videos', this.currentParams);
         this.currentList = data.items || [];
         this.nextToken = data.nextPageToken || "";
+        await this.fillStats(this.currentList);
         this.renderGrid("<h2>急上昇</h2>");
     },
 
@@ -286,6 +309,7 @@ const Actions = {
         const data = await YT.fetchAPI('search', this.currentParams);
         this.currentList = data.items || [];
         this.nextToken = data.nextPageToken || "";
+        await this.fillStats(this.currentList);
         this.renderGrid("<h2>ショート</h2>");
     },
 
@@ -296,38 +320,60 @@ const Actions = {
         const data = await YT.fetchAPI('search', this.currentParams);
         this.currentList = data.items || [];
         this.nextToken = data.nextPageToken || "";
+        await this.fillStats(this.currentList);
         this.renderGrid("<h2>🔴 ライブ配信</h2>");
     },
 
+    // ★強化版検索: 動画＋人気プレイリストのミックス
     async search() {
         const q = document.getElementById('search-input').value;
         if (!q) return;
         this.activePlaylistName = null;
-        this.currentParams = { q, part: 'snippet', maxResults: 24, type: 'video' };
-        if (this.currentView === "shorts") {
-            this.currentParams.videoDuration = "short";
-            if (!this.currentParams.q.includes("#Shorts")) this.currentParams.q += " #Shorts";
-        } else if (this.currentView === "live") {
-            this.currentParams.eventType = "live";
-        }
-        const data = await YT.fetchAPI('search', this.currentParams);
-        this.currentList = data.items || [];
-        this.nextToken = data.nextPageToken || "";
-        this.renderGrid(`<h2>"${q}" の検索結果</h2>`);
+        this.currentView = "search";
+
+        // 検索パラメータの構築
+        const vParams = { q, part: 'snippet', maxResults: 15, type: 'video' };
+        if (this.currentView === "shorts") vParams.videoDuration = "short";
+        if (this.currentView === "live") vParams.eventType = "live";
+
+        // 並列で「動画」と「再生リスト」を取得
+        const [vData, plData] = await Promise.all([
+            YT.fetchAPI('search', vParams),
+            YT.fetchAPI('search', { q, part: 'snippet', maxResults: 5, type: 'playlist' })
+        ]);
+
+        this.currentList = [...(plData.items || []), ...(vData.items || [])];
+        this.nextToken = vData.nextPageToken || "";
+        await this.fillStats(this.currentList);
+        this.renderGrid(`<h2>"${q}" の検索結果 (動画 & リスト)</h2>`);
     },
 
+    // ★UI更新: 視聴回数と時間を表示
     renderCards(items) {
         return items.map((item, index) => {
             const snip = item.snippet;
             const thumb = YT.getProxiedThumb(item);
+            const isPlaylist = !!item.id?.playlistId;
+            const vId = item.id?.videoId || (typeof item.id === 'string' ? item.id : null);
+            
+            const stats = vId ? this.videoStats[vId] : null;
+            const metaInfo = isPlaylist ? 
+                `<span style="color:#3ea6ff; font-weight:bold;">📋 再生リスト</span>` : 
+                `<span>${formatViews(stats)} • ${timeAgo(snip.publishedAt)}</span>`;
+
             return `
-            <div class="v-card" onclick="Actions.playFromList(${index})">
+            <div class="v-card" onclick="${isPlaylist ? `Actions.showPlaylistView('${item.id.playlistId}', '${snip.title.replace(/'/g,"")}')` : `Actions.playFromList(${index})`}">
                 <div class="thumb-container">
                     <img src="${thumb}" class="main-thumb">
+                    ${isPlaylist ? '<div style="position:absolute; top:0; right:0; bottom:0; width:40%; background:rgba(0,0,0,0.6); display:flex; align-items:center; justify-content:center; font-size:24px;">☰</div>' : ''}
                     ${snip.liveBroadcastContent === 'live' ? '<div class="live-badge">● LIVE</div>' : ''}
                     <img src="${this.channelIcons[snip.channelId] || ''}" class="ch-icon-img" data-chid="${snip.channelId}">
                 </div>
-                <div class="v-text"><h3>${snip.title}</h3><p>${snip.channelTitle}</p></div>
+                <div class="v-text">
+                    <h3>${snip.title}</h3>
+                    <p>${snip.channelTitle}</p>
+                    <p style="font-size:11px; margin-top:2px; color:#aaa;">${metaInfo}</p>
+                </div>
             </div>`;
         }).join('');
     },
@@ -346,7 +392,9 @@ const Actions = {
         if (!this.nextToken) return;
         const endpoint = (this.currentView === 'home') ? 'videos' : (this.currentView === 'playlist') ? 'playlistItems' : 'search';
         const data = await YT.fetchAPI(endpoint, { ...this.currentParams, pageToken: this.nextToken });
-        this.currentList = [...this.currentList, ...data.items];
+        const newItems = data.items || [];
+        await this.fillStats(newItems);
+        this.currentList = [...this.currentList, ...newItems];
         this.nextToken = data.nextPageToken || "";
         this.renderGrid();
     },
@@ -446,6 +494,7 @@ const Actions = {
                                     <button class="btn" onclick="const n=document.getElementById('plist-select').value; if(n) Storage.addToPlaylist(n, {id:'${vId}', title:'${safeTitle}', thumb:'${thumbUrl}', channelTitle:'${safeChTitle}'}); else alert('リストを選択してね');" style="background:#3ea6ff; color:#fff;">追加</button>
                                 </div>
                             </div>
+                            <p style="color:#aaa; font-size:14px; margin-top:5px;">${formatViews(this.videoStats[vId])} • ${timeAgo(snip.publishedAt)}</p>
                             <div style="display:flex; align-items:center; justify-content:space-between; margin-top:15px; flex-wrap:wrap; gap:10px;">
                                 <div style="display:flex; align-items:center; cursor:pointer;" onclick="Actions.showChannel('${snip.channelId}')">
                                     <img src="${this.channelIcons[snip.channelId] || ''}" style="width:40px; height:40px; border-radius:50%;">
@@ -462,7 +511,6 @@ const Actions = {
                     <div class="related-area"><h3 id="side-title" style="margin-top:0;">関連動画</h3><div id="side-content-box"></div></div>
                 </div>`;
             const sideBox = document.getElementById('side-content-box');
-            
             if (this.activePlaylistName) {
                 document.getElementById('side-title').innerText = `再生中: ${this.activePlaylistName}`;
                 this.relatedList = this.currentList;
@@ -470,12 +518,12 @@ const Actions = {
                 const qK = snip.title.replace(/[【】「」]/g, ' ').split(' ').filter(w => w.length > 1).slice(0, 3).join(' ');
                 const rel = await YT.fetchAPI('search', { q: qK, type: 'video', part: 'snippet', maxResults: 15 });
                 this.relatedList = rel.items || [];
+                await this.fillStats(this.relatedList);
             }
-            
             sideBox.innerHTML = this.relatedList.map((i, idx) => `
                 <div class="v-card" style="display:flex; gap:10px; margin-bottom:12px; ${idx === this.currentIndex && this.activePlaylistName ? 'background:#333; border-left:4px solid #3ea6ff;' : ''}" onclick="Actions.playFromRelated(${idx})">
                     <img src="${YT.getProxiedThumb(i)}" style="width:140px; aspect-ratio:16/9; object-fit:cover; border-radius:8px;">
-                    <div style="font-size:12px;"><div style="font-weight:bold;">${i.snippet.title}</div><div style="color:#aaa;">${i.snippet.channelTitle}</div></div>
+                    <div style="font-size:12px;"><div style="font-weight:bold; line-clamp:2; display:-webkit-box; -webkit-box-orient:vertical; overflow:hidden;">${i.snippet.title}</div><div style="color:#aaa;">${i.snippet.channelTitle}</div><div style="color:#888;">${formatViews(this.videoStats[i.id?.videoId])}</div></div>
                 </div>`).join('');
         }
         Storage.addHistory({ id: vId, title: snip.title, thumb: thumbUrl, channelTitle: snip.channelTitle });
@@ -506,10 +554,11 @@ const Actions = {
         if (type === 'videos') {
             const data = await YT.fetchAPI('search', { channelId: chId, part: 'snippet', type: 'video', order: order, maxResults: 24 });
             this.currentList = data.items || []; this.nextToken = data.nextPageToken || "";
+            await this.fillStats(this.currentList);
             grid.innerHTML = this.renderCards(this.currentList);
         } else if (type === 'playlists') {
             const data = await YT.fetchAPI('playlists', { channelId: chId, part: 'snippet', maxResults: 24 });
-            grid.innerHTML = data.items.map(pl => `<div class="v-card" onclick="Actions.showPlaylistView('${pl.id}', '${pl.snippet.title.replace(/'/g, "\\")}')"><div class="thumb-container"><img src="${YT.getProxiedThumb(pl)}" class="main-thumb"></div><div class="v-text"><h3>${pl.snippet.title}</h3></div></div>`).join('');
+            grid.innerHTML = data.items.map(pl => `<div class="v-card" onclick="Actions.showPlaylistView('${pl.id}', '${pl.snippet.title.replace(/'/g, "\\")}')"><div class="thumb-container"><img src="${YT.getProxiedThumb(pl)}" class="main-thumb"></div><div class="v-text"><h3>${pl.snippet.title}</h3><p style="color:#3ea6ff;">📋 再生リスト</p></div></div>`).join('');
             this.nextToken = "";
         }
         document.getElementById('more-btn-area').innerHTML = this.nextToken ? `<button class="btn" onclick="Actions.loadMore()" style="width:100%; margin:20px 0;">もっと読む</button>` : "";
@@ -520,6 +569,7 @@ const Actions = {
         this.currentParams = { playlistId: plId, part: 'snippet,contentDetails', maxResults: 24 };
         const data = await YT.fetchAPI('playlistItems', this.currentParams);
         this.currentList = data.items || []; this.nextToken = data.nextPageToken || "";
+        await this.fillStats(this.currentList);
         this.renderGrid(`<h2>再生リスト: ${title}</h2>`);
     },
 
@@ -536,23 +586,20 @@ const Actions = {
     },
 
     async catchLatestSubVideos() {
-        // ★管理者なら全登録チャンネルを対象にする
         const subs = Storage.get('yt_subs');
         const targetIds = Storage.isAdmin() ? subs.map(s => s.id) : this.selectedSubs;
-        
         if (targetIds.length === 0) return;
         this.currentView = "latest_subs";
         const container = document.getElementById('view-container');
         container.innerHTML = `<div style="padding:20px;"><h2>最新動画をキャッチ中... (${targetIds.length}ch分析中)</h2></div>`;
         const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
         let allVideos = [];
-        
-        // 大量のリクエストになる可能性があるためPromise.allで並列処理
         const promises = targetIds.map(chId => YT.fetchAPI('search', { channelId: chId, part: 'snippet', type: 'video', order: 'date', publishedAfter: twoDaysAgo, maxResults: 5 }));
         const results = await Promise.all(promises);
         results.forEach(res => { if (res.items) allVideos = allVideos.concat(res.items); });
         allVideos.sort((a, b) => new Date(b.snippet.publishedAt) - new Date(a.snippet.publishedAt));
         this.currentList = allVideos; this.nextToken = ""; 
+        await this.fillStats(this.currentList);
         this.renderGrid(`<h2>${Storage.isAdmin() ? '管理者特権：全登録チャンネル' : '選択したチャンネル'}の最新動画</h2>`);
     },
 
@@ -561,7 +608,6 @@ const Actions = {
         const subs = Storage.get('yt_subs');
         const isAdmin = Storage.isAdmin();
         this.selectedSubs = this.selectedSubs.filter(id => subs.some(s => s.id === id));
-        
         const html = subs.map(ch => {
             const isSel = this.selectedSubs.includes(ch.id);
             const borderStyle = isSel ? 'border: 4px solid #0055ff; box-shadow: 0 0 15px rgba(0,85,255,0.8);' : 'border: 4px solid #444;';
@@ -573,14 +619,12 @@ const Actions = {
                 <button class="btn subbed" onclick="event.stopPropagation(); Actions.handleSub('${ch.id}', '${ch.name}', true); Actions.showSubs();">解除</button>
             </div>`;
         }).join('');
-        
         let btnHtml = "";
         if (isAdmin) {
             btnHtml = `<div style="position:fixed; bottom:30px; left:50%; transform:translateX(-50%); z-index:1000;"><button class="btn" style="background:linear-gradient(45deg, #ff0000, #ff4e45); color:#fff; padding:15px 30px; font-size:16px; border-radius:30px; box-shadow:0 10px 20px rgba(0,0,0,0.5);" onclick="Actions.catchLatestSubVideos()">👑 全チャンネル最新キャッチ</button></div>`;
         } else if (this.selectedSubs.length > 0) {
             btnHtml = `<div style="position:fixed; bottom:30px; left:50%; transform:translateX(-50%); z-index:1000;"><button class="btn" style="background:#0055ff; color:#fff; padding:15px 30px; font-size:16px; border-radius:30px; box-shadow:0 10px 20px rgba(0,0,0,0.5);" onclick="Actions.catchLatestSubVideos()">${this.selectedSubs.length}件の最新動画をキャッチ</button></div>`;
         }
-        
         const adminMsg = isAdmin ? `<p style="color:#ff4e45; margin-bottom:20px;">管理者モード：全 ${subs.length} チャンネルから自動取得可能です</p>` : "";
         document.getElementById('view-container').innerHTML = `<div style="padding:20px; padding-bottom:100px;"><h2>登録済み</h2>${adminMsg}<div class="grid">${html}</div></div>${btnHtml}`;
     },
@@ -588,14 +632,15 @@ const Actions = {
     showWatchLater() {
         this.currentView = "watchlater";
         const list = Storage.get('yt_watchlater');
-        this.currentList = list.map(x => ({ id: x.id, snippet: { title: x.title, thumbnails: { high: { url: x.thumb } }, channelTitle: x.channelTitle, channelId: x.channelId } }));
+        this.currentList = list.map(x => ({ id: x.id, snippet: { title: x.title, thumbnails: { high: { url: x.thumb } }, channelTitle: x.channelTitle, channelId: x.channelId, publishedAt: new Date().toISOString() } }));
+        // 「後で見る」の視聴回数はキャッシュにあれば表示される
         this.renderGrid("<h2>📌 後で見る</h2>");
     },
 
     showHistory() {
         this.currentView = "history";
         const history = Storage.get('yt_history');
-        this.currentList = history.map(x => ({ id: x.id, snippet: { title: x.title, thumbnails: { high: { url: x.thumb } }, channelTitle: x.channelTitle } }));
+        this.currentList = history.map(x => ({ id: x.id, snippet: { title: x.title, thumbnails: { high: { url: x.thumb } }, channelTitle: x.channelTitle, publishedAt: new Date().toISOString() } }));
         this.renderGrid("<h2>履歴</h2>");
     },
 
@@ -608,6 +653,7 @@ const Actions = {
 
 window.onload = async () => { Actions.init(); await YT.refreshEduKey(); Actions.goHome(); };
 
+// ゲーム起動用関数 (既存)
 function startTetris() { if (typeof initTetris === 'function') initTetris(); else Actions.showStatusNotification("エラー"); }
 function startSnake() { if (typeof initSnake === 'function') initSnake(); else Actions.showStatusNotification("エラー"); }
 function startReversi() { if (typeof initReversi === 'function') initReversi(); else Actions.showStatusNotification("エラー"); }
