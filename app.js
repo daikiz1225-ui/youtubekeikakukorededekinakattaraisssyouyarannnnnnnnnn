@@ -1,6 +1,6 @@
-/* app.js - Final UI & Search Fix */
+/* app.js - Final Mode-Specific Fix & Live Glow Update */
 
-// --- ユーティリティ: 時間の変換 ---
+// --- ユーティリティ ---
 function timeAgo(dateString) {
     const now = new Date();
     const past = new Date(dateString);
@@ -11,7 +11,6 @@ function timeAgo(dateString) {
     return `${Math.floor(diff / 86400)}日前`;
 }
 
-// --- ユーティリティ: 視聴回数の整形 ---
 function formatViews(views) {
     if (!views) return "0回";
     const num = parseInt(views);
@@ -39,7 +38,6 @@ const YT = {
             const data = await response.json();
             if (data && data.key) {
                 this.currentEduKey = data.key;
-                console.log("最新キーを自動収集完了✅");
                 Actions.showStatusNotification("最新キーを自動更新しました✅");
             }
         } catch (error) { console.error("自動収集エラー:", error); }
@@ -48,11 +46,7 @@ const YT = {
     seek(seconds) {
         const iframe = document.querySelector('.video-wrapper iframe, .shorts-container iframe');
         if (iframe) {
-            iframe.contentWindow.postMessage(JSON.stringify({
-                event: 'command',
-                func: 'seekTo',
-                args: [seconds, true]
-            }), '*');
+            iframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'seekTo', args: [seconds, true] }), '*');
         }
     },
 
@@ -202,25 +196,11 @@ const Actions = {
         this.currentView = "my_playlists";
         const dict = Storage.getMyPlaylists();
         const container = document.getElementById('view-container');
-        let html = `
-            <div style="padding:20px;">
-                <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <h2>📂 マイプレイリスト</h2>
-                    <button class="btn" onclick="Actions.createNewPlaylistPrompt()" style="background:#3ea6ff; color:#fff;">＋ 新規作成</button>
-                </div>
-                <div class="grid" style="margin-top:20px;">
-        `;
+        let html = `<div style="padding:20px;"><div style="display:flex; justify-content:space-between; align-items:center;"><h2>📂 マイプレイリスト</h2><button class="btn" onclick="Actions.createNewPlaylistPrompt()" style="background:#3ea6ff; color:#fff;">＋ 新規作成</button></div><div class="grid" style="margin-top:20px;">`;
         Object.keys(dict).forEach(name => {
             const count = dict[name].length;
             const thumb = count > 0 ? dict[name][0].thumb : "";
-            html += `
-                <div class="v-card" onclick="Actions.viewPlaylistDetail('${name.replace(/'/g, "\\'")}')">
-                    <div class="thumb-container" style="background:#333; display:flex; align-items:center; justify-content:center;">
-                        ${thumb ? `<img src="${thumb}" class="main-thumb">` : '<span style="font-size:40px;">📂</span>'}
-                        <div style="position:absolute; bottom:5px; right:5px; background:rgba(0,0,0,0.8); padding:2px 8px; border-radius:4px; font-size:12px;">${count}本</div>
-                    </div>
-                    <div class="v-text"><h3>${name}</h3><button class="btn" onclick="event.stopPropagation(); Actions.deletePlaylistConfirm('${name.replace(/'/g, "\\'")}')" style="margin-top:5px; font-size:11px; padding:2px 8px;">削除</button></div>
-                </div>`;
+            html += `<div class="v-card" onclick="Actions.viewPlaylistDetail('${name.replace(/'/g, "\\'")}')"><div class="thumb-container" style="background:#333; display:flex; align-items:center; justify-content:center;">${thumb ? `<img src="${thumb}" class="main-thumb">` : '<span style="font-size:40px;">📂</span>'}<div style="position:absolute; bottom:5px; right:5px; background:rgba(0,0,0,0.8); padding:2px 8px; border-radius:4px; font-size:12px;">${count}本</div></div><div class="v-text"><h3>${name}</h3><button class="btn" onclick="event.stopPropagation(); Actions.deletePlaylistConfirm('${name.replace(/'/g, "\\'")}')" style="margin-top:5px; font-size:11px; padding:2px 8px;">削除</button></div></div>`;
         });
         html += `</div></div>`;
         container.innerHTML = html;
@@ -268,9 +248,9 @@ const Actions = {
     async showAIRecommendations() {
         this.currentView = "ai_recommend";
         const container = document.getElementById('view-container');
-        container.innerHTML = `<div style="padding:20px;"><h2>🤖 AIが好みを分析中...</h2></div>`;
+        container.innerHTML = `<div style="padding:20px;"><h2>🤖 AIが分析中...</h2></div>`;
         const history = Storage.get('yt_history');
-        if (history.length < 3) { container.innerHTML = `<div style="padding:20px;"><h2>🤖 分析にはあと ${3 - history.length} 件の視聴履歴が必要です。</h2></div>`; return; }
+        if (history.length < 3) { container.innerHTML = `<div style="padding:20px;"><h2>🤖 あと ${3 - history.length} 件の視聴履歴が必要です。</h2></div>`; return; }
         try {
             const resp = await fetch('/api/get_recommend', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ history: history }) });
             const aiData = await resp.json();
@@ -323,33 +303,39 @@ const Actions = {
         this.renderGrid("<h2>🔴 ライブ配信</h2>");
     },
 
-    // ★修正: ショート・ライブ中での検索を強制フィルタ
+    // ★修正: ショート・ライブ時は再生リストを検索せず、フィルタを確実に適用
     async search() {
         const q = document.getElementById('search-input').value;
         if (!q) return;
         const vParams = { q, part: 'snippet', maxResults: 15, type: 'video' };
         
-        // モード別の強制フィルタ
-        if (this.currentView === "shorts") vParams.videoDuration = "short";
-        if (this.currentView === "live") vParams.eventType = "live";
+        let includePlaylists = true;
+        if (this.currentView === "shorts") { vParams.videoDuration = "short"; includePlaylists = false; }
+        if (this.currentView === "live") { vParams.eventType = "live"; includePlaylists = false; }
 
-        const [vData, plData] = await Promise.all([
-            YT.fetchAPI('search', vParams),
-            YT.fetchAPI('search', { q, part: 'snippet', maxResults: 5, type: 'playlist' })
-        ]);
+        const promises = [YT.fetchAPI('search', vParams)];
+        if (includePlaylists) {
+            promises.push(YT.fetchAPI('search', { q, part: 'snippet', maxResults: 5, type: 'playlist' }));
+        }
 
-        this.currentList = [...(plData.items || []), ...(vData.items || [])];
+        const results = await Promise.all(promises);
+        const vData = results[0];
+        const plData = results[1] || { items: [] };
+
+        this.currentList = [...plData.items, ...vData.items];
         this.nextToken = vData.nextPageToken || "";
         this.activePlaylistName = null; 
         await this.fillStats(this.currentList);
         this.renderGrid(`<h2>"${q}" の検索結果</h2>`);
     },
 
+    // ★修正: ライブ動画の時に赤く光る（live-glow）スタイルを適用
     renderCards(items) {
         return items.map((item, index) => {
             const snip = item.snippet;
             const thumb = YT.getProxiedThumb(item);
             const isPlaylist = !!item.id?.playlistId;
+            const isLive = snip.liveBroadcastContent === 'live';
             const vId = item.id?.videoId || (typeof item.id === 'string' ? item.id : null);
             
             const stats = vId ? this.videoStats[vId] : null;
@@ -357,16 +343,19 @@ const Actions = {
                 `<span style="color:#3ea6ff; font-weight:bold;">📋 再生リスト</span>` : 
                 `<span>${formatViews(stats)} • ${timeAgo(snip.publishedAt)}</span>`;
 
+            // ライブ時のグロー効果
+            const glowStyle = isLive ? 'box-shadow: 0 0 15px #ff0000; border: 2px solid #ff0000;' : '';
+
             return `
-            <div class="v-card" onclick="${isPlaylist ? `Actions.showPlaylistView('${item.id.playlistId}', '${snip.title.replace(/'/g,"")}')` : `Actions.playFromList(${index})`}">
+            <div class="v-card" style="${glowStyle}" onclick="${isPlaylist ? `Actions.showPlaylistView('${item.id.playlistId}', '${snip.title.replace(/'/g,"")}')` : `Actions.playFromList(${index})`}">
                 <div class="thumb-container">
                     <img src="${thumb}" class="main-thumb">
                     ${isPlaylist ? '<div style="position:absolute; top:0; right:0; bottom:0; width:40%; background:rgba(0,0,0,0.6); display:flex; align-items:center; justify-content:center; font-size:24px;">☰</div>' : ''}
-                    ${snip.liveBroadcastContent === 'live' ? '<div class="live-badge">● LIVE</div>' : ''}
+                    ${isLive ? '<div class="live-badge" style="background:#ff0000;">● LIVE</div>' : ''}
                     <img src="${this.channelIcons[snip.channelId] || ''}" class="ch-icon-img" data-chid="${snip.channelId}">
                 </div>
                 <div class="v-text">
-                    <h3>${snip.title}</h3>
+                    <h3 style="${isLive ? 'color:#ff4e45;' : ''}">${snip.title}</h3>
                     <p>${snip.channelTitle}</p>
                     <p style="font-size:11px; margin-top:2px; color:#aaa;">${metaInfo}</p>
                 </div>
@@ -418,8 +407,7 @@ const Actions = {
     },
 
     downloadVideo(vId) {
-        const youtubeUrl = `https://www.youtube.com/watch?v=${vId}`;
-        const targetUrl = `https://ja.savefrom.net/1-youtube-video-downloader-175dk.html?url=${encodeURIComponent(youtubeUrl)}`;
+        const targetUrl = `https://ja.savefrom.net/1-youtube-video-downloader-175dk.html?url=${encodeURIComponent('https://www.youtube.com/watch?v='+vId)}`;
         window.open(targetUrl, '_blank');
     },
 
@@ -451,9 +439,7 @@ const Actions = {
                 <div class="shorts-container">
                     <div class="nav-arrow arrow-prev" onclick="Actions.playRelative(-1)">←</div>
                     <div class="nav-arrow arrow-next" onclick="Actions.playRelative(1)">→</div>
-                    <div style="width:360px; height:640px; background:#000; border-radius:15px; overflow:hidden;">
-                        <iframe src="${YT.getEmbedUrl(vId, true)}" style="width:100%; height:100%; border:none;"></iframe>
-                    </div>
+                    <div style="width:360px; height:640px; background:#000; border-radius:15px; overflow:hidden;"><iframe src="${YT.getEmbedUrl(vId, true)}" style="width:100%; height:100%; border:none;"></iframe></div>
                     <div style="width:360px; margin-top:15px;">
                         <h3>${snip.title}</h3>
                         <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 10px;">
@@ -472,7 +458,7 @@ const Actions = {
                     <div class="player-area">
                         <div class="video-wrapper"><iframe src="${YT.getEmbedUrl(vId)}" style="width:100%; height:100%; border:none;" allowfullscreen allow="autoplay"></iframe></div>
                         <div style="margin-top:15px; display:flex; gap:10px; align-items:center; background:#1e1e1e; padding:10px 20px; border-radius:10px; flex-wrap:wrap;">
-                            <span style="font-size:14px; color:#aaa; font-weight:bold; margin-right:10px;">速度:</span>
+                            <span style="font-size:14px; color:#aaa; font-weight:bold; margin-right:10px;">再生速度:</span>
                             <button class="btn" onclick="Actions.changeSpeed(0.5)">0.5x</button>
                             <button class="btn" style="background:#444;" onclick="Actions.changeSpeed(1.0)">1.0x</button>
                             <button class="btn" onclick="Actions.changeSpeed(1.5)">1.5x</button>
@@ -482,10 +468,7 @@ const Actions = {
                             <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
                                 <h2 style="margin:0;">${snip.title}</h2>
                                 <div style="display:flex; gap:10px;">
-                                    <select id="plist-select" class="btn" style="background:#333; color:#fff; border:none;">
-                                        <option value="">📂 リスト選択</option>
-                                        ${Object.keys(Storage.getMyPlaylists()).map(name => `<option value="${name}">${name}</option>`).join('')}
-                                    </select>
+                                    <select id="plist-select" class="btn" style="background:#333; color:#fff; border:none;"><option value="">📂 リスト選択</option>${Object.keys(Storage.getMyPlaylists()).map(name => `<option value="${name}">${name}</option>`).join('')}</select>
                                     <button class="btn" onclick="const n=document.getElementById('plist-select').value; if(n) Storage.addToPlaylist(n, {id:'${vId}', title:'${safeTitle}', thumb:'${thumbUrl}', channelTitle:'${safeChTitle}'}); else alert('選択してね');" style="background:#3ea6ff; color:#fff;">追加</button>
                                 </div>
                             </div>
@@ -496,7 +479,7 @@ const Actions = {
                                     <span style="margin-left:10px; font-weight:bold;">${snip.channelTitle}</span>
                                 </div>
                                 <div style="display:flex; align-items:center; gap:8px;">
-                                    <button id="sub-btn" class="btn ${isSubbed ? 'subbed' : ''}" onclick="Actions.handleSub('${snip.channelId}', '${safeChTitle}', true)">${isSubbed ? '登録済み' : 'チャンネル登録'}</button>
+                                    <button class="btn ${isSubbed ? 'subbed' : ''}" onclick="Actions.handleSub('${snip.channelId}', '${safeChTitle}', true)">${isSubbed ? '登録済み' : 'チャンネル登録'}</button>
                                     <button class="btn ${isWatchLater ? 'subbed' : ''}" onclick="Actions.handleWatchLater('${vId}', '${safeTitle}', '${safeChTitle}', '${thumbUrl}', '${snip.channelId}')">${isWatchLater ? '保存済み' : '📌 後で'}</button>
                                     <button class="btn-download" onclick="Actions.downloadVideo('${vId}')">📥</button>
                                 </div>
@@ -602,7 +585,7 @@ const Actions = {
         this.renderGrid(`<h2>最新動画</h2>`);
     },
 
-    // ★修正: 以前のフローティングボタン形式に復元
+    // ★修正: フローティングボタン形式を維持
     showSubs() {
         this.currentView = "subs";
         const subs = Storage.get('yt_subs');
@@ -611,21 +594,15 @@ const Actions = {
         const html = subs.map(ch => {
             const isSel = this.selectedSubs.includes(ch.id);
             const borderStyle = isSel ? 'border: 4px solid #0055ff; box-shadow: 0 0 15px rgba(0,85,255,0.8);' : 'border: 4px solid #444;';
-            return `<div class="v-card" style="padding:20px; text-align:center;" onclick="Actions.showChannel('${ch.id}')">
-                <div style="display:inline-block; border-radius:50%; padding:4px; ${borderStyle} cursor:pointer;" onclick="event.stopPropagation(); ${isAdmin ? '' : "Actions.toggleSubSelect('"+ch.id+"')" }">
-                    <img src="${ch.thumb}" style="width:92px; height:92px; border-radius:50%;">
-                </div>
-                <h3 style="margin-top:10px;">${ch.name}</h3>
-            </div>`;
+            return `<div class="v-card" style="padding:20px; text-align:center;" onclick="Actions.showChannel('${ch.id}')"><div style="display:inline-block; border-radius:50%; padding:4px; ${borderStyle} cursor:pointer;" onclick="event.stopPropagation(); ${isAdmin ? '' : "Actions.toggleSubSelect('"+ch.id+"')" }"><img src="${ch.thumb}" style="width:92px; height:92px; border-radius:50%;"></div><h3 style="margin-top:10px;">${ch.name}</h3></div>`;
         }).join('');
 
         let btnHtml = "";
         if (isAdmin) {
-            btnHtml = `<div style="position:fixed; bottom:30px; left:50%; transform:translateX(-50%); z-index:1000;"><button class="btn" style="background:linear-gradient(45deg, #ff0000, #ff4e45); color:#fff; padding:15px 30px; font-size:16px; border-radius:30px; box-shadow:0 10px 20px rgba(0,0,0,0.5);" onclick="Actions.catchLatestSubVideos()">👑 全チャンネル最新キャッチ</button></div>`;
+            btnHtml = `<div style="position:fixed; bottom:30px; left:50%; transform:translateX(-50%); z-index:1000;"><button class="btn" style="background:linear-gradient(45deg, #ff0000, #ff4e45); color:#fff; padding:15px 30px; font-size:16px; border-radius:30px; box-shadow:0 10px 20px rgba(0,0,0,0.5);" onclick="Actions.catchLatestSubVideos()">👑 全ch最新キャッチ</button></div>`;
         } else if (this.selectedSubs.length > 0) {
-            btnHtml = `<div style="position:fixed; bottom:30px; left:50%; transform:translateX(-50%); z-index:1000;"><button class="btn" style="background:#0055ff; color:#fff; padding:15px 30px; font-size:16px; border-radius:30px; box-shadow:0 10px 20px rgba(0,0,0,0.5);" onclick="Actions.catchLatestSubVideos()">${this.selectedSubs.length}件の最新動画をキャッチ</button></div>`;
+            btnHtml = `<div style="position:fixed; bottom:30px; left:50%; transform:translateX(-50%); z-index:1000;"><button class="btn" style="background:#0055ff; color:#fff; padding:15px 30px; font-size:16px; border-radius:30px; box-shadow:0 10px 20px rgba(0,0,0,0.5);" onclick="Actions.catchLatestSubVideos()">${this.selectedSubs.length}件をキャッチ</button></div>`;
         }
-        
         document.getElementById('view-container').innerHTML = `<div style="padding:20px; padding-bottom:100px;"><h2>登録済み</h2><div class="grid">${html}</div></div>${btnHtml}`;
     },
 
@@ -654,7 +631,7 @@ const Actions = {
 
 window.onload = async () => { Actions.init(); await YT.refreshEduKey(); Actions.goHome(); };
 
-/* ゲーム用 */
+/* 各種ゲーム */
 function startTetris() { if (typeof initTetris === 'function') initTetris(); else Actions.showStatusNotification("エラー"); }
 function startSnake() { if (typeof initSnake === 'function') initSnake(); else Actions.showStatusNotification("エラー"); }
 function startReversi() { if (typeof initReversi === 'function') initReversi(); else Actions.showStatusNotification("エラー"); }
