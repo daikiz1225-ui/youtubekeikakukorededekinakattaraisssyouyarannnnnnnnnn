@@ -1,4 +1,4 @@
-/* app.js - Final Mode-Specific Fix & Live Glow Update */
+/* app.js - Final Mode-Specific Fix & Live Glow Update (Search & Pagination Integrated) */
 
 // --- ユーティリティ ---
 function timeAgo(dateString) {
@@ -303,15 +303,26 @@ const Actions = {
         this.renderGrid("<h2>🔴 ライブ配信</h2>");
     },
 
-    // ★修正: ショート・ライブ時は再生リストを検索せず、フィルタを確実に適用
+    // ★修正: ショート検索時のタグ付与、パラメータ保持、再生リスト5件制限を統合
     async search() {
         const q = document.getElementById('search-input').value;
         if (!q) return;
-        const vParams = { q, part: 'snippet', maxResults: 15, type: 'video' };
-        
+
+        let finalQ = q;
+        const vParams = { part: 'snippet', maxResults: 15, type: 'video' };
         let includePlaylists = true;
-        if (this.currentView === "shorts") { vParams.videoDuration = "short"; includePlaylists = false; }
-        if (this.currentView === "live") { vParams.eventType = "live"; includePlaylists = false; }
+
+        if (this.currentView === "shorts") {
+            finalQ = `${q} #shorts`;
+            vParams.videoDuration = "short";
+            includePlaylists = false;
+        } else if (this.currentView === "live") {
+            vParams.eventType = "live";
+            includePlaylists = false;
+        }
+
+        vParams.q = finalQ;
+        this.currentParams = vParams; // パラメータを保存（loadMoreで再利用）
 
         const promises = [YT.fetchAPI('search', vParams)];
         if (includePlaylists) {
@@ -322,14 +333,16 @@ const Actions = {
         const vData = results[0];
         const plData = results[1] || { items: [] };
 
-        this.currentList = [...plData.items, ...vData.items];
+        // 再生リストを最高5個までに制限
+        const limitedPlaylists = plData.items.slice(0, 5);
+
+        this.currentList = [...limitedPlaylists, ...vData.items];
         this.nextToken = vData.nextPageToken || "";
         this.activePlaylistName = null; 
         await this.fillStats(this.currentList);
         this.renderGrid(`<h2>"${q}" の検索結果</h2>`);
     },
 
-    // ★修正: ライブ動画の時に赤く光る（live-glow）スタイルを適用
     renderCards(items) {
         return items.map((item, index) => {
             const snip = item.snippet;
@@ -343,7 +356,6 @@ const Actions = {
                 `<span style="color:#3ea6ff; font-weight:bold;">📋 再生リスト</span>` : 
                 `<span>${formatViews(stats)} • ${timeAgo(snip.publishedAt)}</span>`;
 
-            // ライブ時のグロー効果
             const glowStyle = isLive ? 'box-shadow: 0 0 15px #ff0000; border: 2px solid #ff0000;' : '';
 
             return `
@@ -373,9 +385,11 @@ const Actions = {
         if (ids) this.fetchMissingIcons(ids);
     },
 
+    // ★修正: currentParams を使用して「検索に沿った」もっと読み込むを実現
     async loadMore() {
         if (!this.nextToken) return;
-        const endpoint = (this.currentView === 'home') ? 'videos' : (this.currentView === 'playlist') ? 'playlistItems' : 'search';
+        const endpoint = (this.currentView === 'home' && !this.currentParams.q) ? 'videos' : (this.currentView === 'playlist') ? 'playlistItems' : 'search';
+        
         const data = await YT.fetchAPI(endpoint, { ...this.currentParams, pageToken: this.nextToken });
         const newItems = data.items || [];
         await this.fillStats(newItems);
@@ -532,7 +546,8 @@ const Actions = {
         grid.innerHTML = "読込中...";
         document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
         if (type === 'videos') {
-            const data = await YT.fetchAPI('search', { channelId: chId, part: 'snippet', type: 'video', order: order, maxResults: 24 });
+            this.currentParams = { channelId: chId, part: 'snippet', type: 'video', order: order, maxResults: 24 };
+            const data = await YT.fetchAPI('search', this.currentParams);
             this.currentList = data.items || []; this.nextToken = data.nextPageToken || "";
             await this.fillStats(this.currentList);
             grid.innerHTML = this.renderCards(this.currentList);
@@ -585,7 +600,6 @@ const Actions = {
         this.renderGrid(`<h2>最新動画</h2>`);
     },
 
-    // ★修正: フローティングボタン形式を維持
     showSubs() {
         this.currentView = "subs";
         const subs = Storage.get('yt_subs');
