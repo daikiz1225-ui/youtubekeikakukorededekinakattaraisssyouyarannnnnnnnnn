@@ -11,7 +11,7 @@ const MusicMode = {
                     未実装またやるかもｼﾗﾝｹﾄﾞ
                 </p>
                 <button onclick="location.reload()" style="margin-top: 30px; background: #333; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">
-                    普通にYouTube使うわ
+                    普通にYouTube使え
                 </button>
             </div>
         `;
