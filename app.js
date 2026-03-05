@@ -1,4 +1,4 @@
-/* app.js - Final Mode-Specific Fix & Live Glow Update (Search & Pagination Integrated) + Komento Support */
+/* app.js - Final Mode-Specific Fix & Live Glow Update (Search & Pagination Integrated) + Komento Sorting Support */
 
 // --- ユーティリティ ---
 function timeAgo(dateString) {
@@ -432,12 +432,13 @@ const Actions = {
         else if (this.currentView === "watchlater") this.showWatchLater();
     },
 
-    // ★新規: コメント取得と表示
-    async showComments(vId) {
-        const commentPanel = document.getElementById('comment-panel');
-        if (commentPanel) {
-            // 既に開いていたら閉じる
-            commentPanel.remove();
+    // ★修正: コメント取得と表示 (並び替え対応)
+    async showComments(vId, order = 'relevance') {
+        let panel = document.getElementById('comment-panel');
+        
+        // パネルが既にあって、同じ動画IDかつ同じ並び順なら閉じる
+        if (panel && panel.dataset.vId === vId && panel.dataset.order === order) {
+            panel.remove();
             document.querySelector('.watch-layout, .shorts-container').style.marginRight = "0";
             return;
         }
@@ -445,14 +446,30 @@ const Actions = {
         const layout = document.querySelector('.watch-layout, .shorts-container');
         if (layout) layout.style.marginRight = "400px";
 
-        const panel = document.createElement('div');
-        panel.id = 'comment-panel';
-        panel.style = "position:fixed; top:60px; right:0; width:400px; height:calc(100vh - 60px); background:#0f0f0f; border-left:1px solid #333; z-index:100; padding:20px; overflow-y:auto; color:white;";
-        panel.innerHTML = `<h3>コメント</h3><div id="comment-list">読み込み中...</div>`;
-        document.body.appendChild(panel);
+        if (!panel) {
+            panel = document.createElement('div');
+            panel.id = 'comment-panel';
+            panel.style = "position:fixed; top:60px; right:0; width:400px; height:calc(100vh - 60px); background:#0f0f0f; border-left:1px solid #333; z-index:100; padding:20px; overflow-y:auto; color:white;";
+            document.body.appendChild(panel);
+        }
+
+        panel.dataset.vId = vId;
+        panel.dataset.order = order;
+        
+        // UIの描画 (並び替えボタン追加)
+        panel.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                <h3 style="margin:0;">コメント</h3>
+                <div style="display:flex; gap:10px;">
+                    <button class="btn" style="font-size:11px; padding:4px 8px; ${order === 'relevance' ? 'background:#3ea6ff;' : 'background:#333;'}" onclick="Actions.showComments('${vId}', 'relevance')">いいね順</button>
+                    <button class="btn" style="font-size:11px; padding:4px 8px; ${order === 'time' ? 'background:#3ea6ff;' : 'background:#333;'}" onclick="Actions.showComments('${vId}', 'time')">新着順</button>
+                </div>
+            </div>
+            <div id="comment-list">読み込み中...</div>`;
 
         try {
-            const resp = await fetch(`/api/komento?vId=${vId}&key=${YT.getCurrentKey()}`);
+            // ★APIリクエストに order を追加
+            const resp = await fetch(`/api/komento?vId=${vId}&order=${order}&key=${YT.getCurrentKey()}`);
             const data = await resp.json();
             const list = document.getElementById('comment-list');
             if (!data.items || data.items.length === 0) {
@@ -486,7 +503,6 @@ const Actions = {
         const safeChTitle = snip.channelTitle.replace(/'/g, "\\'").replace(/"/g, '&quot;');
         const thumbUrl = `/api/thumb?id=${vId}`;
         
-        // ページ移動時にコメント欄をリセット
         const cp = document.getElementById('comment-panel'); if (cp) cp.remove();
         window.scrollTo(0, 0);
 
