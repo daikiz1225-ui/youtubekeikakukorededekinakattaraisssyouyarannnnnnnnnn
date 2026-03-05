@@ -1,181 +1,48 @@
-/* music.js - YouTube Music Education Proxy Edition */
+/* music.js - 究極の「これでよくね？」エディション */
 
 const MusicMode = {
-    active: false,
-    playing: false,
-    albums: {},
-    currentList: [],
-    currentIndex: 0,
-
     init() {
-        this.active = true;
-        this.loadAlbums();
-        this.renderMusicFullUI();
-        this.fetchHotTracks();
-        Actions.showStatusNotification("Musicモード (Education Proxy) 起動");
-    },
-
-    loadAlbums() {
-        const saved = localStorage.getItem('yt_music_albums');
-        this.albums = saved ? JSON.parse(saved) : { "お気に入り": [] };
-    },
-
-    saveAlbums() {
-        localStorage.setItem('yt_music_albums', JSON.stringify(this.albums));
-    },
-
-    renderMusicFullUI() {
-        let musicHeader = document.getElementById('music-custom-header');
-        if (!musicHeader) {
-            musicHeader = document.createElement('div');
-            musicHeader.id = 'music-custom-header';
-            document.body.appendChild(musicHeader);
-        }
-
-        musicHeader.style = `
-            position: fixed; top: 0; left: 0; width: 100%; height: 60px;
-            background: #000; display: flex; align-items: center; padding: 0 20px;
-            z-index: 9999; border-bottom: 1px solid #333; gap: 15px;
-        `;
-
-        musicHeader.innerHTML = `
-            <div style="color:#ff3eab; font-weight:bold; font-size:18px; cursor:pointer;" onclick="MusicMode.fetchHotTracks()">🎵 Music</div>
-            <div style="flex-grow: 1; display: flex; background: #222; border-radius: 20px; padding: 5px 12px;">
-                <input type="text" id="music-search-input" placeholder="曲名・アーティストを検索" 
-                    style="background:none; border:none; color:white; width:100%; outline:none; font-size:14px;">
-                <button onclick="MusicMode.searchMusic()" style="background:none; border:none; cursor:pointer;">🔍</button>
-            </div>
-            <button onclick="MusicMode.showAlbumList()" style="background:#ff3eab; color:white; border:none; padding:8px 12px; border-radius:5px; cursor:pointer; font-size:12px;">マイリスト</button>
-            <button onclick="MusicMode.exit()" style="background:#333; color:white; border:none; padding:8px 12px; border-radius:5px; cursor:pointer; font-size:12px;">終了</button>
-        `;
-
-        document.getElementById('music-search-input').onkeydown = (e) => { if (e.key === 'Enter') this.searchMusic(); };
-
+        // 1. 画面を音楽検索っぽく見せる
         const container = document.getElementById('view-container');
-        container.innerHTML = `<div style="padding: 20px; margin-top: 20px;"><div id="music-results" class="grid" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap:20px;"></div></div>`;
-    },
-
-    // 🔴 重要：再生ロジックを api/thumb プロキシ経由に変更
-    playPlayer(vId, title, artist, index) {
-        this.currentIndex = index;
-        
-        // 教育用キーを取得 (app.jsのYTオブジェクトから参照)
-        const eduKey = YT.eduKey || ""; 
-        
-        // api/thumb を介して読み込む (ここで教育用認証を通す)
-        const proxyUrl = `/api/thumb?id=${vId}&key=${eduKey}`;
-        
-        let playerOverlay = document.getElementById('music-player-full');
-        if (!playerOverlay) {
-            playerOverlay = document.createElement('div');
-            playerOverlay.id = 'music-player-full';
-            document.body.appendChild(playerOverlay);
-        }
-
-        playerOverlay.style = `position:fixed; inset:0; background:#000; z-index:10000; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:20px;`;
-        
-        playerOverlay.innerHTML = `
-            <div style="position:absolute; inset:0; background:url(${proxyUrl}) center/cover; filter:blur(80px) brightness(0.3); z-index:-1;"></div>
-            <button onclick="document.getElementById('music-player-full').remove()" style="position:absolute; top:20px; left:20px; background:none; border:none; color:#fff; font-size:30px; cursor:pointer;">✕</button>
-            
-            <div style="position:absolute; width:1px; height:1px; opacity:0.01; pointer-events:none;">
-                <iframe id="music-iframe" 
-                    src="https://www.youtubeeducation.com/embed/${vId}?autoplay=1&enablejsapi=1&rel=0&key=${eduKey}" 
-                    style="width:100%; height:100%; border:none;" allow="autoplay"></iframe>
-            </div>
-
-            <div style="width:min(80vw, 350px); aspect-ratio:1/1; border-radius:20px; overflow:hidden; box-shadow:0 20px 60px rgba(0,0,0,0.8); z-index:10;">
-                <img src="${proxyUrl}" style="width:100%; height:100%; object-fit:cover;">
-            </div>
-
-            <div style="text-align:center; margin-top:30px; width:90%; z-index:10;">
-                <h2 style="font-size:20px; color:white; margin:0;">${title}</h2>
-                <p style="color:#ff3eab; font-size:16px; margin:8px 0;">${artist}</p>
-                <button onclick="MusicMode.addToAlbumMenu('${vId}', '${title.replace(/'/g,"")}', '${artist.replace(/'/g,"")}')" 
-                    style="background:rgba(255,255,255,0.1); border:1px solid #ff3eab; color:white; padding:6px 12px; border-radius:20px; cursor:pointer; margin-top:10px;">➕ リストに追加</button>
-            </div>
-
-            <div style="display:flex; gap:40px; align-items:center; margin-top:40px; z-index:10;">
-                <button style="background:none; border:none; color:white; font-size:35px; cursor:pointer;" onclick="MusicMode.playNext(-1)">⏮</button>
-                <button style="background:white; color:black; width:65px; height:65px; border-radius:50%; border:none; font-size:30px; cursor:pointer;" onclick="MusicMode.togglePlay()">⏸</button>
-                <button style="background:none; border:none; color:white; font-size:35px; cursor:pointer;" onclick="MusicMode.playNext(1)">⏭</button>
-            </div>
-        `;
-
-        this.playing = true;
-        this.setupAutoNext();
-    },
-
-    setupAutoNext() {
-        window.onmessage = (e) => {
-            try {
-                const data = JSON.parse(e.data);
-                if (data.event === 'infoDelivery' && data.info?.playerState === 0) {
-                    this.playNext(1);
-                }
-            } catch (err) {}
-        };
-    },
-
-    playNext(offset) {
-        this.currentIndex = (this.currentIndex + offset + this.currentList.length) % this.currentList.length;
-        const next = this.currentList[this.currentIndex];
-        if (next) {
-            const vId = next.id?.videoId || next.id;
-            const snip = next.snippet || next;
-            this.playPlayer(vId, snip.title, snip.channelTitle || snip.artist, this.currentIndex);
-        }
-    },
-
-    renderMusicItemsHTML(items) {
-        this.currentList = items;
-        return items.map((item, index) => {
-            const vId = item.id?.videoId || item.id;
-            const snip = item.snippet || item;
-            const proxyThumb = `/api/thumb?id=${vId}`;
-            return `
-            <div class="music-card" onclick="MusicMode.playPlayer('${vId}', '${snip.title.replace(/'/g,"")}', '${snip.channelTitle || snip.artist}', ${index})" style="cursor:pointer;">
-                <div style="aspect-ratio:1/1; border-radius:12px; overflow:hidden; background:#222;"><img src="${proxyThumb}" style="width:100%; height:100%; object-fit:cover;"></div>
-                <div style="margin-top:10px;">
-                    <div style="font-weight:bold; font-size:13px; color:white; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${snip.title}</div>
-                    <div style="font-size:11px; color:#ff3eab;">${snip.channelTitle || snip.artist}</div>
+        container.innerHTML = `
+            <div style="padding:20px;">
+                <h2 style="color:#ff3eab; display:flex; align-items:center; gap:10px;">
+                    🎵 Music Mode <span style="font-size:12px; font-weight:normal; color:#888;">(Beta)</span>
+                </h2>
+                <div id="music-grid" class="grid" style="margin-top:20px;">
+                    <p style="color:#666;">検索バーにアーティスト名を入れてみて！</p>
                 </div>
             </div>`;
-        }).join('');
+
+        // 2. 検索ボタンの挙動だけ「音楽専用」にジャックする
+        document.getElementById('search-btn').onclick = () => this.search();
+        
+        Actions.showStatusNotification("Musicモード：検索が音楽特化になりました");
     },
 
-    async searchMusic() {
-        const query = document.getElementById('music-search-input').value;
-        if (!query) return;
-        const data = await YT.fetchAPI('search', { q: `${query} (official audio)`, part: 'snippet', type: 'video', videoCategoryId: '10', maxResults: 25 });
-        document.getElementById('music-results').innerHTML = this.renderMusicItemsHTML(data.items);
-    },
+    async search() {
+        const q = document.getElementById('search-input').value;
+        if (!q) return;
 
-    async fetchHotTracks() {
-        const data = await YT.fetchAPI('videos', { chart: 'mostPopular', videoCategoryId: '10', part: 'snippet', maxResults: 24, regionCode: 'JP' });
-        document.getElementById('music-results').innerHTML = this.renderMusicItemsHTML(data.items);
-    },
+        // 音楽カテゴリ(10)で検索して、そのままapp.jsの描画に投げる
+        const data = await YT.fetchAPI('search', {
+            q: q + " official audio",
+            part: 'snippet',
+            type: 'video',
+            videoCategoryId: '10',
+            maxResults: 20
+        });
 
-    showAlbumList() {
-        const container = document.getElementById('music-results');
-        container.innerHTML = `<div style="grid-column: 1/-1;"><h2 style="color:#ff3eab;">📁 マイ・アルバム</h2></div>` + 
-            Object.keys(this.albums).map(name => `
-                <div class="music-card" onclick="MusicMode.viewAlbum('${name}')" style="cursor:pointer; text-align:center;">
-                    <div style="aspect-ratio:1/1; background:#1a1a1a; border:2px solid #ff3eab; border-radius:20px; display:flex; align-items:center; justify-content:center; font-size:40px;">💿</div>
-                    <h3 style="margin:10px 0 5px 0; font-size:14px;">${name}</h3>
-                </div>`).join('');
-    },
-
-    viewAlbum(name) {
-        document.getElementById('music-results').innerHTML = this.renderMusicItemsHTML(this.albums[name]);
-    },
-
-    togglePlay() {
-        const iframe = document.getElementById('music-iframe');
-        const cmd = this.playing ? 'pauseVideo' : 'playVideo';
-        iframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func: cmd, args: [] }), '*');
-        this.playing = !this.playing;
-    },
-
-    exit() { location.reload(); }
+        // 描画はapp.jsに任せるか、自前でやる
+        const grid = document.getElementById('music-grid');
+        grid.innerHTML = data.items.map(item => `
+            <div class="v-card" onclick="Actions.play(${JSON.stringify(item).replace(/"/g, '&quot;')})">
+                <img src="/api/thumb?id=${item.id.videoId}" style="width:100%; border-radius:10px;">
+                <div class="v-text">
+                    <h4>${item.snippet.title}</h4>
+                    <p>${item.snippet.channelTitle}</p>
+                </div>
+            </div>
+        `).join('');
+    }
 };
