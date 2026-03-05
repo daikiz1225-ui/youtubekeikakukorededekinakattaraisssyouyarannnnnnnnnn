@@ -136,6 +136,43 @@ const Storage = {
     }
 };
 
+// --- ここに M3U8Player を挿入 ---
+const M3U8Player = {
+    async switchToM3U8(videoId) {
+        const wrapper = document.querySelector('.video-wrapper');
+        const btn = document.getElementById('m3u8-switch-btn');
+        if (!wrapper) return;
+
+        try {
+            btn.innerText = "取得中...";
+            btn.style.background = "#555";
+            const resp = await fetch(`/api/m3u8?id=${videoId}`);
+            const data = await resp.json();
+
+            if (data.url) {
+                wrapper.innerHTML = `<video id="hls-video" controls autoplay style="width:100%; height:100%; background:#000;"></video>`;
+                const video = document.getElementById('hls-video');
+                if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                    video.src = data.url;
+                } else if (typeof Hls !== 'undefined' && Hls.isSupported()) {
+                    const hls = new Hls();
+                    hls.loadSource(data.url);
+                    hls.attachMedia(video);
+                } else {
+                    alert("HLS再生非対応です");
+                }
+                btn.innerText = "✅ m3u8再生中";
+                btn.disabled = true;
+            } else { throw new Error(); }
+        } catch (e) {
+            alert("m3u8取得失敗");
+            btn.innerText = "📺 m3u8に切り替え";
+            btn.style.background = "#ff0000";
+        }
+    },
+    stopPlayer() {}
+};
+
 const Actions = {
     currentList: [],
     relatedList: [],
@@ -530,6 +567,9 @@ const Actions = {
                 <div class="watch-layout">
                     <div class="player-area">
                         <div class="video-wrapper"><iframe src="${YT.getEmbedUrl(vId)}" style="width:100%; height:100%; border:none;" allowfullscreen allow="autoplay"></iframe></div>
+                        <div style="margin-top:10px;">
+                            <button id="m3u8-switch-btn" class="btn" onclick="M3U8Player.switchToM3U8('${vId}')" style="background:#ff0000; color:#fff; width:100%; font-weight:bold; border:none; padding:10px; border-radius:5px;">📺 サーバー経由で再生 (m3u8に切り替え)</button>
+                        </div>
                         <div style="margin-top:15px; display:flex; gap:10px; align-items:center; background:#1e1e1e; padding:10px 20px; border-radius:10px; flex-wrap:wrap;">
                             <span style="font-size:14px; color:#aaa; font-weight:bold; margin-right:10px;">再生速度:</span>
                             <button class="btn" onclick="Actions.changeSpeed(0.5)">0.5x</button>
