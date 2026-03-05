@@ -1,4 +1,4 @@
-/* app.js - Full Integrated Version (No Omissions) */
+/* app.js - Playlist Pagination & Thumbnail Recovery Update */
 
 // --- ユーティリティ ---
 function timeAgo(dateString) {
@@ -24,23 +24,25 @@ const YT = {
     keys: ["AIzaSyBfCvyZ_J9mJiMFNYB6WfcuLyvf9zDdcUU", "AIzaSyCgVn-JWHKT_z6EC73Z6Vlex0F_d-BP_fY", "AIzaSyBbqPhAbqoWDOurTt7hejQmwc6dAoZ5Iy0", "AIzaSyAWk9mmie23-khi8-nipv1jHJND__UtEWA", "AIzaSyBL38iyqeiaKHoKqhloSnhG590DfJ35vCE"],
     currentEduKey: "",
 
+    // ★修正: サムネイル取得ロジックを強化
     getProxiedThumb(video) {
         if (!video || !video.snippet || !video.snippet.thumbnails) return "";
-        // 動画IDの取得
-        const id = video.contentDetails?.videoId || (typeof video.id === 'string' ? video.id : (video.id?.videoId || ""));
         
-        // 再生リストの場合の処理
-        if (video.id?.playlistId || video.kind === 'youtube#playlist') {
-            const plId = video.id?.playlistId || video.id;
-            // 再生リストのデフォルトサムネイルURLから動画IDを抽出してプロキシを通す（thumb.jsがvi/IDを参照するため）
-            const thumbUrl = video.snippet.thumbnails.high?.url || video.snippet.thumbnails.default?.url || "";
+        // 動画IDの優先取得
+        let videoId = video.contentDetails?.videoId || (video.id?.videoId || (typeof video.id === 'string' ? video.id : ""));
+        
+        // 再生リスト(playlistId)の場合、または動画IDが取れなかった場合
+        // YouTubeのサムネイルURLから動画IDを逆引きして抽出する (thumb.jsの仕様に合わせる)
+        if (!videoId || video.id?.playlistId || video.kind === 'youtube#playlist') {
+            const thumbUrl = video.snippet.thumbnails.maxres?.url || video.snippet.thumbnails.high?.url || video.snippet.thumbnails.default?.url || "";
             const match = thumbUrl.match(/\/vi\/([^\/]+)\//);
-            if (match && match[1]) return `/api/thumb?id=${match[1]}`;
-            return thumbUrl; // 抽出できなければそのまま
+            if (match && match[1]) {
+                videoId = match[1];
+            }
         }
 
-        if (!id) return video.snippet.thumbnails.high?.url || "";
-        return `/api/thumb?id=${id}`;
+        if (!videoId) return video.snippet.thumbnails.high?.url || "";
+        return `/api/thumb?id=${videoId}`;
     },
 
     async refreshEduKey() {
@@ -111,7 +113,7 @@ const Storage = {
     setMyPlaylists(data) { localStorage.setItem('yt_my_playlists', JSON.stringify(data)); },
     createPlaylist(name) {
         let dict = this.getMyPlaylists();
-        if (dict[name]) return alert("既に同じ名前のリストがあります");
+        if (dict[name]) return alert("既にある名前です");
         dict[name] = [];
         this.setMyPlaylists(dict);
     },
@@ -152,7 +154,8 @@ const Actions = {
         const input = document.getElementById('search-input');
         input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); this.search(); input.blur(); } });
         document.getElementById('search-btn').onclick = () => this.search();
-        
+
+        // サイドバーに項目追加 (既存維持)
         const sidebar = document.querySelector('.sidebar');
         if (sidebar) {
             if (!document.getElementById('nav-watch-later')) {
@@ -174,27 +177,16 @@ const Actions = {
     },
 
     adminLogin() {
-        if (Storage.isAdmin()) return alert("既に管理者としてログインしています。");
+        if (Storage.isAdmin()) return alert("ログイン済みです");
         const pass = prompt("管理者パスワードを入力してください:");
-        if (pass === "2973") {
-            Storage.setAdmin(true);
-            alert("管理者として認証されました✅");
-            location.reload();
-        } else {
-            alert("パスワードが違います。");
-        }
+        if (pass === "2973") { Storage.setAdmin(true); alert("認証成功✅"); location.reload(); }
     },
 
     async fillStats(items) {
-        const ids = items
-            .map(i => i.id?.videoId || (typeof i.id === 'string' ? i.id : null))
-            .filter(id => id)
-            .join(',');
+        const ids = items.map(i => i.id?.videoId || (typeof i.id === 'string' ? i.id : null)).filter(id => id).join(',');
         if (!ids) return;
         const data = await YT.fetchAPI('videos', { id: ids, part: 'statistics' });
-        if (data.items) {
-            data.items.forEach(v => { this.videoStats[v.id] = v.statistics.viewCount; });
-        }
+        if (data.items) data.items.forEach(v => { this.videoStats[v.id] = v.statistics.viewCount; });
     },
 
     showMyPlaylists() {
@@ -205,7 +197,7 @@ const Actions = {
         Object.keys(dict).forEach(name => {
             const count = dict[name].length;
             const thumb = count > 0 ? dict[name][0].thumb : "";
-            html += `<div class="v-card" onclick="Actions.viewPlaylistDetail('${name.replace(/'/g, "\\'")}')"><div class="thumb-container" style="background:#333; display:flex; align-items:center; justify-content:center;">${thumb ? `<img src="${thumb}" class="main-thumb">` : '<span style="font-size:40px;">📂</span>'}<div style="position:absolute; bottom:5px; right:5px; background:rgba(0,0,0,0.8); padding:2px 8px; border-radius:4px; font-size:12px;">${count}本</div></div><div class="v-text"><h3>${name}</h3><button class="btn" onclick="event.stopPropagation(); Actions.deletePlaylistConfirm('${name.replace(/'/g, "\\'")}')" style="margin-top:5px; font-size:11px; padding:2px 8px;">削除</button></div></div>`;
+            html += `<div class="v-card" onclick="Actions.viewPlaylistDetail('${name.replace(/'/g, "\\\\'")}')"><div class="thumb-container" style="background:#333; display:flex; align-items:center; justify-content:center;">${thumb ? `<img src="${thumb}" class="main-thumb">` : '<span style="font-size:40px;">📂</span>'}<div style="position:absolute; bottom:5px; right:5px; background:rgba(0,0,0,0.8); padding:2px 8px; border-radius:4px; font-size:12px;">${count}本</div></div><div class="v-text"><h3>${name}</h3><button class="btn" onclick="event.stopPropagation(); Actions.deletePlaylistConfirm('${name.replace(/'/g, "\\\\'")}')" style="margin-top:5px; font-size:11px; padding:2px 8px;">削除</button></div></div>`;
         });
         html += `</div></div>`;
         container.innerHTML = html;
@@ -238,7 +230,7 @@ const Actions = {
                             <div class="v-text">
                                 <h3>${v.title}</h3>
                                 <p>${v.channelTitle}</p>
-                                <button class="btn" onclick="Actions.removeFromPlaylistAndRefresh('${name.replace(/'/g, "\\'")}', '${v.id}')" style="font-size:11px; padding:2px 8px;">削除</button>
+                                <button class="btn" onclick="Actions.removeFromPlaylistAndRefresh('${name.replace(/'/g, "\\\\'")}', '${v.id}')" style="font-size:11px; padding:2px 8px;">削除</button>
                             </div>
                         </div>`).join('')}
                 </div>
@@ -265,7 +257,7 @@ const Actions = {
             this.nextToken = data.nextPageToken || "";
             await this.fillStats(this.currentList);
             this.renderGrid(`<h2>🤖 AIおすすめ: ${aiData.query}</h2><p style="color:#aaa; margin:-10px 0 20px 0;">${aiData.explanation}</p>`);
-        } catch (e) { container.innerHTML = `<div style="padding:20px;"><h2>AI分析エラーが発生しました。</h2></div>`; }
+        } catch (e) { container.innerHTML = "エラー"; }
     },
 
     showStatusNotification(text) {
@@ -311,36 +303,21 @@ const Actions = {
     async search() {
         const q = document.getElementById('search-input').value;
         if (!q) return;
-
         let finalQ = q;
         const vParams = { part: 'snippet', maxResults: 15, type: 'video' };
         let includePlaylists = true;
-
-        if (this.currentView === "shorts") {
-            finalQ = `${q} #shorts`;
-            vParams.videoDuration = "short";
-            includePlaylists = false;
-        } else if (this.currentView === "live") {
-            vParams.eventType = "live";
-            includePlaylists = false;
-        }
-
+        if (this.currentView === "shorts") { finalQ = `${q} #shorts`; vParams.videoDuration = "short"; includePlaylists = false; }
+        else if (this.currentView === "live") { vParams.eventType = "live"; includePlaylists = false; }
         vParams.q = finalQ;
         this.currentParams = vParams;
-
         const promises = [YT.fetchAPI('search', vParams)];
-        if (includePlaylists) {
-            promises.push(YT.fetchAPI('search', { q, part: 'snippet', maxResults: 5, type: 'playlist' }));
-        }
-
+        if (includePlaylists) promises.push(YT.fetchAPI('search', { q, part: 'snippet', maxResults: 5, type: 'playlist' }));
         const results = await Promise.all(promises);
         const vData = results[0];
         const plData = results[1] || { items: [] };
-
-        const limitedPlaylists = plData.items.slice(0, 5);
-        this.currentList = [...limitedPlaylists, ...vData.items];
+        this.currentList = [...plData.items.slice(0, 5), ...vData.items];
         this.nextToken = vData.nextPageToken || "";
-        this.activePlaylistName = null; 
+        this.activePlaylistName = null;
         await this.fillStats(this.currentList);
         this.renderGrid(`<h2>"${q}" の検索結果</h2>`);
     },
@@ -353,12 +330,7 @@ const Actions = {
             const isLive = snip.liveBroadcastContent === 'live';
             const vId = item.id?.videoId || (typeof item.id === 'string' ? item.id : null);
             const plId = item.id?.playlistId || (typeof item.id === 'string' ? item.id : "");
-            
             const stats = vId ? this.videoStats[vId] : null;
-            const metaInfo = isPlaylist ? 
-                `<span style="color:#3ea6ff; font-weight:bold;">📋 再生リスト</span>` : 
-                `<span>${formatViews(stats)} • ${timeAgo(snip.publishedAt)}</span>`;
-
             const glowStyle = isLive ? 'box-shadow: 0 0 15px #ff0000; border: 2px solid #ff0000;' : '';
 
             return `
@@ -372,7 +344,7 @@ const Actions = {
                 <div class="v-text">
                     <h3 style="${isLive ? 'color:#ff4e45;' : ''}">${snip.title}</h3>
                     <p>${snip.channelTitle}</p>
-                    <p style="font-size:11px; margin-top:2px; color:#aaa;">${metaInfo}</p>
+                    <p style="font-size:11px; margin-top:2px; color:#aaa;">${isPlaylist ? '再生リスト' : formatViews(stats)} • ${timeAgo(snip.publishedAt)}</p>
                 </div>
             </div>`;
         }).join('');
@@ -388,6 +360,7 @@ const Actions = {
         if (ids) this.fetchMissingIcons(ids);
     },
 
+    // ★修正: 再生リストの読み込みに対応
     async loadMore() {
         if (!this.nextToken) return;
         let endpoint = "search";
@@ -414,7 +387,7 @@ const Actions = {
                 <div style="display:flex; align-items:center; padding:20px;">
                     <img src="${ch.snippet.thumbnails.medium.url}" style="width:80px; height:80px; border-radius:50%;">
                     <div style="margin-left:20px;"><h1>${ch.snippet.title}</h1><p style="color:#aaa;">${ch.snippet.customUrl}</p></div>
-                    <button class="btn ${isSubbed ? 'subbed' : ''}" style="margin-left:auto;" onclick="Actions.handleSub('${chId}', '${ch.snippet.title.replace(/'/g, "\\'")}', true)">${isSubbed ? '登録済み' : '登録'}</button>
+                    <button class="btn ${isSubbed ? 'subbed' : ''}" style="margin-left:auto;" onclick="Actions.handleSub('${chId}', '${ch.snippet.title.replace(/'/g, "\\\\'")}', true)">${isSubbed ? '登録済み' : '登録'}</button>
                 </div>
                 <div class="tabs">
                     <div class="tab active" onclick="Actions.loadChannelTab('${chId}', 'videos')">動画</div>
@@ -424,6 +397,7 @@ const Actions = {
         this.loadChannelTab(chId, 'videos');
     },
 
+    // ★修正: 再生リストタブでも nextToken を保持するように
     async loadChannelTab(chId, type) {
         const grid = document.getElementById('channel-content-grid');
         grid.innerHTML = "読込中...";
@@ -433,7 +407,7 @@ const Actions = {
             this.currentView = "channel";
             this.currentParams = { channelId: chId, part: 'snippet', type: 'video', order: 'date', maxResults: 24 };
             const data = await YT.fetchAPI('search', this.currentParams);
-            this.currentList = data.items || []; 
+            this.currentList = data.items || [];
             this.nextToken = data.nextPageToken || "";
             await this.fillStats(this.currentList);
             grid.innerHTML = this.renderCards(this.currentList);
@@ -453,7 +427,7 @@ const Actions = {
         this.activePlaylistName = title;
         this.currentParams = { playlistId: plId, part: 'snippet,contentDetails', maxResults: 24 };
         const data = await YT.fetchAPI('playlistItems', this.currentParams);
-        this.currentList = data.items || []; 
+        this.currentList = data.items || [];
         this.nextToken = data.nextPageToken || "";
         await this.fillStats(this.currentList);
         this.renderGrid(`<h2>再生リスト: ${title}</h2>`);
@@ -465,8 +439,8 @@ const Actions = {
         const isSubbed = Storage.get('yt_subs').some(x => x.id === snip.channelId);
         const isWatchLater = Storage.isWatchLater(vId);
         const isShorts = this.currentView === "shorts" || snip.title.includes("#Shorts");
-        const safeTitle = snip.title.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-        const safeChTitle = snip.channelTitle.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        const safeTitle = snip.title.replace(/'/g, "\\\\'").replace(/"/g, '&quot;');
+        const safeChTitle = snip.channelTitle.replace(/'/g, "\\\\'").replace(/"/g, '&quot;');
         const thumbUrl = `/api/thumb?id=${vId}`;
         window.scrollTo(0, 0);
 
@@ -506,7 +480,6 @@ const Actions = {
                     </div>
                     <div class="related-area"><h3 id="side-title">関連動画</h3><div id="side-content-box"></div></div>
                 </div>`;
-
             const sideBox = document.getElementById('side-content-box');
             if (this.activePlaylistName) {
                 document.getElementById('side-title').innerText = `再生中: ${this.activePlaylistName}`;
@@ -525,10 +498,7 @@ const Actions = {
     },
 
     playFromList(index) { this.currentIndex = index; this.play(this.currentList[index]); },
-    playFromRelated(index) { 
-        if (this.activePlaylistName) this.playFromList(index);
-        else if (this.relatedList && this.relatedList[index]) this.play(this.relatedList[index]); 
-    },
+    playFromRelated(index) { if (this.activePlaylistName) this.playFromList(index); else if (this.relatedList[index]) this.play(this.relatedList[index]); },
     playRelative(offset) {
         const newIndex = this.currentIndex + offset;
         if (newIndex >= 0 && newIndex < this.currentList.length) this.playFromList(newIndex);
