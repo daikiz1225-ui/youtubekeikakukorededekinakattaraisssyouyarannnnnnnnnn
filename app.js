@@ -66,16 +66,30 @@ const YT = {
         localStorage.setItem('yt_key_index', index);
     },
 
-    async fetchAPI(endpoint, params) {
-        const queryParams = new URLSearchParams({ ...params, key: this.getCurrentKey() });
-        const url = `https://www.googleapis.com/youtube/v3/${endpoint}?${queryParams.toString()}`;
-        try {
-            const response = await fetch(url);
-            if (response.status === 403) { this.rotateKey(); return this.fetchAPI(endpoint, params); }
-            if (!response.ok) throw new Error("API error");
-            return await response.json();
-        } catch (error) { return { items: [], nextPageToken: "" }; }
-    },
+    async fetchAPI(endpoint, params, retryCount = 0) {
+    // 全てのキーを試したかチェック
+    if (retryCount >= this.keys.length) {
+        console.error("全てのAPIキーが制限に達しました。");
+        return { items: [], nextPageToken: "" };
+    }
+
+    const currentKey = this.getCurrentKey();
+    const queryParams = new URLSearchParams({ ...params, key: currentKey });
+    const url = `https://www.googleapis.com/youtube/v3/${endpoint}?${queryParams.toString()}`;
+
+    try {
+        const response = await fetch(url);
+        if (response.status === 403) { 
+            // 403ならキーを回して、retryCountを増やして自分自身を呼び出す
+            this.rotateKey(); 
+            return this.fetchAPI(endpoint, params, retryCount + 1); 
+        }
+        if (!response.ok) throw new Error("API error");
+        return await response.json();
+    } catch (error) { 
+        return { items: [], nextPageToken: "" }; 
+    }
+}
 
     getEmbedUrl(id, isShort = false) {
         const config = { enc: this.currentEduKey, hideTitle: true };
