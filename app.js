@@ -21,7 +21,7 @@ function formatViews(views) {
 }
 
 const YT = {
-    keys: ["AIzaSyBfCvyZ_J9mJiMFNYB6WfcuLyvf9zDdcUU", "AIzaSyCgVn-JWHKT_z6EC73Z6Vlex0F_d-BP_fY", "AIzaSyBbqPhAbqoWDOurTt7hejQmwc6dAoZ5Iy0", "AIzaSyAWk9mmie23-khi8-nipv1jHJND__UtEWA", "AIzaSyBL38iyqeiaKHoKqhloSnhG590DfJ35vCE","AIzaSyDU4jrOT0o2Jd4zDwZyU5OOBsKt1P3RJNs","AIzaSyB2L_plk45E1wihBUB4VJ516pIfqcBc2Yw","AIzaSyDcYrvxFDKcXNqI65Aihrqk0uK2Ebj7KVo","AIzaSyAmfASO-61oyXFOfzJCR9e3oGbnKenBZb","AIzaSyCU7xnDWAFbXt1ze0_DBaWDKt7NDT1XP7","AIzaSyBN1HHKaTf1LPc0RaHQlBKOxd0hrRjoRBw","AIzaSyAhpuyU1zwEfOhX_6GGYxOMMSKjmEzCtGU","AIzaSyBIEOiVBH2Ie_HeRk32XDjaAdroDZPJrYs","AIzaSyCxrx3veof89ZNA3-usEWBjgcHze5-WiEI","AIzaSyAA7IsnGA1X2GTv-cvZVeyiTIvFwRR7wT0"],
+    keys: ["AIzaSyBfCvyZ_J9mJiMFNYB6WfcuLyvf9zDdcUU", "AIzaSyCgVn-JWHKT_z6EC73Z6Vlex0F_d-BP_fY", "AIzaSyBbqPhAbqoWDOurTt7hejQmwc6dAoZ5Iy0", "AIzaSyAWk9mmie23-khi8-nipv1jHJND__UtEWA", "AIzaSyBL38iyqeiaKHoKqhloSnhG590DfJ35vCE","AIzaSyDU4jrOT0o2Jd4zDwZyU5OOBsKt1P3RJNs","AIzaSyB2L_plk45E1wihBUB4VJ516pIfqcBc2Yw","AIzaSyDcYrvxFDKcXNqI65Aihrqk0uK2Ebj7KVo","AIzaSyAmfASO-61oyXFOfzJCR9e3oGbnKenBZb","AIzaSyCU7xnDWAFbXt1ze0_DBaWDKt7NDT1XP7"],
     currentEduKey: "",
 
     getProxiedThumb(video) {
@@ -136,6 +136,42 @@ const Storage = {
     }
 };
 
+const M3U8Player = {
+    async switchToM3U8(videoId) {
+        const wrapper = document.querySelector('.video-wrapper');
+        const btn = document.getElementById('m3u8-switch-btn');
+        if (!wrapper) return;
+
+        try {
+            btn.innerText = "取得中...";
+            btn.style.background = "#555";
+            const resp = await fetch(`/api/m3u8?id=${videoId}`);
+            const data = await resp.json();
+
+            if (data.url) {
+                wrapper.innerHTML = `<video id="hls-video" controls autoplay style="width:100%; height:100%; background:#000;"></video>`;
+                const video = document.getElementById('hls-video');
+                if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                    video.src = data.url;
+                } else if (typeof Hls !== 'undefined' && Hls.isSupported()) {
+                    const hls = new Hls();
+                    hls.loadSource(data.url);
+                    hls.attachMedia(video);
+                } else {
+                    alert("HLS再生非対応です");
+                }
+                btn.innerText = "✅ m3u8再生中";
+                btn.disabled = true;
+            } else { throw new Error(); }
+        } catch (e) {
+            alert("m3u8取得失敗");
+            btn.innerText = "📺 m3u8に切り替え";
+            btn.style.background = "#ff0000";
+        }
+    },
+    stopPlayer() {}
+};
+
 const Actions = {
     currentList: [],
     relatedList: [],
@@ -187,7 +223,7 @@ const Actions = {
 
     async fillStats(items) {
         const ids = items
-            .map(i => i.id?.videoId || (typeof i.id === 'string' ? i.id : null))
+            .map(i => i.id?.videoId || (i.contentDetails?.videoId || (typeof i.id === 'string' ? i.id : null)))
             .filter(id => id)
             .join(',');
         if (!ids) return;
@@ -345,7 +381,7 @@ const Actions = {
             const thumb = YT.getProxiedThumb(item);
             const isPlaylist = !!(item.id?.playlistId || (item.kind === 'youtube#playlist'));
             const isLive = snip.liveBroadcastContent === 'live';
-            const vId = item.id?.videoId || (typeof item.id === 'string' ? item.id : null);
+            const vId = item.id?.videoId || (item.contentDetails?.videoId || (typeof item.id === 'string' ? item.id : null));
             const plId = item.id?.playlistId || (typeof item.id === 'string' ? item.id : "");
             const stats = vId ? this.videoStats[vId] : null;
             const metaInfo = isPlaylist ? 
@@ -432,31 +468,23 @@ const Actions = {
         else if (this.currentView === "watchlater") this.showWatchLater();
     },
 
-    // ★修正: コメント取得と表示 (並び替え対応)
     async showComments(vId, order = 'relevance') {
         let panel = document.getElementById('comment-panel');
-        
-        // パネルが既にあって、同じ動画IDかつ同じ並び順なら閉じる
         if (panel && panel.dataset.vId === vId && panel.dataset.order === order) {
             panel.remove();
             document.querySelector('.watch-layout, .shorts-container').style.marginRight = "0";
             return;
         }
-
         const layout = document.querySelector('.watch-layout, .shorts-container');
         if (layout) layout.style.marginRight = "400px";
-
         if (!panel) {
             panel = document.createElement('div');
             panel.id = 'comment-panel';
             panel.style = "position:fixed; top:60px; right:0; width:400px; height:calc(100vh - 60px); background:#0f0f0f; border-left:1px solid #333; z-index:100; padding:20px; overflow-y:auto; color:white;";
             document.body.appendChild(panel);
         }
-
         panel.dataset.vId = vId;
         panel.dataset.order = order;
-        
-        // UIの描画 (並び替えボタン追加)
         panel.innerHTML = `
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
                 <h3 style="margin:0;">コメント</h3>
@@ -466,16 +494,11 @@ const Actions = {
                 </div>
             </div>
             <div id="comment-list">読み込み中...</div>`;
-
         try {
-            // ★APIリクエストに order を追加
             const resp = await fetch(`/api/komento?vId=${vId}&order=${order}&key=${YT.getCurrentKey()}`);
             const data = await resp.json();
             const list = document.getElementById('comment-list');
-            if (!data.items || data.items.length === 0) {
-                list.innerHTML = "コメントが無効か、存在しません。";
-                return;
-            }
+            if (!data.items || data.items.length === 0) { list.innerHTML = "コメントが無効か、存在しません。"; return; }
             list.innerHTML = data.items.map(item => {
                 const c = item.snippet.topLevelComment.snippet;
                 return `
@@ -488,9 +511,7 @@ const Actions = {
                     </div>
                 </div>`;
             }).join('');
-        } catch (e) {
-            document.getElementById('comment-list').innerHTML = "コメントの取得に失敗しました。";
-        }
+        } catch (e) { document.getElementById('comment-list').innerHTML = "コメントの取得に失敗しました。"; }
     },
 
     async play(video) {
@@ -502,7 +523,6 @@ const Actions = {
         const safeTitle = snip.title.replace(/'/g, "\\'").replace(/"/g, '&quot;');
         const safeChTitle = snip.channelTitle.replace(/'/g, "\\'").replace(/"/g, '&quot;');
         const thumbUrl = `/api/thumb?id=${vId}`;
-        
         const cp = document.getElementById('comment-panel'); if (cp) cp.remove();
         window.scrollTo(0, 0);
 
@@ -530,6 +550,9 @@ const Actions = {
                 <div class="watch-layout">
                     <div class="player-area">
                         <div class="video-wrapper"><iframe src="${YT.getEmbedUrl(vId)}" style="width:100%; height:100%; border:none;" allowfullscreen allow="autoplay"></iframe></div>
+                        <div style="margin-top:10px;">
+                            <button id="m3u8-switch-btn" class="btn" onclick="M3U8Player.switchToM3U8('${vId}')" style="background:#ff0000; color:#fff; width:100%; font-weight:bold; border:none; padding:10px; border-radius:5px;">📺 サーバー経由で再生 (m3u8に切り替え)</button>
+                        </div>
                         <div style="margin-top:15px; display:flex; gap:10px; align-items:center; background:#1e1e1e; padding:10px 20px; border-radius:10px; flex-wrap:wrap;">
                             <span style="font-size:14px; color:#aaa; font-weight:bold; margin-right:10px;">再生速度:</span>
                             <button class="btn" onclick="Actions.changeSpeed(0.5)">0.5x</button>
@@ -643,20 +666,29 @@ const Actions = {
         this.showSubs(); 
     },
 
+    // ★改良: API 100倍節約版 最新動画キャッチ (search 100pt -> playlistItems 1pt)
     async catchLatestSubVideos() {
         const subs = Storage.get('yt_subs');
         const targetIds = Storage.isAdmin() ? subs.map(s => s.id) : this.selectedSubs;
         if (targetIds.length === 0) return;
         this.currentView = "latest_subs";
         const container = document.getElementById('view-container');
-        container.innerHTML = `<div style="padding:20px;"><h2>最新動画をキャッチ中...</h2></div>`;
-        const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
+        container.innerHTML = `<div style="padding:20px;"><h2>最新動画をキャッチ中 (API節約モード)...</h2></div>`;
+        
         let allVideos = [];
-        const promises = targetIds.map(chId => YT.fetchAPI('search', { channelId: chId, part: 'snippet', type: 'video', order: 'date', publishedAfter: twoDaysAgo, maxResults: 5 }));
+        // チャンネルIDのUCをUUに置換して、アップロード済み動画再生リストを取得
+        const promises = targetIds.map(chId => {
+            const uploadsPlaylistId = chId.replace(/^UC/, 'UU');
+            return YT.fetchAPI('playlistItems', { playlistId: uploadsPlaylistId, part: 'snippet', maxResults: 5 });
+        });
+        
         const results = await Promise.all(promises);
         results.forEach(res => { if (res.items) allVideos = allVideos.concat(res.items); });
+        
+        // 公開日時順にソート
         allVideos.sort((a, b) => new Date(b.snippet.publishedAt) - new Date(a.snippet.publishedAt));
-        this.currentList = allVideos; this.nextToken = ""; 
+        this.currentList = allVideos; 
+        this.nextToken = ""; 
         this.activePlaylistName = null;
         await this.fillStats(this.currentList);
         this.renderGrid(`<h2>最新動画</h2>`);
@@ -713,3 +745,5 @@ function startReversi() { if (typeof initReversi === 'function') initReversi(); 
 function startShogi() { if (typeof initShogi === 'function') initShogi(); else Actions.showStatusNotification("エラー"); }
 function startBlockBlast() { if (typeof initBlock === 'function') initBlock(); else Actions.showStatusNotification("エラー"); }
 function start2048() { if (typeof init2048 === 'function') init2048(); else Actions.showStatusNotification("エラー"); }
+function startTowerDefense() { if (typeof initTowerDefense === 'function') initTowerDefense(); else Actions.showStatusNotification("エラー"); }
+function startAirHockey() { if (typeof initAirHockey === 'function') initAirHockey(); else Actions.showStatusNotification("エラー"); }
