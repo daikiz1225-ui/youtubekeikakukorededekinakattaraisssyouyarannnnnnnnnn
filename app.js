@@ -1,4 +1,4 @@
-/* app.js - Final Mode-Specific Fix & Live Glow Update (Search & Pagination Integrated) + Komento Sorting Support */
+/* app.js - Education Key Initialization Fix & API 100x Efficiency Mode */
 
 // --- ユーティリティ ---
 function timeAgo(dateString) {
@@ -36,16 +36,27 @@ const YT = {
         return `/api/thumb?id=${videoId}`;
     },
 
+    // ★修正: 教育用キー取得を確実にし、失敗時はリトライを促す
     async refreshEduKey() {
+        console.log("教育用キーを取得中...");
         try {
             const response = await fetch('/api/get_key');
             if (!response.ok) throw new Error("APIアクセス失敗");
             const data = await response.json();
             if (data && data.key) {
                 this.currentEduKey = data.key;
-                Actions.showStatusNotification("最新キーを自動更新しました✅");
+                console.log("教育用キー取得成功:", this.currentEduKey);
+                return true;
+            } else {
+                throw new Error("キーが空です");
             }
-        } catch (error) { console.error("自動収集エラー:", error); }
+        } catch (error) {
+            console.error("教育用キー取得エラー:", error);
+            Actions.showStatusNotification("⚠️ 教育用キーの取得に失敗しました。再試行します...");
+            // 3秒後にリトライ
+            await new Promise(r => setTimeout(r, 3000));
+            return await this.refreshEduKey(); 
+        }
     },
 
     seek(seconds) {
@@ -64,6 +75,7 @@ const YT = {
         let index = (parseInt(localStorage.getItem('yt_key_index')) || 0) + 1;
         if (index >= this.keys.length) index = 0;
         localStorage.setItem('yt_key_index', index);
+        console.log("APIキーをローテーションしました。新しいインデックス:", index);
     },
 
     async fetchAPI(endpoint, params) {
@@ -71,14 +83,21 @@ const YT = {
         const url = `https://www.googleapis.com/youtube/v3/${endpoint}?${queryParams.toString()}`;
         try {
             const response = await fetch(url);
-            if (response.status === 403) { this.rotateKey(); return this.fetchAPI(endpoint, params); }
+            // ローテーションシステム
+            if (response.status === 403) { 
+                console.warn("クォータ制限に達しました。キーを切り替えます。");
+                this.rotateKey(); 
+                return this.fetchAPI(endpoint, params); 
+            }
             if (!response.ok) throw new Error("API error");
             return await response.json();
         } catch (error) { return { items: [], nextPageToken: "" }; }
     },
 
     getEmbedUrl(id, isShort = false) {
-        const config = { enc: this.currentEduKey, hideTitle: true };
+        // 教育用キーが取れていない場合のフォールバック
+        const key = this.currentEduKey || "NO_KEY";
+        const config = { enc: key, hideTitle: true };
         const params = new URLSearchParams({
             autoplay: 1, origin: location.origin,
             embed_config: JSON.stringify(config), rel: 0, modestbranding: 1, enablejsapi: 1, v: id
@@ -666,7 +685,6 @@ const Actions = {
         this.showSubs(); 
     },
 
-    // ★改良: API 100倍節約版 最新動画キャッチ (search 100pt -> playlistItems 1pt)
     async catchLatestSubVideos() {
         const subs = Storage.get('yt_subs');
         const targetIds = Storage.isAdmin() ? subs.map(s => s.id) : this.selectedSubs;
@@ -676,7 +694,6 @@ const Actions = {
         container.innerHTML = `<div style="padding:20px;"><h2>最新動画をキャッチ中 (API節約モード)...</h2></div>`;
         
         let allVideos = [];
-        // チャンネルIDのUCをUUに置換して、アップロード済み動画再生リストを取得
         const promises = targetIds.map(chId => {
             const uploadsPlaylistId = chId.replace(/^UC/, 'UU');
             return YT.fetchAPI('playlistItems', { playlistId: uploadsPlaylistId, part: 'snippet', maxResults: 5 });
@@ -685,7 +702,6 @@ const Actions = {
         const results = await Promise.all(promises);
         results.forEach(res => { if (res.items) allVideos = allVideos.concat(res.items); });
         
-        // 公開日時順にソート
         allVideos.sort((a, b) => new Date(b.snippet.publishedAt) - new Date(a.snippet.publishedAt));
         this.currentList = allVideos; 
         this.nextToken = ""; 
@@ -736,7 +752,18 @@ const Actions = {
     }
 };
 
-window.onload = async () => { Actions.init(); await YT.refreshEduKey(); Actions.goHome(); };
+// ★修正: 起動時に教育用キーの取得を完了させてからホーム画面を表示する
+window.onload = async () => { 
+    Actions.init(); 
+    document.getElementById('view-container').innerHTML = `<div style="padding:50px; text-align:center;"><h2>🚀 システムを準備中...</h2><p>教育用キーを取得しています。</p></div>`;
+    
+    // キーが取れるまで待機
+    const success = await YT.refreshEduKey(); 
+    
+    if (success) {
+        Actions.goHome(); 
+    }
+};
 
 /* 各種ゲーム起動用関数 */
 function startTetris() { if (typeof initTetris === 'function') initTetris(); else Actions.showStatusNotification("エラー"); }
