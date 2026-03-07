@@ -640,19 +640,45 @@ const Actions = {
         const subs = Storage.get('yt_subs');
         const targetIds = Storage.isAdmin() ? subs.map(s => s.id) : this.selectedSubs;
         if (targetIds.length === 0) return;
+
         this.currentView = "latest_subs";
         const container = document.getElementById('view-container');
         container.innerHTML = `<div style="padding:20px;"><h2>最新動画をキャッチ中...</h2></div>`;
-        const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
-        let allVideos = [];
-        const promises = targetIds.map(chId => YT.fetchAPI('search', { channelId: chId, part: 'snippet', type: 'video', order: 'date', publishedAfter: twoDaysAgo, maxResults: 5 }));
-        const results = await Promise.all(promises);
-        results.forEach(res => { if (res.items) allVideos = allVideos.concat(res.items); });
-        allVideos.sort((a, b) => new Date(b.snippet.publishedAt) - new Date(a.snippet.publishedAt));
-        this.currentList = allVideos; this.nextToken = ""; 
-        this.activePlaylistName = null;
-        await this.fillStats(this.currentList);
-        this.renderGrid(`<h2>最新動画</h2>`);
+
+        try {
+            // 1. 各チャンネルの Uploads プレイリスト ID を取得
+            const chData = await YT.fetchAPI('channels', { id: targetIds.join(','), part: 'contentDetails' });
+            if (!chData.items) return;
+
+            let allVideos = [];
+            const playlistPromises = chData.items.map(ch => {
+                const uploadsListId = ch.contentDetails?.relatedPlaylists?.uploads;
+                if (uploadsListId) {
+                    // 2. プレイリスト内の最新動画を取得 (maxResults: 10)
+                    return YT.fetchAPI('playlistItems', { playlistId: uploadsListId, part: 'snippet', maxResults: 10 });
+                }
+                return null;
+            }).filter(p => p !== null);
+
+            const playlistResults = await Promise.all(playlistPromises);
+            
+            playlistResults.forEach(res => {
+                if (res.items) allVideos = allVideos.concat(res.items);
+            });
+
+            // 3. 公開日時が新しい順にソート
+            allVideos.sort((a, b) => new Date(b.snippet.publishedAt) - new Date(a.snippet.publishedAt));
+
+            this.currentList = allVideos;
+            this.nextToken = ""; 
+            this.activePlaylistName = null;
+
+            await this.fillStats(this.currentList);
+            this.renderGrid(`<h2>最新動画</h2>`);
+        } catch (e) {
+            console.error("最新動画取得エラー:", e);
+            container.innerHTML = `<div style="padding:20px;"><h2>動画の取得に失敗しました。</h2></div>`;
+        }
     },
 
     showSubs() {
