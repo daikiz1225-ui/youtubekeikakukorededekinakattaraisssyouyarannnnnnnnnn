@@ -67,14 +67,7 @@ const YT = {
     },
 
     async fetchAPI(endpoint, params) {
-        const queryParams = new URLSearchParams({ ...params, key: this.getCurrentKey() });
-        const url = `https://www.googleapis.com/youtube/v3/${endpoint}?${queryParams.toString()}`;
-        try {
-            const response = await fetch(url);
-            if (response.status === 403) { this.rotateKey(); return this.fetchAPI(endpoint, params); }
-            if (!response.ok) throw new Error("API error");
-            return await response.json();
-        } catch (error) { return { items: [], nextPageToken: "" }; }
+        return await SearchHandler.fetch(endpoint, params);
     },
 
     getEmbedUrl(id, isShort = false) {
