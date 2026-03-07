@@ -1,4 +1,4 @@
-/* app.js - Sidebar Timeline & Resume Section Integrated + Subscriptions Layout Updated */
+/* app.js - Subscriptions Refined & Sidebar Cleaned (NO TRUNCATION) */
 
 // --- ユーティリティ ---
 function timeAgo(dateString) {
@@ -86,7 +86,6 @@ const YT = {
             embed_config: JSON.stringify(config), rel: 0, modestbranding: 1, enablejsapi: 1, v: id
         });
         
-        // レジューム再生対応
         const resumeTime = Storage.getResumeTime(id);
         if (resumeTime > 0) params.append('start', resumeTime);
 
@@ -101,15 +100,13 @@ const Storage = {
     isAdmin() { return localStorage.getItem('is_admin') === 'true'; },
     setAdmin(status) { localStorage.setItem('is_admin', status); },
 
-    // --- レジューム保存ロジック ---
     saveResumeProgress(video, currentTime, duration) {
-        let list = this.get('yt_resume_list'); // Array of objects: {id, title, thumb, time, duration, channelTitle}
+        let list = this.get('yt_resume_list');
         if (!Array.isArray(list)) list = [];
         
         const vId = YT.getVideoId(video);
         if (!vId) return;
 
-        // 95%以上視聴なら削除
         if (duration > 0 && (currentTime / duration) >= 0.95) {
             list = list.filter(item => item.id !== vId);
             this.set('yt_resume_list', list);
@@ -126,7 +123,6 @@ const Storage = {
             timestamp: Date.now()
         };
 
-        // 既存の同じ動画を消して先頭に追加 (LIFO)
         list = [newItem, ...list.filter(item => item.id !== vId)].slice(0, 3);
         this.set('yt_resume_list', list);
     },
@@ -201,7 +197,6 @@ const Actions = {
         
         const sidebar = document.querySelector('.sidebar');
         if (sidebar) {
-            // 「続きから見る」メニューの追加
             if (!document.getElementById('nav-resume')) {
                 const homeNav = document.querySelector('.sidebar .nav-item[onclick="Actions.goHome()"]');
                 if (homeNav) homeNav.insertAdjacentHTML('afterend', '<div id="nav-resume" class="nav-item" onclick="Actions.showResumeList()" style="color:#ff8c00;">🕒<span>続きから見る</span></div>');
@@ -220,60 +215,14 @@ const Actions = {
                 if (homeNav) homeNav.insertAdjacentHTML('afterend', '<div id="nav-ai-recommend" class="nav-item" onclick="Actions.showAIRecommendations()">🤖<span>AIおすすめ</span></div>');
             }
 
-            // サイドバー新着コンテナ
-            if (!document.getElementById('sidebar-latest-container')) {
-                const subSection = document.querySelector('.sidebar .nav-item[onclick="Actions.showSubs()"]');
-                if (subSection) {
-                    subSection.insertAdjacentHTML('afterend', `
-                        <div id="sidebar-latest-container" style="margin-top:10px; border-top:1px solid #333; padding-top:10px;">
-                            <div id="sidebar-latest-list" style="display:flex; flex-direction:column; gap:8px; padding:0 5px;"></div>
-                        </div>`);
-                }
-            }
-
             if (!document.getElementById('nav-admin-login')) {
                 sidebar.insertAdjacentHTML('beforeend', `<hr><div id="nav-admin-login" class="nav-item" onclick="Actions.adminLogin()" style="opacity:0.5; font-size:12px;">🔑<span>${Storage.isAdmin() ? '管理者ログイン済み' : '管理者ログイン'}</span></div>`);
             }
         }
     },
 
-    // サイドバー・登録者新着タイムライン (省エネモード)
-    async loadSidebarLatest() {
-        const subs = Storage.get('yt_subs');
-        if (subs.length === 0) return;
-        const listEl = document.getElementById('sidebar-latest-list');
-        if (!listEl) return;
-
-        try {
-            const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
-            let allActivities = [];
-            
-            // 5chずつ並列リクエストして一括取得
-            for (let i = 0; i < subs.length; i += 5) {
-                const chunk = subs.slice(i, i + 5);
-                const promises = chunk.map(ch => YT.fetchAPI('activities', { channelId: ch.id, part: 'snippet,contentDetails', maxResults: 2, publishedAfter: threeDaysAgo.toISOString() }));
-                const results = await Promise.all(promises);
-                results.forEach(res => { if (res.items) allActivities = [...allActivities, ...res.items]; });
-            }
-
-            const latest = allActivities
-                .filter(a => a.snippet.type === 'upload')
-                .sort((a, b) => new Date(b.snippet.publishedAt) - new Date(a.snippet.publishedAt))
-                .slice(0, 8);
-
-            listEl.innerHTML = latest.map(item => {
-                const vId = item.contentDetails.upload.videoId;
-                return `
-                <div class="sidebar-v-mini" onclick="Actions.playFromSidebar('${vId}')" style="display:flex; gap:8px; cursor:pointer; padding:5px; border-radius:6px; transition:background 0.2s;">
-                    <img src="/api/thumb?id=${vId}" style="width:60px; aspect-ratio:16/9; object-fit:cover; border-radius:4px;">
-                    <div style="flex:1; overflow:hidden;">
-                        <div style="font-size:10px; font-weight:bold; color:#fff; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; line-height:1.2;">${item.snippet.title}</div>
-                        <div style="font-size:9px; color:#aaa; margin-top:2px;">${item.snippet.channelTitle}</div>
-                    </div>
-                </div>`;
-            }).join('');
-        } catch (e) { console.error("Sidebar latest load failed", e); }
-    },
+    // サイドバーの動画表示機能を排除（空関数化）
+    loadSidebarLatest() {},
 
     async playFromSidebar(vId) {
         const data = await YT.fetchAPI('videos', { id: vId, part: 'snippet' });
@@ -701,7 +650,6 @@ const Actions = {
         }
         Storage.addHistory({ id: vId, title: snip.title, thumb: thumbUrl, channelTitle: snip.channelTitle });
 
-        // レジュームタイマー開始
         if (this.resumeTimer) clearInterval(this.resumeTimer);
         this.resumeTimer = setInterval(() => {
             const iframe = document.getElementById('yt-player');
@@ -774,44 +722,18 @@ const Actions = {
         if (refresh) { if (this.currentView === "channel") this.showChannel(id); else if (this.currentIndex !== -1 && this.currentView !== "subs") this.play(this.currentList[this.currentIndex]); }
     },
 
-    toggleSubSelect(chId) {
-        if (this.selectedSubs.includes(chId)) this.selectedSubs = this.selectedSubs.filter(id => id !== chId);
-        else if (this.selectedSubs.length < 5) this.selectedSubs.push(chId);
-        else alert("最大5件までです。");
-        this.showSubs(); 
-    },
-
-    async catchLatestSubVideos() {
-        const subs = Storage.get('yt_subs');
-        const targetIds = Storage.isAdmin() ? subs.map(s => s.id) : this.selectedSubs;
-        if (targetIds.length === 0) return;
-        this.currentView = "latest_subs";
-        const container = document.getElementById('view-container');
-        container.innerHTML = `<div style="padding:20px;"><h2>最新動画をキャッチ中...</h2></div>`;
-        const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
-        let allVideos = [];
-        const promises = targetIds.map(chId => YT.fetchAPI('search', { channelId: chId, part: 'snippet', type: 'video', order: 'date', publishedAfter: threeDaysAgo, maxResults: 5 }));
-        const results = await Promise.all(promises);
-        results.forEach(res => { if (res.items) allVideos = allVideos.concat(res.items); });
-        allVideos.sort((a, b) => new Date(b.snippet.publishedAt) - new Date(a.snippet.publishedAt));
-        this.currentList = allVideos; this.nextToken = ""; 
-        this.activePlaylistName = null;
-        await this.fillStats(this.currentList);
-        this.renderGrid(`<h2>最新動画</h2>`);
-    },
-
-    // ★修正対象: 登録済み画面（showSubs）の刷新
+    // 「登録済み」メイン画面の刷新（横スライダー ＋ タイムライン表示）
     async showSubs() {
         this.currentView = "subs";
         const subs = Storage.get('yt_subs');
         const container = document.getElementById('view-container');
         
-        // 1. チャンネルアイコン横スライドUI
+        // 1. チャンネルアイコンの横スライダーUI
         const scrollStyles = `
             display: flex; 
             overflow-x: auto; 
             gap: 20px; 
-            padding: 15px 20px; 
+            padding: 20px; 
             background: #0f0f0f;
             border-bottom: 1px solid #333;
             scrollbar-width: none;
@@ -819,9 +741,11 @@ const Actions = {
         `;
         
         const channelItemsHtml = subs.map(ch => `
-            <div style="flex: 0 0 auto; text-align: center; width: 80px; cursor: pointer;" onclick="Actions.showChannel('${ch.id}')">
-                <img src="${ch.thumb}" style="width: 60px; height: 60px; border-radius: 50%; border: 2px solid #444;">
-                <div style="font-size: 10px; color: #fff; margin-top: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${ch.name}</div>
+            <div style="flex: 0 0 auto; text-align: center; width: 85px; cursor: pointer;" onclick="Actions.showChannel('${ch.id}')">
+                <div style="position:relative; width:65px; height:65px; margin: 0 auto;">
+                    <img src="${ch.thumb}" style="width: 100%; height: 100%; border-radius: 50%; border: 2px solid #444; object-fit: cover;">
+                </div>
+                <div style="font-size: 11px; color: #fff; margin-top: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 2px;">${ch.name}</div>
             </div>
         `).join('');
 
@@ -836,12 +760,12 @@ const Actions = {
             </div>
         `;
 
-        // 2. タイムライン読み込み (loadSubsTimeline ロジック)
+        // 2. タイムラインの読み込みロジック（一括取得）
         try {
             const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
             let allActivities = [];
             
-            // 5チャンネルずつ並列処理
+            // 5チャンネルずつバッチ処理して負荷軽減
             for (let i = 0; i < subs.length; i += 5) {
                 const chunk = subs.slice(i, i + 5);
                 const promises = chunk.map(ch => YT.fetchAPI('activities', { 
@@ -854,7 +778,6 @@ const Actions = {
                 results.forEach(res => { if (res.items) allActivities = [...allActivities, ...res.items]; });
             }
 
-            // uploadイベントのみを抽出・ソート
             const timelineVideos = allActivities
                 .filter(a => a.snippet.type === 'upload')
                 .sort((a, b) => new Date(b.snippet.publishedAt) - new Date(a.snippet.publishedAt));
@@ -864,13 +787,13 @@ const Actions = {
             
             const grid = document.getElementById('subs-timeline-grid');
             if (timelineVideos.length === 0) {
-                grid.innerHTML = `<p style="color:#aaa; text-align:center; grid-column: 1/-1; padding:40px;">3日以内の新着動画はありません。</p>`;
+                grid.innerHTML = `<p style="color:#aaa; text-align:center; grid-column: 1/-1; padding:40px;">最近の新着動画はありません。</p>`;
             } else {
                 grid.innerHTML = this.renderCards(timelineVideos);
             }
         } catch (e) {
-            console.error("Subs timeline load failed", e);
-            document.getElementById('subs-timeline-grid').innerHTML = "タイムラインの取得に失敗しました。";
+            console.error("Subs timeline error", e);
+            document.getElementById('subs-timeline-grid').innerHTML = "取得に失敗しました。";
         }
     },
 
@@ -901,7 +824,6 @@ window.onload = async () => {
     Actions.init(); 
     await YT.refreshEduKey(); 
     Actions.goHome(); 
-    Actions.loadSidebarLatest();
 };
 
 /* 各種ゲーム起動用関数 */
