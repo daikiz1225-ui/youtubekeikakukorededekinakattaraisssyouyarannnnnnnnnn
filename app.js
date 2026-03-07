@@ -24,26 +24,16 @@ const YT = {
     keys: ["AIzaSyBfCvyZ_J9mJiMFNYB6WfcuLyvf9zDdcUU", "AIzaSyCgVn-JWHKT_z6EC73Z6Vlex0F_d-BP_fY", "AIzaSyBbqPhAbqoWDOurTt7hejQmwc6dAoZ5Iy0", "AIzaSyAWk9mmie23-khi8-nipv1jHJND__UtEWA", "AIzaSyBL38iyqeiaKHoKqhloSnhG590DfJ35vCE","AIzaSyDU4jrOT0o2Jd4zDwZyU5OOBsKt1P3RJNs","AIzaSyB2L_plk45E1wihBUB4VJ516pIfqcBc2Yw","AIzaSyDcYrvxFDKcXNqI65Aihrqk0uK2Ebj7KVo","AIzaSyAmfASO-61oyXFOfzJCR9e3oGbnKenBZb","AIzaSyCU7xnDWAFbXt1ze0_DBaWDKt7NDT1XP7"],
     currentEduKey: "",
 
-    // ★修正: 動画ID取得ロジックの汎用化
-    getVideoId(video) {
-        if (!video) return "";
-        if (typeof video.id === 'string') return video.id;
-        if (video.id && video.id.videoId) return video.id.videoId;
-        if (video.contentDetails && video.contentDetails.videoId) return video.contentDetails.videoId;
-        // 最終手段としてサムネイルURLから抽出
-        if (video.snippet && video.snippet.thumbnails) {
-            const url = video.snippet.thumbnails.high?.url || video.snippet.thumbnails.default?.url || "";
-            const match = url.match(/\/vi\/([^\/]+)\//);
-            return match ? match[1] : "";
-        }
-        return "";
+    // ★修正: 動画ID取得ロジックを優先順位に基づき修正
+    getVideoId(item) {
+        if (!item) return "";
+        return item.id?.videoId || item.contentDetails?.videoId || item.snippet?.resourceId?.videoId || (typeof item.id === 'string' ? item.id : "");
     },
 
-    // ★修正: 全てのサムネイルを /api/thumb 経由に統一
     getProxiedThumb(video) {
-        const id = this.getVideoId(video);
-        if (!id) return video.snippet?.thumbnails?.high?.url || "";
-        return `/api/thumb?id=${id}`;
+        const vId = this.getVideoId(video);
+        if (!vId) return video.snippet?.thumbnails?.high?.url || "";
+        return `/api/thumb?id=${vId}`;
     },
 
     async refreshEduKey() {
@@ -348,7 +338,10 @@ const Actions = {
             const thumb = YT.getProxiedThumb(item);
             const isPlaylist = !!(item.id?.playlistId || (item.kind === 'youtube#playlist'));
             const isLive = snip.liveBroadcastContent === 'live';
-            const vId = YT.getVideoId(item);
+            
+            // ★修正: 動画ID取得ロジックの強化
+            const vId = item.id?.videoId || item.contentDetails?.videoId || item.snippet?.resourceId?.videoId || (typeof item.id === 'string' ? item.id : "");
+            
             const plId = item.id?.playlistId || (typeof item.id === 'string' ? item.id : "");
             const stats = vId ? this.videoStats[vId] : null;
             const metaInfo = isPlaylist ? 
@@ -435,7 +428,7 @@ const Actions = {
         else if (this.currentView === "watchlater") this.showWatchLater();
     },
 
-    // ★修正: コメント取得APIを komento.js (vId, order, key) に完全対応
+    // ★修正: コメントAPIリクエスト形式を指示通り固定
     async showComments(vId, order = 'relevance') {
         let panel = document.getElementById('comment-panel');
         
@@ -469,9 +462,8 @@ const Actions = {
             <div id="comment-list">読み込み中...</div>`;
 
         try {
-            // ★修正: YT.getCurrentKey() を含めたリクエスト構成
-            const apiKey = YT.getCurrentKey();
-            const resp = await fetch(`/api/komento?vId=${vId}&order=${order}&key=${apiKey}`);
+            // ★指示通りのエンドポイントとパラメータ構成
+            const resp = await fetch(`/api/komento?vId=${vId}&key=${YT.getCurrentKey()}&order=${order}`);
             const data = await resp.json();
             const list = document.getElementById('comment-list');
             if (!data.items || data.items.length === 0) {
@@ -496,7 +488,7 @@ const Actions = {
     },
 
     async play(video) {
-        // ★修正: 汎用的なID取得を使用
+        // ★修正: 動画ID取得ロジック
         const vId = YT.getVideoId(video);
         const snip = video.snippet;
         const isSubbed = Storage.get('yt_subs').some(x => x.id === snip.channelId);
@@ -646,6 +638,7 @@ const Actions = {
         this.showSubs(); 
     },
 
+    // 既存の最新動画取得ロジック（一文字も変えず維持）
     async catchLatestSubVideos() {
         const subs = Storage.get('yt_subs');
         const targetIds = Storage.isAdmin() ? subs.map(s => s.id) : this.selectedSubs;
