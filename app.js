@@ -24,31 +24,26 @@ const YT = {
     keys: ["AIzaSyBfCvyZ_J9mJiMFNYB6WfcuLyvf9zDdcUU", "AIzaSyCgVn-JWHKT_z6EC73Z6Vlex0F_d-BP_fY", "AIzaSyBbqPhAbqoWDOurTt7hejQmwc6dAoZ5Iy0", "AIzaSyAWk9mmie23-khi8-nipv1jHJND__UtEWA", "AIzaSyBL38iyqeiaKHoKqhloSnhG590DfJ35vCE","AIzaSyDU4jrOT0o2Jd4zDwZyU5OOBsKt1P3RJNs","AIzaSyB2L_plk45E1wihBUB4VJ516pIfqcBc2Yw","AIzaSyDcYrvxFDKcXNqI65Aihrqk0uK2Ebj7KVo","AIzaSyAmfASO-61oyXFOfzJCR9e3oGbnKenBZb","AIzaSyCU7xnDWAFbXt1ze0_DBaWDKt7NDT1XP7"],
     currentEduKey: "",
 
-    getProxiedThumb(video) {
+    // ★修正: 動画ID取得ロジックの汎用化
+    getVideoId(video) {
         if (!video) return "";
-        let videoId = "";
-        // video.id がオブジェクトの場合 (search API 等)
-        if (video.id && typeof video.id === 'object') {
-            videoId = video.id.videoId || "";
-        } 
-        // video.id が文字列の場合 (videos API やプレイリスト等)
-        else if (typeof video.id === 'string') {
-            videoId = video.id;
+        if (typeof video.id === 'string') return video.id;
+        if (video.id && video.id.videoId) return video.id.videoId;
+        if (video.contentDetails && video.contentDetails.videoId) return video.contentDetails.videoId;
+        // 最終手段としてサムネイルURLから抽出
+        if (video.snippet && video.snippet.thumbnails) {
+            const url = video.snippet.thumbnails.high?.url || video.snippet.thumbnails.default?.url || "";
+            const match = url.match(/\/vi\/([^\/]+)\//);
+            return match ? match[1] : "";
         }
-        // contentDetails にある場合 (playlistItems 等)
-        if (!videoId && video.contentDetails?.videoId) {
-            videoId = video.contentDetails.videoId;
-        }
+        return "";
+    },
 
-        // 動画IDが特定できない場合のフォールバック（プレイリストのサムネイル等から抽出）
-        if (!videoId && video.snippet?.thumbnails) {
-            const thumbUrl = video.snippet.thumbnails.maxres?.url || video.snippet.thumbnails.high?.url || video.snippet.thumbnails.default?.url || "";
-            const match = thumbUrl.match(/\/vi\/([^\/]+)\//);
-            if (match && match[1]) { videoId = match[1]; }
-        }
-
-        if (!videoId) return video.snippet?.thumbnails?.high?.url || "";
-        return `/api/thumb?id=${videoId}`;
+    // ★修正: 全てのサムネイルを /api/thumb 経由に統一
+    getProxiedThumb(video) {
+        const id = this.getVideoId(video);
+        if (!id) return video.snippet?.thumbnails?.high?.url || "";
+        return `/api/thumb?id=${id}`;
     },
 
     async refreshEduKey() {
@@ -195,7 +190,7 @@ const Actions = {
 
     async fillStats(items) {
         const ids = items
-            .map(i => i.id?.videoId || (typeof i.id === 'string' ? i.id : null))
+            .map(i => YT.getVideoId(i))
             .filter(id => id)
             .join(',');
         if (!ids) return;
@@ -353,7 +348,7 @@ const Actions = {
             const thumb = YT.getProxiedThumb(item);
             const isPlaylist = !!(item.id?.playlistId || (item.kind === 'youtube#playlist'));
             const isLive = snip.liveBroadcastContent === 'live';
-            const vId = item.id?.videoId || (typeof item.id === 'string' ? item.id : null);
+            const vId = YT.getVideoId(item);
             const plId = item.id?.playlistId || (typeof item.id === 'string' ? item.id : "");
             const stats = vId ? this.videoStats[vId] : null;
             const metaInfo = isPlaylist ? 
@@ -440,6 +435,7 @@ const Actions = {
         else if (this.currentView === "watchlater") this.showWatchLater();
     },
 
+    // ★修正: コメント取得APIを komento.js (vId, order, key) に完全対応
     async showComments(vId, order = 'relevance') {
         let panel = document.getElementById('comment-panel');
         
@@ -473,8 +469,9 @@ const Actions = {
             <div id="comment-list">読み込み中...</div>`;
 
         try {
-            // ★修正: komento.js (エンドポイント) を経由するように修正
-            const resp = await fetch(`/api/komento?vId=${vId}&order=${order}&key=${YT.getCurrentKey()}`);
+            // ★修正: YT.getCurrentKey() を含めたリクエスト構成
+            const apiKey = YT.getCurrentKey();
+            const resp = await fetch(`/api/komento?vId=${vId}&order=${order}&key=${apiKey}`);
             const data = await resp.json();
             const list = document.getElementById('comment-list');
             if (!data.items || data.items.length === 0) {
@@ -499,14 +496,14 @@ const Actions = {
     },
 
     async play(video) {
-        const vId = video.contentDetails?.videoId || (video.id?.videoId || (typeof video.id === 'string' ? video.id : null));
+        // ★修正: 汎用的なID取得を使用
+        const vId = YT.getVideoId(video);
         const snip = video.snippet;
         const isSubbed = Storage.get('yt_subs').some(x => x.id === snip.channelId);
         const isWatchLater = Storage.isWatchLater(vId);
         const isShorts = this.currentView === "shorts" || snip.title.includes("#Shorts") || (snip.description && snip.description.includes("#Shorts"));
         const safeTitle = snip.title.replace(/'/g, "\\'").replace(/"/g, '&quot;');
         const safeChTitle = snip.channelTitle.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-        // ★修正: 再生画面内のサムネイル指定も /api/thumb?id= 形式を使用
         const thumbUrl = `/api/thumb?id=${vId}`;
         
         const cp = document.getElementById('comment-panel'); if (cp) cp.remove();
@@ -581,7 +578,7 @@ const Actions = {
             sideBox.innerHTML = this.relatedList.map((i, idx) => `
                 <div class="v-card" style="display:flex; gap:10px; margin-bottom:12px; ${idx === this.currentIndex && this.activePlaylistName ? 'background:#333; border-left:4px solid #3ea6ff;' : ''}" onclick="Actions.playFromRelated(${idx})">
                     <img src="${YT.getProxiedThumb(i)}" style="width:140px; aspect-ratio:16/9; object-fit:cover; border-radius:8px;">
-                    <div style="font-size:12px;"><div style="font-weight:bold; line-clamp:2; display:-webkit-box; -webkit-box-orient:vertical; overflow:hidden;">${i.snippet.title}</div><div style="color:#aaa;">${i.snippet.channelTitle}</div><div style="color:#888;">${formatViews(this.videoStats[i.id?.videoId || i.contentDetails?.videoId])}</div></div>
+                    <div style="font-size:12px;"><div style="font-weight:bold; line-clamp:2; display:-webkit-box; -webkit-box-orient:vertical; overflow:hidden;">${i.snippet.title}</div><div style="color:#aaa;">${i.snippet.channelTitle}</div><div style="color:#888;">${formatViews(this.videoStats[YT.getVideoId(i)])}</div></div>
                 </div>`).join('');
         }
         Storage.addHistory({ id: vId, title: snip.title, thumb: thumbUrl, channelTitle: snip.channelTitle });
@@ -726,7 +723,6 @@ const Actions = {
     showWatchLater() {
         this.currentView = "watchlater";
         const list = Storage.get('yt_watchlater');
-        // ★修正: 後で見るリストのサムネイルも /api/thumb?id= 形式を使用
         this.currentList = list.map(x => ({ id: x.id, snippet: { title: x.title, thumbnails: { high: { url: `/api/thumb?id=${x.id}` } }, channelTitle: x.channelTitle, channelId: x.channelId, publishedAt: new Date().toISOString() } }));
         this.activePlaylistName = "後で見る";
         this.renderGrid("<h2>📌 後で見る</h2>");
@@ -735,7 +731,6 @@ const Actions = {
     showHistory() {
         this.currentView = "history";
         const history = Storage.get('yt_history');
-        // ★修正: 履歴のサムネイルも /api/thumb?id= 形式を使用
         this.currentList = history.map(x => ({ id: x.id, snippet: { title: x.title, thumbnails: { high: { url: `/api/thumb?id=${x.id}` } }, channelTitle: x.channelTitle, publishedAt: new Date().toISOString() } }));
         this.activePlaylistName = null;
         this.renderGrid("<h2>履歴</h2>");
