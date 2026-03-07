@@ -643,9 +643,12 @@ const Actions = {
 
         this.currentView = "latest_subs";
         const container = document.getElementById('view-container');
-        container.innerHTML = `<div style="padding:20px;"><h2>最新動画をキャッチ中...</h2></div>`;
+        container.innerHTML = `<div style="padding:20px;"><h2>3日以内の最新動画をキャッチ中...</h2></div>`;
 
         try {
+            // 基準時刻（現在から72時間前）
+            const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+
             // 1. 各チャンネルの Uploads プレイリスト ID を取得
             const chData = await YT.fetchAPI('channels', { id: targetIds.join(','), part: 'contentDetails' });
             if (!chData.items) return;
@@ -654,8 +657,8 @@ const Actions = {
             const playlistPromises = chData.items.map(ch => {
                 const uploadsListId = ch.contentDetails?.relatedPlaylists?.uploads;
                 if (uploadsListId) {
-                    // 2. プレイリスト内の最新動画を取得 (maxResults: 10)
-                    return YT.fetchAPI('playlistItems', { playlistId: uploadsListId, part: 'snippet', maxResults: 10 });
+                    // 2. プレイリスト内の動画を取得 (API節約のため maxResults: 15)
+                    return YT.fetchAPI('playlistItems', { playlistId: uploadsListId, part: 'snippet', maxResults: 15 });
                 }
                 return null;
             }).filter(p => p !== null);
@@ -663,18 +666,30 @@ const Actions = {
             const playlistResults = await Promise.all(playlistPromises);
             
             playlistResults.forEach(res => {
-                if (res.items) allVideos = allVideos.concat(res.items);
+                if (res.items) {
+                    // 3. 投稿日時が3日以内のものだけを抽出
+                    const recentVideos = res.items.filter(item => {
+                        const publishDate = new Date(item.snippet.publishedAt);
+                        return publishDate >= threeDaysAgo;
+                    });
+                    allVideos = allVideos.concat(recentVideos);
+                }
             });
 
-            // 3. 公開日時が新しい順にソート
+            // 4. 公開日時が新しい順にソート
             allVideos.sort((a, b) => new Date(b.snippet.publishedAt) - new Date(a.snippet.publishedAt));
 
             this.currentList = allVideos;
             this.nextToken = ""; 
             this.activePlaylistName = null;
 
+            if (allVideos.length === 0) {
+                container.innerHTML = `<div style="padding:20px;"><h2>過去3日間に投稿された動画はありません。</h2></div>`;
+                return;
+            }
+
             await this.fillStats(this.currentList);
-            this.renderGrid(`<h2>最新動画</h2>`);
+            this.renderGrid(`<h2>最新動画 (3日以内)</h2>`);
         } catch (e) {
             console.error("最新動画取得エラー:", e);
             container.innerHTML = `<div style="padding:20px;"><h2>動画の取得に失敗しました。</h2></div>`;
