@@ -25,14 +25,29 @@ const YT = {
     currentEduKey: "",
 
     getProxiedThumb(video) {
-        if (!video || !video.snippet || !video.snippet.thumbnails) return "";
-        let videoId = video.contentDetails?.videoId || (video.id?.videoId || (typeof video.id === 'string' ? video.id : ""));
-        if (!videoId || video.id?.playlistId || video.kind === 'youtube#playlist') {
+        if (!video) return "";
+        let videoId = "";
+        // video.id がオブジェクトの場合 (search API 等)
+        if (video.id && typeof video.id === 'object') {
+            videoId = video.id.videoId || "";
+        } 
+        // video.id が文字列の場合 (videos API やプレイリスト等)
+        else if (typeof video.id === 'string') {
+            videoId = video.id;
+        }
+        // contentDetails にある場合 (playlistItems 等)
+        if (!videoId && video.contentDetails?.videoId) {
+            videoId = video.contentDetails.videoId;
+        }
+
+        // 動画IDが特定できない場合のフォールバック（プレイリストのサムネイル等から抽出）
+        if (!videoId && video.snippet?.thumbnails) {
             const thumbUrl = video.snippet.thumbnails.maxres?.url || video.snippet.thumbnails.high?.url || video.snippet.thumbnails.default?.url || "";
             const match = thumbUrl.match(/\/vi\/([^\/]+)\//);
             if (match && match[1]) { videoId = match[1]; }
         }
-        if (!videoId) return video.snippet.thumbnails.high?.url || "";
+
+        if (!videoId) return video.snippet?.thumbnails?.high?.url || "";
         return `/api/thumb?id=${videoId}`;
     },
 
@@ -425,11 +440,9 @@ const Actions = {
         else if (this.currentView === "watchlater") this.showWatchLater();
     },
 
-    // ★修正: コメント取得と表示 (並び替え対応)
     async showComments(vId, order = 'relevance') {
         let panel = document.getElementById('comment-panel');
         
-        // パネルが既にあって、同じ動画IDかつ同じ並び順なら閉じる
         if (panel && panel.dataset.vId === vId && panel.dataset.order === order) {
             panel.remove();
             document.querySelector('.watch-layout, .shorts-container').style.marginRight = "0";
@@ -449,7 +462,6 @@ const Actions = {
         panel.dataset.vId = vId;
         panel.dataset.order = order;
         
-        // UIの描画 (並び替えボタン追加)
         panel.innerHTML = `
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
                 <h3 style="margin:0;">コメント</h3>
@@ -461,7 +473,7 @@ const Actions = {
             <div id="comment-list">読み込み中...</div>`;
 
         try {
-            // ★APIリクエストに order を追加
+            // ★修正: komento.js (エンドポイント) を経由するように修正
             const resp = await fetch(`/api/komento?vId=${vId}&order=${order}&key=${YT.getCurrentKey()}`);
             const data = await resp.json();
             const list = document.getElementById('comment-list');
@@ -494,6 +506,7 @@ const Actions = {
         const isShorts = this.currentView === "shorts" || snip.title.includes("#Shorts") || (snip.description && snip.description.includes("#Shorts"));
         const safeTitle = snip.title.replace(/'/g, "\\'").replace(/"/g, '&quot;');
         const safeChTitle = snip.channelTitle.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        // ★修正: 再生画面内のサムネイル指定も /api/thumb?id= 形式を使用
         const thumbUrl = `/api/thumb?id=${vId}`;
         
         const cp = document.getElementById('comment-panel'); if (cp) cp.remove();
@@ -646,10 +659,8 @@ const Actions = {
         container.innerHTML = `<div style="padding:20px;"><h2>3日以内の最新動画をキャッチ中...</h2></div>`;
 
         try {
-            // 基準時刻（現在から72時間前）
             const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
 
-            // 1. 各チャンネルの Uploads プレイリスト ID を取得
             const chData = await YT.fetchAPI('channels', { id: targetIds.join(','), part: 'contentDetails' });
             if (!chData.items) return;
 
@@ -657,7 +668,6 @@ const Actions = {
             const playlistPromises = chData.items.map(ch => {
                 const uploadsListId = ch.contentDetails?.relatedPlaylists?.uploads;
                 if (uploadsListId) {
-                    // 2. プレイリスト内の動画を取得 (API節約のため maxResults: 15)
                     return YT.fetchAPI('playlistItems', { playlistId: uploadsListId, part: 'snippet', maxResults: 15 });
                 }
                 return null;
@@ -667,7 +677,6 @@ const Actions = {
             
             playlistResults.forEach(res => {
                 if (res.items) {
-                    // 3. 投稿日時が3日以内のものだけを抽出
                     const recentVideos = res.items.filter(item => {
                         const publishDate = new Date(item.snippet.publishedAt);
                         return publishDate >= threeDaysAgo;
@@ -676,7 +685,6 @@ const Actions = {
                 }
             });
 
-            // 4. 公開日時が新しい順にソート
             allVideos.sort((a, b) => new Date(b.snippet.publishedAt) - new Date(a.snippet.publishedAt));
 
             this.currentList = allVideos;
@@ -718,7 +726,8 @@ const Actions = {
     showWatchLater() {
         this.currentView = "watchlater";
         const list = Storage.get('yt_watchlater');
-        this.currentList = list.map(x => ({ id: x.id, snippet: { title: x.title, thumbnails: { high: { url: x.thumb } }, channelTitle: x.channelTitle, channelId: x.channelId, publishedAt: new Date().toISOString() } }));
+        // ★修正: 後で見るリストのサムネイルも /api/thumb?id= 形式を使用
+        this.currentList = list.map(x => ({ id: x.id, snippet: { title: x.title, thumbnails: { high: { url: `/api/thumb?id=${x.id}` } }, channelTitle: x.channelTitle, channelId: x.channelId, publishedAt: new Date().toISOString() } }));
         this.activePlaylistName = "後で見る";
         this.renderGrid("<h2>📌 後で見る</h2>");
     },
@@ -726,7 +735,8 @@ const Actions = {
     showHistory() {
         this.currentView = "history";
         const history = Storage.get('yt_history');
-        this.currentList = history.map(x => ({ id: x.id, snippet: { title: x.title, thumbnails: { high: { url: x.thumb } }, channelTitle: x.channelTitle, publishedAt: new Date().toISOString() } }));
+        // ★修正: 履歴のサムネイルも /api/thumb?id= 形式を使用
+        this.currentList = history.map(x => ({ id: x.id, snippet: { title: x.title, thumbnails: { high: { url: `/api/thumb?id=${x.id}` } }, channelTitle: x.channelTitle, publishedAt: new Date().toISOString() } }));
         this.activePlaylistName = null;
         this.renderGrid("<h2>履歴</h2>");
     },
