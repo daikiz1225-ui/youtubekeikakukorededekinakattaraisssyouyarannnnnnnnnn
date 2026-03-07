@@ -1,4 +1,4 @@
-/* app.js - Sidebar Timeline & Resume Section Integrated */
+/* app.js - Sidebar Timeline & Resume Section Integrated + Subscriptions Layout Updated */
 
 // --- ユーティリティ ---
 function timeAgo(dateString) {
@@ -800,17 +800,78 @@ const Actions = {
         this.renderGrid(`<h2>最新動画</h2>`);
     },
 
-    showSubs() {
+    // ★修正対象: 登録済み画面（showSubs）の刷新
+    async showSubs() {
         this.currentView = "subs";
         const subs = Storage.get('yt_subs');
-        const isAdmin = Storage.isAdmin();
-        this.selectedSubs = this.selectedSubs.filter(id => subs.some(s => s.id === id));
-        const html = subs.map(ch => {
-            const isSel = this.selectedSubs.includes(ch.id);
-            const borderStyle = isSel ? 'border: 4px solid #0055ff; box-shadow: 0 0 15px rgba(0,85,255,0.8);' : 'border: 4px solid #444;';
-            return `<div class="v-card" style="padding:20px; text-align:center;" onclick="Actions.showChannel('${ch.id}')"><div style="display:inline-block; border-radius:50%; padding:4px; ${borderStyle} cursor:pointer;" onclick="event.stopPropagation(); ${isAdmin ? '' : "Actions.toggleSubSelect('"+ch.id+"')" }"><img src="${ch.thumb}" style="width:92px; height:92px; border-radius:50%;"></div><h3 style="margin-top:10px;">${ch.name}</h3></div>`;
-        }).join('');
-        document.getElementById('view-container').innerHTML = `<div style="padding:20px; padding-bottom:100px;"><h2>登録済み</h2><div class="grid">${html}</div></div>`;
+        const container = document.getElementById('view-container');
+        
+        // 1. チャンネルアイコン横スライドUI
+        const scrollStyles = `
+            display: flex; 
+            overflow-x: auto; 
+            gap: 20px; 
+            padding: 15px 20px; 
+            background: #0f0f0f;
+            border-bottom: 1px solid #333;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        `;
+        
+        const channelItemsHtml = subs.map(ch => `
+            <div style="flex: 0 0 auto; text-align: center; width: 80px; cursor: pointer;" onclick="Actions.showChannel('${ch.id}')">
+                <img src="${ch.thumb}" style="width: 60px; height: 60px; border-radius: 50%; border: 2px solid #444;">
+                <div style="font-size: 10px; color: #fff; margin-top: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${ch.name}</div>
+            </div>
+        `).join('');
+
+        container.innerHTML = `
+            <div style="${scrollStyles}" class="no-scrollbar">${channelItemsHtml}</div>
+            <div style="padding: 20px;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <h2 style="margin:0;">最新タイムライン</h2>
+                    <span style="font-size:12px; color:#aaa;">(3日以内の一括取得)</span>
+                </div>
+                <div id="subs-timeline-grid" class="grid" style="margin-top:20px;">タイムライン読み込み中...</div>
+            </div>
+        `;
+
+        // 2. タイムライン読み込み (loadSubsTimeline ロジック)
+        try {
+            const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+            let allActivities = [];
+            
+            // 5チャンネルずつ並列処理
+            for (let i = 0; i < subs.length; i += 5) {
+                const chunk = subs.slice(i, i + 5);
+                const promises = chunk.map(ch => YT.fetchAPI('activities', { 
+                    channelId: ch.id, 
+                    part: 'snippet,contentDetails', 
+                    maxResults: 5, 
+                    publishedAfter: threeDaysAgo.toISOString() 
+                }));
+                const results = await Promise.all(promises);
+                results.forEach(res => { if (res.items) allActivities = [...allActivities, ...res.items]; });
+            }
+
+            // uploadイベントのみを抽出・ソート
+            const timelineVideos = allActivities
+                .filter(a => a.snippet.type === 'upload')
+                .sort((a, b) => new Date(b.snippet.publishedAt) - new Date(a.snippet.publishedAt));
+
+            this.currentList = timelineVideos;
+            await this.fillStats(this.currentList);
+            
+            const grid = document.getElementById('subs-timeline-grid');
+            if (timelineVideos.length === 0) {
+                grid.innerHTML = `<p style="color:#aaa; text-align:center; grid-column: 1/-1; padding:40px;">3日以内の新着動画はありません。</p>`;
+            } else {
+                grid.innerHTML = this.renderCards(timelineVideos);
+            }
+        } catch (e) {
+            console.error("Subs timeline load failed", e);
+            document.getElementById('subs-timeline-grid').innerHTML = "タイムラインの取得に失敗しました。";
+        }
     },
 
     showWatchLater() {
