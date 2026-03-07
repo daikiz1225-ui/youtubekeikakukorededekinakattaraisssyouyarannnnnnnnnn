@@ -1,4 +1,4 @@
-/* app.js - Final Mode-Specific Fix & Live Glow Update (Search & Pagination Integrated) + Komento Sorting Support */
+/* app.js - Sidebar Latest Feed & Resume Playback & API Fix Integration */
 
 // --- ユーティリティ ---
 function timeAgo(dateString) {
@@ -24,17 +24,16 @@ const YT = {
     keys: ["AIzaSyBfCvyZ_J9mJiMFNYB6WfcuLyvf9zDdcUU", "AIzaSyCgVn-JWHKT_z6EC73Z6Vlex0F_d-BP_fY", "AIzaSyBbqPhAbqoWDOurTt7hejQmwc6dAoZ5Iy0", "AIzaSyAWk9mmie23-khi8-nipv1jHJND__UtEWA", "AIzaSyBL38iyqeiaKHoKqhloSnhG590DfJ35vCE","AIzaSyDU4jrOT0o2Jd4zDwZyU5OOBsKt1P3RJNs","AIzaSyB2L_plk45E1wihBUB4VJ516pIfqcBc2Yw","AIzaSyDcYrvxFDKcXNqI65Aihrqk0uK2Ebj7KVo","AIzaSyAmfASO-61oyXFOfzJCR9e3oGbnKenBZb","AIzaSyCU7xnDWAFbXt1ze0_DBaWDKt7NDT1XP7"],
     currentEduKey: "",
 
-    // ★修正: 動画ID取得の汎用化 (指示通りの書き方に統一)
+    // ★動画ID取得の汎用化
     getVideoId(item) {
         if (!item) return "";
-        return item.id?.videoId || item.contentDetails?.videoId || item.snippet?.resourceId?.videoId || (typeof item.id === 'string' ? item.id : "");
+        return item.id?.videoId || item.contentDetails?.videoId || item.contentDetails?.upload?.videoId || item.snippet?.resourceId?.videoId || (typeof item.id === 'string' ? item.id : "");
     },
 
-    // ★修正: 再生リストのサムネイルもプロキシ経由に統一
+    // ★サムネイルURLをプロキシ経由に統一（再生リスト対応）
     getProxiedThumb(video) {
         const vId = this.getVideoId(video);
         if (vId) return `/api/thumb?id=${vId}`;
-        // IDが取れない場合のフォールバック
         return video.snippet?.thumbnails?.high?.url || video.snippet?.thumbnails?.default?.url || "";
     },
 
@@ -69,15 +68,27 @@ const YT = {
     },
 
     async fetchAPI(endpoint, params) {
-        return await SearchHandler.fetch(endpoint, params);
+        if (typeof SearchHandler !== 'undefined') {
+            return await SearchHandler.fetch(endpoint, params);
+        }
+        const queryParams = new URLSearchParams({ ...params, key: this.getCurrentKey() });
+        const url = `https://www.googleapis.com/youtube/v3/${endpoint}?${queryParams.toString()}`;
+        try {
+            const response = await fetch(url);
+            if (response.status === 403) { this.rotateKey(); return this.fetchAPI(endpoint, params); }
+            if (!response.ok) throw new Error("API error");
+            return await response.json();
+        } catch (error) { return { items: [], nextPageToken: "" }; }
     },
 
     getEmbedUrl(id, isShort = false) {
         const config = { enc: this.currentEduKey, hideTitle: true };
+        const startTime = Storage.getResumeTime(id); // ★レジューム再生対応
         const params = new URLSearchParams({
             autoplay: 1, origin: location.origin,
             embed_config: JSON.stringify(config), rel: 0, modestbranding: 1, enablejsapi: 1, v: id
         });
+        if (startTime > 0) params.append('start', startTime);
         if (isShort) { params.append('loop', '1'); params.append('playlist', id); }
         return `https://www.youtubeeducation.com/embed/${id}?${params.toString()}`;
     }
@@ -88,12 +99,26 @@ const Storage = {
     set(key, value) { localStorage.setItem(key, JSON.stringify(value)); },
     isAdmin() { return localStorage.getItem('is_admin') === 'true'; },
     setAdmin(status) { localStorage.setItem('is_admin', status); },
+    
+    // ★レジューム再生用
+    saveResumeTime(vId, seconds) {
+        let times = this.get('yt_resume_times');
+        if (Array.isArray(times)) times = {}; // 形式変換用
+        times[vId] = Math.floor(seconds);
+        localStorage.setItem('yt_resume_times', JSON.stringify(times));
+    },
+    getResumeTime(vId) {
+        const times = JSON.parse(localStorage.getItem('yt_resume_times') || '{}');
+        return times[vId] || 0;
+    },
+
     addHistory(v) { let h = this.get('yt_history'); h = [v, ...h.filter(x => x.id !== v.id)].slice(0, 50); this.set('yt_history', h); },
     toggleSub(ch) {
         let s = this.get('yt_subs');
         const i = s.findIndex(x => x.id === ch.id);
         if (i > -1) s.splice(i, 1); else s.push({ id: ch.id, name: ch.name, thumb: ch.thumb || '' });
         this.set('yt_subs', s);
+        Actions.loadSidebarLatest(); // 登録変更時にサイドバー更新
     },
     toggleWatchLater(v) {
         let list = this.get('yt_watchlater');
@@ -162,10 +187,71 @@ const Actions = {
                 const homeNav = document.querySelector('.sidebar .nav-item[onclick="Actions.goHome()"]');
                 if (homeNav) homeNav.insertAdjacentHTML('afterend', '<div id="nav-ai-recommend" class="nav-item" onclick="Actions.showAIRecommendations()">🤖<span>AIおすすめ</span></div>');
             }
+            // ★サイドバー新着コンテナの追加
+            if (!document.getElementById('sidebar-latest-container')) {
+                const subSection = document.querySelector('.sidebar .nav-item[onclick="Actions.showSubs()"]');
+                if (subSection) {
+                    subSection.insertAdjacentHTML('afterend', `
+                        <div id="sidebar-latest-container" style="margin-top:15px; padding:0 10px;">
+                            <p style="font-size:12px; color:#aaa; margin-bottom:10px; padding-left:10px;">✨ 登録chの新着</p>
+                            <div id="sidebar-latest-list" style="display:flex; flex-direction:column; gap:10px;"></div>
+                        </div>`);
+                }
+            }
             if (!document.getElementById('nav-admin-login')) {
                 sidebar.insertAdjacentHTML('beforeend', `<hr><div id="nav-admin-login" class="nav-item" onclick="Actions.adminLogin()" style="opacity:0.5; font-size:12px;">🔑<span>${Storage.isAdmin() ? '管理者ログイン済み' : '管理者ログイン'}</span></div>`);
             }
         }
+    },
+
+    // ★サイドバーへの自動表示ロジック（activities API使用）
+    async loadSidebarLatest() {
+        const subs = Storage.get('yt_subs');
+        if (subs.length === 0) return;
+        const listEl = document.getElementById('sidebar-latest-list');
+        if (!listEl) return;
+        listEl.innerHTML = '<p style="font-size:11px; color:#666; padding-left:10px;">読込中...</p>';
+
+        try {
+            const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+            let allActivities = [];
+            
+            // API制限を考慮し、最大5チャンネルずつ並列取得
+            for (let i = 0; i < subs.length; i += 5) {
+                const chunk = subs.slice(i, i + 5);
+                const promises = chunk.map(ch => YT.fetchAPI('activities', { channelId: ch.id, part: 'snippet,contentDetails', maxResults: 3, publishedAfter: threeDaysAgo.toISOString() }));
+                const results = await Promise.all(promises);
+                results.forEach(res => { if (res.items) allActivities = [...allActivities, ...res.items]; });
+            }
+
+            const latestVideos = allActivities
+                .filter(item => item.snippet.type === 'upload')
+                .sort((a, b) => new Date(b.snippet.publishedAt) - new Date(a.snippet.publishedAt))
+                .slice(0, 10);
+
+            if (latestVideos.length === 0) {
+                listEl.innerHTML = '<p style="font-size:11px; color:#666; padding-left:10px;">新着なし</p>';
+                return;
+            }
+
+            listEl.innerHTML = latestVideos.map(item => {
+                const vId = item.contentDetails.upload.videoId;
+                const snip = item.snippet;
+                return `
+                <div class="sidebar-v-card" onclick="Actions.playFromSidebar('${vId}')" style="cursor:pointer; display:flex; gap:8px; align-items:flex-start; padding:5px; border-radius:8px; transition:background 0.2s;">
+                    <img src="/api/thumb?id=${vId}" style="width:70px; aspect-ratio:16/9; object-fit:cover; border-radius:4px;">
+                    <div style="flex:1; overflow:hidden;">
+                        <div style="font-size:11px; font-weight:bold; color:#eee; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; line-height:1.2;">${snip.title}</div>
+                        <div style="font-size:10px; color:#aaa; margin-top:2px;">${snip.channelTitle}</div>
+                    </div>
+                </div>`;
+            }).join('');
+        } catch (e) { console.error("Sidebar update failed", e); }
+    },
+
+    async playFromSidebar(vId) {
+        const data = await YT.fetchAPI('videos', { id: vId, part: 'snippet' });
+        if (data.items && data.items[0]) this.play(data.items[0]);
     },
 
     adminLogin() {
@@ -337,16 +423,10 @@ const Actions = {
     renderCards(items) {
         return items.map((item, index) => {
             const snip = item.snippet;
-            
-            // ★修正: 動画ID取得の汎用化
-            const vId = item.id?.videoId || item.contentDetails?.videoId || item.snippet?.resourceId?.videoId || (typeof item.id === 'string' ? item.id : "");
-            
-            // ★修正: 再生リスト表示時のサムネイル不具合修正
             const thumb = YT.getProxiedThumb(item);
-            
             const isPlaylist = !!(item.id?.playlistId || (item.kind === 'youtube#playlist'));
             const isLive = snip.liveBroadcastContent === 'live';
-            
+            const vId = YT.getVideoId(item);
             const plId = item.id?.playlistId || (typeof item.id === 'string' ? item.id : "");
             const stats = vId ? this.videoStats[vId] : null;
             const metaInfo = isPlaylist ? 
@@ -433,29 +513,24 @@ const Actions = {
         else if (this.currentView === "watchlater") this.showWatchLater();
     },
 
-    // ★修正: コメント取得APIのパラメータ名とURLを完全に同期
+    // ★API仕様に完全準拠したコメント取得
     async showComments(vId, order = 'relevance') {
         let panel = document.getElementById('comment-panel');
-        
         if (panel && panel.dataset.vId === vId && panel.dataset.order === order) {
             panel.remove();
             document.querySelector('.watch-layout, .shorts-container').style.marginRight = "0";
             return;
         }
-
         const layout = document.querySelector('.watch-layout, .shorts-container');
         if (layout) layout.style.marginRight = "400px";
-
         if (!panel) {
             panel = document.createElement('div');
             panel.id = 'comment-panel';
             panel.style = "position:fixed; top:60px; right:0; width:400px; height:calc(100vh - 60px); background:#0f0f0f; border-left:1px solid #333; z-index:100; padding:20px; overflow-y:auto; color:white;";
             document.body.appendChild(panel);
         }
-
         panel.dataset.vId = vId;
         panel.dataset.order = order;
-        
         panel.innerHTML = `
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
                 <h3 style="margin:0;">コメント</h3>
@@ -467,7 +542,6 @@ const Actions = {
             <div id="comment-list">読み込み中...</div>`;
 
         try {
-            // ★修正: パラメータ名を vId に、キーを YT.getCurrentKey() に書き換え
             const resp = await fetch(`/api/komento?vId=${vId}&key=${YT.getCurrentKey()}&order=${order}`);
             const data = await resp.json();
             const list = document.getElementById('comment-list');
@@ -477,28 +551,17 @@ const Actions = {
             }
             list.innerHTML = data.items.map(item => {
                 const c = item.snippet.topLevelComment.snippet;
-                return `
-                <div style="display:flex; gap:10px; margin-bottom:20px; font-size:13px;">
-                    <img src="${c.authorProfileImageUrl}" style="width:35px; height:35px; border-radius:50%;">
-                    <div>
-                        <div style="font-weight:bold;">${c.authorDisplayName} <span style="color:#aaa; font-weight:normal;">${timeAgo(c.publishedAt)}</span></div>
-                        <div style="margin-top:5px; white-space:pre-wrap;">${c.textDisplay}</div>
-                        <div style="color:#aaa; margin-top:5px;">👍 ${c.likeCount}</div>
-                    </div>
-                </div>`;
+                return `<div style="display:flex; gap:10px; margin-bottom:20px; font-size:13px;"><img src="${c.authorProfileImageUrl}" style="width:35px; height:35px; border-radius:50%;"><div><div style="font-weight:bold;">${c.authorDisplayName} <span style="color:#aaa; font-weight:normal;">${timeAgo(c.publishedAt)}</span></div><div style="margin-top:5px; white-space:pre-wrap;">${c.textDisplay}</div><div style="color:#aaa; margin-top:5px;">👍 ${c.likeCount}</div></div></div>`;
             }).join('');
-        } catch (e) {
-            document.getElementById('comment-list').innerHTML = "コメントの取得に失敗しました。";
-        }
+        } catch (e) { document.getElementById('comment-list').innerHTML = "コメント取得失敗"; }
     },
 
     async play(video) {
-        // ★修正: 動画ID取得の汎用化
         const vId = YT.getVideoId(video);
         const snip = video.snippet;
         const isSubbed = Storage.get('yt_subs').some(x => x.id === snip.channelId);
         const isWatchLater = Storage.isWatchLater(vId);
-        const isShorts = this.currentView === "shorts" || snip.title.includes("#Shorts") || (snip.description && snip.description.includes("#Shorts"));
+        const isShorts = this.currentView === "shorts" || snip.title.includes("#Shorts");
         const safeTitle = snip.title.replace(/'/g, "\\'").replace(/"/g, '&quot;');
         const safeChTitle = snip.channelTitle.replace(/'/g, "\\'").replace(/"/g, '&quot;');
         const thumbUrl = `/api/thumb?id=${vId}`;
@@ -511,7 +574,7 @@ const Actions = {
                 <div class="shorts-container">
                     <div class="nav-arrow arrow-prev" onclick="Actions.playRelative(-1)">←</div>
                     <div class="nav-arrow arrow-next" onclick="Actions.playRelative(1)">→</div>
-                    <div style="width:360px; height:640px; background:#000; border-radius:15px; overflow:hidden;"><iframe src="${YT.getEmbedUrl(vId, true)}" style="width:100%; height:100%; border:none;"></iframe></div>
+                    <div style="width:360px; height:640px; background:#000; border-radius:15px; overflow:hidden;"><iframe id="yt-player" src="${YT.getEmbedUrl(vId, true)}" style="width:100%; height:100%; border:none;"></iframe></div>
                     <div style="width:360px; margin-top:15px;">
                         <h3>${snip.title}</h3>
                         <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 10px;">
@@ -529,7 +592,7 @@ const Actions = {
             document.getElementById('view-container').innerHTML = `
                 <div class="watch-layout">
                     <div class="player-area">
-                        <div class="video-wrapper"><iframe src="${YT.getEmbedUrl(vId)}" style="width:100%; height:100%; border:none;" allowfullscreen allow="autoplay"></iframe></div>
+                        <div class="video-wrapper"><iframe id="yt-player" src="${YT.getEmbedUrl(vId)}" style="width:100%; height:100%; border:none;" allowfullscreen allow="autoplay"></iframe></div>
                         <div style="margin-top:15px; display:flex; gap:10px; align-items:center; background:#1e1e1e; padding:10px 20px; border-radius:10px; flex-wrap:wrap;">
                             <span style="font-size:14px; color:#aaa; font-weight:bold; margin-right:10px;">再生速度:</span>
                             <button class="btn" onclick="Actions.changeSpeed(0.5)">0.5x</button>
@@ -579,6 +642,23 @@ const Actions = {
                 </div>`).join('');
         }
         Storage.addHistory({ id: vId, title: snip.title, thumb: thumbUrl, channelTitle: snip.channelTitle });
+
+        // ★再生時間を定期的に保存（レジューム用）
+        if (this.resumeInterval) clearInterval(this.resumeInterval);
+        this.resumeInterval = setInterval(() => {
+            const iframe = document.getElementById('yt-player');
+            if (iframe) {
+                iframe.contentWindow.postMessage(JSON.stringify({ event: 'listening', id: 1 }), '*');
+                window.addEventListener('message', function(e) {
+                    try {
+                        const data = JSON.parse(e.data);
+                        if (data.event === 'infoDelivery' && data.info && data.info.currentTime) {
+                            Storage.saveResumeTime(vId, data.info.currentTime);
+                        }
+                    } catch(err) {}
+                });
+            }
+        }, 10000);
     },
 
     async showChannel(chId) {
@@ -647,55 +727,19 @@ const Actions = {
         const subs = Storage.get('yt_subs');
         const targetIds = Storage.isAdmin() ? subs.map(s => s.id) : this.selectedSubs;
         if (targetIds.length === 0) return;
-
         this.currentView = "latest_subs";
         const container = document.getElementById('view-container');
-        container.innerHTML = `<div style="padding:20px;"><h2>3日以内の最新動画をキャッチ中...</h2></div>`;
-
-        try {
-            const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
-
-            const chData = await YT.fetchAPI('channels', { id: targetIds.join(','), part: 'contentDetails' });
-            if (!chData.items) return;
-
-            let allVideos = [];
-            const playlistPromises = chData.items.map(ch => {
-                const uploadsListId = ch.contentDetails?.relatedPlaylists?.uploads;
-                if (uploadsListId) {
-                    return YT.fetchAPI('playlistItems', { playlistId: uploadsListId, part: 'snippet', maxResults: 15 });
-                }
-                return null;
-            }).filter(p => p !== null);
-
-            const playlistResults = await Promise.all(playlistPromises);
-            
-            playlistResults.forEach(res => {
-                if (res.items) {
-                    const recentVideos = res.items.filter(item => {
-                        const publishDate = new Date(item.snippet.publishedAt);
-                        return publishDate >= threeDaysAgo;
-                    });
-                    allVideos = allVideos.concat(recentVideos);
-                }
-            });
-
-            allVideos.sort((a, b) => new Date(b.snippet.publishedAt) - new Date(a.snippet.publishedAt));
-
-            this.currentList = allVideos;
-            this.nextToken = ""; 
-            this.activePlaylistName = null;
-
-            if (allVideos.length === 0) {
-                container.innerHTML = `<div style="padding:20px;"><h2>過去3日間に投稿された動画はありません。</h2></div>`;
-                return;
-            }
-
-            await this.fillStats(this.currentList);
-            this.renderGrid(`<h2>最新動画 (3日以内)</h2>`);
-        } catch (e) {
-            console.error("最新動画取得エラー:", e);
-            container.innerHTML = `<div style="padding:20px;"><h2>動画の取得に失敗しました。</h2></div>`;
-        }
+        container.innerHTML = `<div style="padding:20px;"><h2>最新動画をキャッチ中...</h2></div>`;
+        const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
+        let allVideos = [];
+        const promises = targetIds.map(chId => YT.fetchAPI('search', { channelId: chId, part: 'snippet', type: 'video', order: 'date', publishedAfter: threeDaysAgo, maxResults: 5 }));
+        const results = await Promise.all(promises);
+        results.forEach(res => { if (res.items) allVideos = allVideos.concat(res.items); });
+        allVideos.sort((a, b) => new Date(b.snippet.publishedAt) - new Date(a.snippet.publishedAt));
+        this.currentList = allVideos; this.nextToken = ""; 
+        this.activePlaylistName = null;
+        await this.fillStats(this.currentList);
+        this.renderGrid(`<h2>最新動画</h2>`);
     },
 
     showSubs() {
@@ -708,19 +752,13 @@ const Actions = {
             const borderStyle = isSel ? 'border: 4px solid #0055ff; box-shadow: 0 0 15px rgba(0,85,255,0.8);' : 'border: 4px solid #444;';
             return `<div class="v-card" style="padding:20px; text-align:center;" onclick="Actions.showChannel('${ch.id}')"><div style="display:inline-block; border-radius:50%; padding:4px; ${borderStyle} cursor:pointer;" onclick="event.stopPropagation(); ${isAdmin ? '' : "Actions.toggleSubSelect('"+ch.id+"')" }"><img src="${ch.thumb}" style="width:92px; height:92px; border-radius:50%;"></div><h3 style="margin-top:10px;">${ch.name}</h3></div>`;
         }).join('');
-        let btnHtml = "";
-        if (isAdmin) {
-            btnHtml = `<div style="position:fixed; bottom:30px; left:50%; transform:translateX(-50%); z-index:1000;"><button class="btn" style="background:linear-gradient(45deg, #ff0000, #ff4e45); color:#fff; padding:15px 30px; font-size:16px; border-radius:30px; box-shadow:0 10px 20px rgba(0,0,0,0.5);" onclick="Actions.catchLatestSubVideos()">👑 全ch最新キャッチ</button></div>`;
-        } else if (this.selectedSubs.length > 0) {
-            btnHtml = `<div style="position:fixed; bottom:30px; left:50%; transform:translateX(-50%); z-index:1000;"><button class="btn" style="background:#0055ff; color:#fff; padding:15px 30px; font-size:16px; border-radius:30px; box-shadow:0 10px 20px rgba(0,0,0,0.5);" onclick="Actions.catchLatestSubVideos()">${this.selectedSubs.length}件をキャッチ</button></div>`;
-        }
-        document.getElementById('view-container').innerHTML = `<div style="padding:20px; padding-bottom:100px;"><h2>登録済み</h2><div class="grid">${html}</div></div>${btnHtml}`;
+        document.getElementById('view-container').innerHTML = `<div style="padding:20px; padding-bottom:100px;"><h2>登録済み</h2><div class="grid">${html}</div></div>`;
     },
 
     showWatchLater() {
         this.currentView = "watchlater";
         const list = Storage.get('yt_watchlater');
-        this.currentList = list.map(x => ({ id: x.id, snippet: { title: x.title, thumbnails: { high: { url: `/api/thumb?id=${x.id}` } }, channelTitle: x.channelTitle, channelId: x.channelId, publishedAt: new Date().toISOString() } }));
+        this.currentList = list.map(x => ({ id: x.id, snippet: { title: x.title, thumbnails: { high: { url: x.thumb } }, channelTitle: x.channelTitle, channelId: x.channelId, publishedAt: new Date().toISOString() } }));
         this.activePlaylistName = "後で見る";
         this.renderGrid("<h2>📌 後で見る</h2>");
     },
@@ -728,7 +766,7 @@ const Actions = {
     showHistory() {
         this.currentView = "history";
         const history = Storage.get('yt_history');
-        this.currentList = history.map(x => ({ id: x.id, snippet: { title: x.title, thumbnails: { high: { url: `/api/thumb?id=${x.id}` } }, channelTitle: x.channelTitle, publishedAt: new Date().toISOString() } }));
+        this.currentList = history.map(x => ({ id: x.id, snippet: { title: x.title, thumbnails: { high: { url: x.thumb } }, channelTitle: x.channelTitle, publishedAt: new Date().toISOString() } }));
         this.activePlaylistName = null;
         this.renderGrid("<h2>履歴</h2>");
     },
@@ -740,7 +778,12 @@ const Actions = {
     }
 };
 
-window.onload = async () => { Actions.init(); await YT.refreshEduKey(); Actions.goHome(); };
+window.onload = async () => { 
+    Actions.init(); 
+    await YT.refreshEduKey(); 
+    Actions.goHome(); 
+    Actions.loadSidebarLatest(); // ★起動時にサイドバーの新着を自動読込
+};
 
 /* 各種ゲーム起動用関数 */
 function startTetris() { if (typeof initTetris === 'function') initTetris(); else Actions.showStatusNotification("エラー"); }
