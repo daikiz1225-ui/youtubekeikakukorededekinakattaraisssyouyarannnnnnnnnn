@@ -1,4 +1,4 @@
-/* app.js - Subscriptions Refined & Sidebar Cleaned (NO TRUNCATION) */
+/* app.js - Render API Integration, Sidebar Cleaned, Full Logic Inherited (NO TRUNCATION) */
 
 // --- ユーティリティ ---
 function timeAgo(dateString) {
@@ -48,9 +48,14 @@ const YT = {
     },
 
     seek(seconds) {
-        const iframe = document.querySelector('.video-wrapper iframe, .shorts-container iframe');
-        if (iframe) {
-            iframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'seekTo', args: [seconds, true] }), '*');
+        const videoTag = document.getElementById('native-player');
+        if (videoTag) {
+            videoTag.currentTime = seconds;
+        } else {
+            const iframe = document.querySelector('.video-wrapper iframe');
+            if (iframe) {
+                iframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'seekTo', args: [seconds, true] }), '*');
+            }
         }
     },
 
@@ -99,14 +104,16 @@ const Storage = {
     set(key, value) { localStorage.setItem(key, JSON.stringify(value)); },
     isAdmin() { return localStorage.getItem('is_admin') === 'true'; },
     setAdmin(status) { localStorage.setItem('is_admin', status); },
+    
+    isStreamMode() { return localStorage.getItem('yt_stream_mode') === 'true'; },
+    setStreamMode(val) { localStorage.setItem('yt_stream_mode', val); },
 
     saveResumeProgress(video, currentTime, duration) {
         let list = this.get('yt_resume_list');
         if (!Array.isArray(list)) list = [];
-        
         const vId = YT.getVideoId(video);
         if (!vId) return;
-
+        
         if (duration > 0 && (currentTime / duration) >= 0.95) {
             list = list.filter(item => item.id !== vId);
             this.set('yt_resume_list', list);
@@ -139,7 +146,6 @@ const Storage = {
         const i = s.findIndex(x => x.id === ch.id);
         if (i > -1) s.splice(i, 1); else s.push({ id: ch.id, name: ch.name, thumb: ch.thumb || '' });
         this.set('yt_subs', s);
-        Actions.loadSidebarLatest();
     },
     toggleWatchLater(v) {
         let list = this.get('yt_watchlater');
@@ -185,7 +191,6 @@ const Actions = {
     currentView: "home",
     nextToken: "",
     currentParams: {},
-    selectedSubs: [],
     activePlaylistName: null,
     videoStats: {},
     resumeTimer: null,
@@ -201,7 +206,6 @@ const Actions = {
                 const homeNav = document.querySelector('.sidebar .nav-item[onclick="Actions.goHome()"]');
                 if (homeNav) homeNav.insertAdjacentHTML('afterend', '<div id="nav-resume" class="nav-item" onclick="Actions.showResumeList()" style="color:#ff8c00;">🕒<span>続きから見る</span></div>');
             }
-
             if (!document.getElementById('nav-watch-later')) {
                 const historyNav = document.querySelector('.sidebar .nav-item[onclick="Actions.showHistory()"]');
                 if (historyNav) historyNav.insertAdjacentHTML('beforebegin', '<div id="nav-watch-later" class="nav-item" onclick="Actions.showWatchLater()">📌<span>後で見る</span></div>');
@@ -214,36 +218,32 @@ const Actions = {
                 const homeNav = document.querySelector('.sidebar .nav-item[onclick="Actions.goHome()"]');
                 if (homeNav) homeNav.insertAdjacentHTML('afterend', '<div id="nav-ai-recommend" class="nav-item" onclick="Actions.showAIRecommendations()">🤖<span>AIおすすめ</span></div>');
             }
-
             if (!document.getElementById('nav-admin-login')) {
                 sidebar.insertAdjacentHTML('beforeend', `<hr><div id="nav-admin-login" class="nav-item" onclick="Actions.adminLogin()" style="opacity:0.5; font-size:12px;">🔑<span>${Storage.isAdmin() ? '管理者ログイン済み' : '管理者ログイン'}</span></div>`);
             }
         }
     },
 
-    // サイドバーの動画表示機能を排除（空関数化）
-    loadSidebarLatest() {},
-
-    async playFromSidebar(vId) {
-        const data = await YT.fetchAPI('videos', { id: vId, part: 'snippet' });
-        if (data.items && data.items[0]) this.play(data.items[0]);
+    toggleStreamMode() {
+        const current = Storage.isStreamMode();
+        Storage.setStreamMode(!current);
+        if (this.currentIndex !== -1) {
+            this.play(this.currentList[this.currentIndex]);
+        }
     },
 
     showResumeList() {
         this.currentView = "resume";
         const list = Storage.get('yt_resume_list');
         const container = document.getElementById('view-container');
-        
         if (list.length === 0) {
             container.innerHTML = `<div style="padding:40px; text-align:center;"><h2>🕒 続きから見る動画はありません</h2><p style="color:#aaa;">視聴途中の動画がここに3つまで表示されます。</p></div>`;
             return;
         }
-
         this.currentList = list.map(x => ({ 
             id: x.id, 
             snippet: { title: x.title, thumbnails: { high: { url: x.thumb } }, channelTitle: x.channelTitle, publishedAt: new Date(x.timestamp).toISOString() } 
         }));
-
         let html = `<div style="padding:20px;"><h2>🕒 続きから見る</h2><div class="grid">`;
         list.forEach((v, i) => {
             const progress = (v.time / v.duration) * 100;
@@ -420,8 +420,7 @@ const Actions = {
         const results = await Promise.all(promises);
         const vData = results[0];
         const plData = results[1] || { items: [] };
-        const limitedPlaylists = plData.items.slice(0, 5);
-        this.currentList = [...limitedPlaylists, ...vData.items];
+        this.currentList = [...plData.items.slice(0, 5), ...vData.items];
         this.nextToken = vData.nextPageToken || "";
         this.activePlaylistName = null; 
         await this.fillStats(this.currentList);
@@ -437,9 +436,7 @@ const Actions = {
             const vId = YT.getVideoId(item);
             const plId = item.id?.playlistId || (typeof item.id === 'string' ? item.id : "");
             const stats = vId ? this.videoStats[vId] : null;
-            const metaInfo = isPlaylist ? 
-                `<span style="color:#3ea6ff; font-weight:bold;">📋 再生リスト</span>` : 
-                `<span>${formatViews(stats)} • ${timeAgo(snip.publishedAt)}</span>`;
+            const metaInfo = isPlaylist ? `<span style="color:#3ea6ff; font-weight:bold;">📋 再生リスト</span>` : `<span>${formatViews(stats)} • ${timeAgo(snip.publishedAt)}</span>`;
             const glowStyle = isLive ? 'box-shadow: 0 0 15px #ff0000; border: 2px solid #ff0000;' : '';
             return `
             <div class="v-card" style="${glowStyle}" onclick="${isPlaylist ? `Actions.showPlaylistView('${plId}', '${snip.title.replace(/'/g,"")}')` : `Actions.playFromList(${index})`}">
@@ -510,8 +507,12 @@ const Actions = {
     },
 
     changeSpeed(rate) {
-        const iframe = document.querySelector('.video-wrapper iframe, .shorts-container iframe');
-        if (iframe) iframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'setPlaybackRate', args: [rate] }), '*');
+        const video = document.getElementById('native-player');
+        if (video) { video.playbackRate = rate; }
+        else {
+            const iframe = document.querySelector('.video-wrapper iframe');
+            if (iframe) iframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'setPlaybackRate', args: [rate] }), '*');
+        }
     },
 
     handleWatchLater(id, title, channelTitle, thumb, channelId) {
@@ -525,10 +526,10 @@ const Actions = {
         let panel = document.getElementById('comment-panel');
         if (panel && panel.dataset.vId === vId && panel.dataset.order === order) {
             panel.remove();
-            document.querySelector('.watch-layout, .shorts-container').style.marginRight = "0";
+            document.querySelector('.watch-layout').style.marginRight = "0";
             return;
         }
-        const layout = document.querySelector('.watch-layout, .shorts-container');
+        const layout = document.querySelector('.watch-layout');
         if (layout) layout.style.marginRight = "400px";
         if (!panel) {
             panel = document.createElement('div');
@@ -547,15 +548,11 @@ const Actions = {
                 </div>
             </div>
             <div id="comment-list">読み込み中...</div>`;
-
         try {
             const resp = await fetch(`/api/komento?vId=${vId}&key=${YT.getCurrentKey()}&order=${order}`);
             const data = await resp.json();
             const list = document.getElementById('comment-list');
-            if (!data.items || data.items.length === 0) {
-                list.innerHTML = "コメントが無効か、存在しません。";
-                return;
-            }
+            if (!data.items || data.items.length === 0) { list.innerHTML = "無効または存在しません。"; return; }
             list.innerHTML = data.items.map(item => {
                 const c = item.snippet.topLevelComment.snippet;
                 return `<div style="display:flex; gap:10px; margin-bottom:20px; font-size:13px;"><img src="${c.authorProfileImageUrl}" style="width:35px; height:35px; border-radius:50%;"><div><div style="font-weight:bold;">${c.authorDisplayName} <span style="color:#aaa; font-weight:normal;">${timeAgo(c.publishedAt)}</span></div><div style="margin-top:5px; white-space:pre-wrap;">${c.textDisplay}</div><div style="color:#aaa; margin-top:5px;">👍 ${c.likeCount}</div></div></div>`;
@@ -568,101 +565,105 @@ const Actions = {
         const snip = video.snippet;
         const isSubbed = Storage.get('yt_subs').some(x => x.id === snip.channelId);
         const isWatchLater = Storage.isWatchLater(vId);
-        const isShorts = this.currentView === "shorts" || snip.title.includes("#Shorts");
         const safeTitle = snip.title.replace(/'/g, "\\'").replace(/"/g, '&quot;');
         const safeChTitle = snip.channelTitle.replace(/'/g, "\\'").replace(/"/g, '&quot;');
         const thumbUrl = `/api/thumb?id=${vId}`;
+        const isStream = Storage.isStreamMode();
         
         const cp = document.getElementById('comment-panel'); if (cp) cp.remove();
         window.scrollTo(0, 0);
 
-        if (isShorts) {
-            document.getElementById('view-container').innerHTML = `
-                <div class="shorts-container">
-                    <div class="nav-arrow arrow-prev" onclick="Actions.playRelative(-1)">←</div>
-                    <div class="nav-arrow arrow-next" onclick="Actions.playRelative(1)">→</div>
-                    <div style="width:360px; height:640px; background:#000; border-radius:15px; overflow:hidden;"><iframe id="yt-player" src="${YT.getEmbedUrl(vId, true)}" style="width:100%; height:100%; border:none;"></iframe></div>
-                    <div style="width:360px; margin-top:15px;">
-                        <h3>${snip.title}</h3>
-                        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 10px;">
-                            <span onclick="Actions.showChannel('${snip.channelId}')" style="cursor:pointer; color:#aaa;">${snip.channelTitle}</span>
-                        </div>
-                        <div style="display:flex; flex-wrap:wrap; gap: 8px;">
-                            <button class="btn ${isSubbed ? 'subbed' : ''}" onclick="Actions.handleSub('${snip.channelId}', '${safeChTitle}', true)">${isSubbed ? '登録済み' : '登録'}</button>
-                            <button class="btn ${isWatchLater ? 'subbed' : ''}" onclick="Actions.handleWatchLater('${vId}', '${safeTitle}', '${safeChTitle}', '${thumbUrl}', '${snip.channelId}')">${isWatchLater ? '保存済み' : '📌 後で'}</button>
-                            <button class="btn" style="background:#333;" onclick="Actions.showComments('${vId}')">💬</button>
-                            <button class="btn-download" onclick="Actions.downloadVideo('${vId}')">📥</button>
-                        </div>
-                    </div>
-                </div>`;
+        let playerHtml = '';
+        if (isStream) {
+            playerHtml = `<div class="video-wrapper" style="background:#000; display:flex; align-items:center; justify-content:center; flex-direction:column;">
+                <p id="stream-loading" style="color:#3ea6ff;">ストリームURLを取得中...</p>
+                <video id="native-player" controls autoplay style="width:100%; height:100%; display:none;"></video>
+            </div>`;
+            fetch(`/api/video?id=${vId}`).then(r => r.json()).then(data => {
+                const vTag = document.getElementById('native-player');
+                const loading = document.getElementById('stream-loading');
+                if (data.url && vTag) {
+                    vTag.src = data.url; vTag.style.display = 'block'; if (loading) loading.remove();
+                    const resumeTime = Storage.getResumeTime(vId);
+                    if (resumeTime > 0) vTag.currentTime = resumeTime;
+                } else if (loading) { loading.innerText = "再生エラー：ストリームを取得できませんでした。"; }
+            });
         } else {
-            document.getElementById('view-container').innerHTML = `
-                <div class="watch-layout">
-                    <div class="player-area">
-                        <div class="video-wrapper"><iframe id="yt-player" src="${YT.getEmbedUrl(vId)}" style="width:100%; height:100%; border:none;" allowfullscreen allow="autoplay"></iframe></div>
-                        <div style="margin-top:15px; display:flex; gap:10px; align-items:center; background:#1e1e1e; padding:10px 20px; border-radius:10px; flex-wrap:wrap;">
-                            <span style="font-size:14px; color:#aaa; font-weight:bold; margin-right:10px;">再生速度:</span>
-                            <button class="btn" onclick="Actions.changeSpeed(0.5)">0.5x</button>
-                            <button class="btn" style="background:#444;" onclick="Actions.changeSpeed(1.0)">1.0x</button>
-                            <button class="btn" onclick="Actions.changeSpeed(1.5)">1.5x</button>
-                            <button class="btn" onclick="Actions.changeSpeed(2.0)">2.0x</button>
-                        </div>
-                        <div style="padding-top:15px;">
-                            <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
-                                <h2 style="margin:0;">${snip.title}</h2>
-                                <div style="display:flex; gap:10px;">
-                                    <select id="plist-select" class="btn" style="background:#333; color:#fff; border:none;"><option value="">📂 リスト選択</option>${Object.keys(Storage.getMyPlaylists()).map(name => `<option value="${name}">${name}</option>`).join('')}</select>
-                                    <button class="btn" onclick="const n=document.getElementById('plist-select').value; if(n) Storage.addToPlaylist(n, {id:'${vId}', title:'${safeTitle}', thumb:'${thumbUrl}', channelTitle:'${safeChTitle}'}); else alert('選択してね');" style="background:#3ea6ff; color:#fff;">追加</button>
-                                </div>
+            playerHtml = `<div class="video-wrapper"><iframe id="yt-player" src="${YT.getEmbedUrl(vId)}" style="width:100%; height:100%; border:none;" allowfullscreen allow="autoplay"></iframe></div>`;
+        }
+
+        document.getElementById('view-container').innerHTML = `
+            <div class="watch-layout">
+                <div class="player-area">
+                    ${playerHtml}
+                    <div style="margin-top:15px; display:flex; gap:10px; align-items:center; background:#1e1e1e; padding:10px 20px; border-radius:10px; flex-wrap:wrap;">
+                        <span style="font-size:14px; color:#aaa; font-weight:bold; margin-right:10px;">再生速度:</span>
+                        <button class="btn" onclick="Actions.changeSpeed(0.5)">0.5x</button>
+                        <button class="btn" style="background:#444;" onclick="Actions.changeSpeed(1.0)">1.0x</button>
+                        <button class="btn" onclick="Actions.changeSpeed(1.5)">1.5x</button>
+                        <button class="btn" onclick="Actions.changeSpeed(2.0)">2.0x</button>
+                    </div>
+                    <div style="padding-top:15px;">
+                        <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+                            <h2 style="margin:0;">${snip.title}</h2>
+                            <div style="display:flex; gap:10px;">
+                                <select id="plist-select" class="btn" style="background:#333; color:#fff; border:none;"><option value="">📂 リスト選択</option>${Object.keys(Storage.getMyPlaylists()).map(name => `<option value="${name}">${name}</option>`).join('')}</select>
+                                <button class="btn" onclick="const n=document.getElementById('plist-select').value; if(n) Storage.addToPlaylist(n, {id:'${vId}', title:'${safeTitle}', thumb:'${thumbUrl}', channelTitle:'${safeChTitle}'}); else alert('選択してね');" style="background:#3ea6ff; color:#fff;">追加</button>
                             </div>
-                            <p style="color:#aaa; font-size:14px; margin-top:5px;">${formatViews(this.videoStats[vId])} • ${timeAgo(snip.publishedAt)}</p>
-                            <div style="display:flex; align-items:center; justify-content:space-between; margin-top:15px; flex-wrap:wrap; gap:10px;">
-                                <div style="display:flex; align-items:center; cursor:pointer;" onclick="Actions.showChannel('${snip.channelId}')">
-                                    <img src="${this.channelIcons[snip.channelId] || ''}" style="width:40px; height:40px; border-radius:50%;">
-                                    <span style="margin-left:10px; font-weight:bold;">${snip.channelTitle}</span>
-                                </div>
-                                <div style="display:flex; align-items:center; gap:8px;">
-                                    <button class="btn ${isSubbed ? 'subbed' : ''}" onclick="Actions.handleSub('${snip.channelId}', '${safeChTitle}', true)">${isSubbed ? '登録済み' : 'チャンネル登録'}</button>
-                                    <button class="btn ${isWatchLater ? 'subbed' : ''}" onclick="Actions.handleWatchLater('${vId}', '${safeTitle}', '${safeChTitle}', '${thumbUrl}', '${snip.channelId}')">${isWatchLater ? '保存済み' : '📌 後で'}</button>
-                                    <button class="btn" style="background:#333;" onclick="Actions.showComments('${vId}')">💬 コメント</button>
-                                    <button class="btn-download" onclick="Actions.downloadVideo('${vId}')">📥</button>
-                                </div>
+                        </div>
+                        <p style="color:#aaa; font-size:14px; margin-top:5px;">${formatViews(this.videoStats[vId])} • ${timeAgo(snip.publishedAt)}</p>
+                        <div style="display:flex; align-items:center; justify-content:space-between; margin-top:15px; flex-wrap:wrap; gap:10px;">
+                            <div style="display:flex; align-items:center; cursor:pointer;" onclick="Actions.showChannel('${snip.channelId}')">
+                                <img src="${this.channelIcons[snip.channelId] || ''}" style="width:40px; height:40px; border-radius:50%;">
+                                <span style="margin-left:10px; font-weight:bold;">${snip.channelTitle}</span>
+                            </div>
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <button class="btn" style="background:${isStream ? '#ff8c00' : '#333'}; border: ${isStream ? '1px solid #fff' : 'none'};" onclick="Actions.toggleStreamMode()">⚡️ストリーム ${isStream ? 'ON' : 'OFF'}</button>
+                                <button class="btn ${isSubbed ? 'subbed' : ''}" onclick="Actions.handleSub('${snip.channelId}', '${safeChTitle}', true)">${isSubbed ? '登録済み' : 'チャンネル登録'}</button>
+                                <button class="btn ${isWatchLater ? 'subbed' : ''}" onclick="Actions.handleWatchLater('${vId}', '${safeTitle}', '${safeChTitle}', '${thumbUrl}', '${snip.channelId}')">${isWatchLater ? '保存済み' : '📌 後で'}</button>
+                                <button class="btn" style="background:#333;" onclick="Actions.showComments('${vId}')">💬 コメント</button>
+                                <button class="btn-download" onclick="Actions.downloadVideo('${vId}')">📥</button>
                             </div>
                         </div>
                     </div>
-                    <div class="related-area"><h3 id="side-title" style="margin-top:0;">関連動画</h3><div id="side-content-box"></div></div>
-                </div>`;
-            const sideBox = document.getElementById('side-content-box');
-            if (this.activePlaylistName) {
-                document.getElementById('side-title').innerText = `再生中: ${this.activePlaylistName}`;
-                this.relatedList = this.currentList;
-            } else {
-                const qK = snip.title.replace(/[【】「」]/g, ' ').split(' ').filter(w => w.length > 1).slice(0, 3).join(' ');
-                const rel = await YT.fetchAPI('search', { q: qK, type: 'video', part: 'snippet', maxResults: 15 });
-                this.relatedList = rel.items || [];
-                await this.fillStats(this.relatedList);
-            }
-            sideBox.innerHTML = this.relatedList.map((i, idx) => `
-                <div class="v-card" style="display:flex; gap:10px; margin-bottom:12px; ${idx === this.currentIndex && this.activePlaylistName ? 'background:#333; border-left:4px solid #3ea6ff;' : ''}" onclick="Actions.playFromRelated(${idx})">
-                    <img src="${YT.getProxiedThumb(i)}" style="width:140px; aspect-ratio:16/9; object-fit:cover; border-radius:8px;">
-                    <div style="font-size:12px;"><div style="font-weight:bold; line-clamp:2; display:-webkit-box; -webkit-box-orient:vertical; overflow:hidden;">${i.snippet.title}</div><div style="color:#aaa;">${i.snippet.channelTitle}</div><div style="color:#888;">${formatViews(this.videoStats[YT.getVideoId(i)])}</div></div>
-                </div>`).join('');
+                </div>
+                <div class="related-area"><h3 id="side-title" style="margin-top:0;">関連動画</h3><div id="side-content-box"></div></div>
+            </div>`;
+            
+        const sideBox = document.getElementById('side-content-box');
+        if (this.activePlaylistName) {
+            document.getElementById('side-title').innerText = `再生中: ${this.activePlaylistName}`;
+            this.relatedList = this.currentList;
+        } else {
+            const qK = snip.title.replace(/[【】「」]/g, ' ').split(' ').filter(w => w.length > 1).slice(0, 3).join(' ');
+            const rel = await YT.fetchAPI('search', { q: qK, type: 'video', part: 'snippet', maxResults: 15 });
+            this.relatedList = rel.items || []; await this.fillStats(this.relatedList);
         }
-        Storage.addHistory({ id: vId, title: snip.title, thumb: thumbUrl, channelTitle: snip.channelTitle });
+        sideBox.innerHTML = this.relatedList.map((i, idx) => `
+            <div class="v-card" style="display:flex; gap:10px; margin-bottom:12px; ${idx === this.currentIndex && this.activePlaylistName ? 'background:#333; border-left:4px solid #3ea6ff;' : ''}" onclick="Actions.playFromRelated(${idx})">
+                <img src="${YT.getProxiedThumb(i)}" style="width:140px; aspect-ratio:16/9; object-fit:cover; border-radius:8px;">
+                <div style="font-size:12px;"><div style="font-weight:bold; line-clamp:2; display:-webkit-box; -webkit-box-orient:vertical; overflow:hidden;">${i.snippet.title}</div><div style="color:#aaa;">${i.snippet.channelTitle}</div><div style="color:#888;">${formatViews(this.videoStats[YT.getVideoId(i)])}</div></div>
+            </div>`).join('');
 
+        Storage.addHistory({ id: vId, title: snip.title, thumb: thumbUrl, channelTitle: snip.channelTitle });
         if (this.resumeTimer) clearInterval(this.resumeTimer);
         this.resumeTimer = setInterval(() => {
-            const iframe = document.getElementById('yt-player');
-            if (iframe) {
-                iframe.contentWindow.postMessage(JSON.stringify({ event: 'listening' }), '*');
-                window.addEventListener('message', function listener(e) {
-                    try {
-                        const data = JSON.parse(e.data);
-                        if (data.event === 'infoDelivery' && data.info && data.info.currentTime) {
-                            Storage.saveResumeProgress(video, data.info.currentTime, data.info.duration);
-                        }
-                    } catch(err) {}
-                });
+            const native = document.getElementById('native-player');
+            if (native && native.duration > 0) { 
+                Storage.saveResumeProgress(video, native.currentTime, native.duration); 
+            } else {
+                const iframe = document.getElementById('yt-player');
+                if (iframe) {
+                    iframe.contentWindow.postMessage(JSON.stringify({ event: 'listening' }), '*');
+                    window.addEventListener('message', function listener(e) {
+                        try {
+                            const data = JSON.parse(e.data);
+                            if (data.event === 'infoDelivery' && data.info && data.info.currentTime) {
+                                Storage.saveResumeProgress(video, data.info.currentTime, data.info.duration);
+                            }
+                        } catch(err) {}
+                    });
+                }
             }
         }, 5000);
     },
@@ -670,8 +671,7 @@ const Actions = {
     async showChannel(chId) {
         this.currentView = "channel";
         const chData = await YT.fetchAPI('channels', { id: chId, part: 'snippet,brandingSettings' });
-        const ch = chData.items[0];
-        const isSubbed = Storage.get('yt_subs').some(x => x.id === chId);
+        const ch = chData.items[0]; const isSubbed = Storage.get('yt_subs').some(x => x.id === chId);
         document.getElementById('view-container').innerHTML = `
             <div class="channel-header">
                 <div style="width:100%; height:150px; background:url(${ch.brandingSettings?.image?.bannerExternalUrl || ''}) center/cover #333; border-radius:15px;"></div>
@@ -686,34 +686,26 @@ const Actions = {
     },
 
     async loadChannelTab(chId, type, order = 'date') {
-        const grid = document.getElementById('channel-content-grid');
-        grid.innerHTML = "読込中...";
+        const grid = document.getElementById('channel-content-grid'); grid.innerHTML = "読込中...";
         document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
         if (type === 'videos') {
-            this.currentView = "channel";
             this.currentParams = { channelId: chId, part: 'snippet', type: 'video', order: order, maxResults: 24 };
             const data = await YT.fetchAPI('search', this.currentParams);
-            this.currentList = data.items || []; this.nextToken = data.nextPageToken || "";
-            await this.fillStats(this.currentList);
+            this.currentList = data.items || []; this.nextToken = data.nextPageToken || ""; await this.fillStats(this.currentList);
             grid.innerHTML = this.renderCards(this.currentList);
         } else if (type === 'playlists') {
-            this.currentView = "channel_playlists";
             this.currentParams = { channelId: chId, part: 'snippet', maxResults: 24 };
             const data = await YT.fetchAPI('playlists', this.currentParams);
-            this.currentList = data.items || [];
-            this.nextToken = data.nextPageToken || "";
-            grid.innerHTML = this.renderCards(this.currentList);
+            this.currentList = data.items || []; this.nextToken = data.nextPageToken || ""; grid.innerHTML = this.renderCards(this.currentList);
         }
         document.getElementById('more-btn-area').innerHTML = this.nextToken ? `<button class="btn" onclick="Actions.loadMore()" style="width:100%; margin:20px 0;">もっと読む</button>` : "";
     },
 
     async showPlaylistView(plId, title) {
-        this.currentView = "playlist";
-        this.activePlaylistName = title;
+        this.currentView = "playlist"; this.activePlaylistName = title;
         this.currentParams = { playlistId: plId, part: 'snippet,contentDetails', maxResults: 24 };
         const data = await YT.fetchAPI('playlistItems', this.currentParams);
-        this.currentList = data.items || []; this.nextToken = data.nextPageToken || "";
-        await this.fillStats(this.currentList);
+        this.currentList = data.items || []; this.nextToken = data.nextPageToken || ""; await this.fillStats(this.currentList);
         this.renderGrid(`<h2>再生リスト: ${title}</h2>`);
     },
 
@@ -722,87 +714,50 @@ const Actions = {
         if (refresh) { if (this.currentView === "channel") this.showChannel(id); else if (this.currentIndex !== -1 && this.currentView !== "subs") this.play(this.currentList[this.currentIndex]); }
     },
 
-    // 「登録済み」メイン画面の刷新（横スライダー ＋ タイムライン表示）
     async showSubs() {
         this.currentView = "subs";
         const subs = Storage.get('yt_subs');
         const container = document.getElementById('view-container');
         
-        // 1. チャンネルアイコンの横スライダーUI
-        const scrollStyles = `
-            display: flex; 
-            overflow-x: auto; 
-            gap: 20px; 
-            padding: 20px; 
-            background: #0f0f0f;
-            border-bottom: 1px solid #333;
-            scrollbar-width: none;
-            -ms-overflow-style: none;
-        `;
-        
+        const scrollStyles = "display: flex; overflow-x: auto; gap: 20px; padding: 20px; background: #0f0f0f; border-bottom: 1px solid #333; scrollbar-width: none; -ms-overflow-style: none;";
         const channelItemsHtml = subs.map(ch => `
             <div style="flex: 0 0 auto; text-align: center; width: 85px; cursor: pointer;" onclick="Actions.showChannel('${ch.id}')">
                 <div style="position:relative; width:65px; height:65px; margin: 0 auto;">
                     <img src="${ch.thumb}" style="width: 100%; height: 100%; border-radius: 50%; border: 2px solid #444; object-fit: cover;">
                 </div>
                 <div style="font-size: 11px; color: #fff; margin-top: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 2px;">${ch.name}</div>
-            </div>
-        `).join('');
+            </div>`).join('');
 
         container.innerHTML = `
             <div style="${scrollStyles}" class="no-scrollbar">${channelItemsHtml}</div>
             <div style="padding: 20px;">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
                     <h2 style="margin:0;">最新タイムライン</h2>
-                    <span style="font-size:12px; color:#aaa;">(3日以内の一括取得)</span>
+                    <span style="font-size:12px; color:#aaa;">(3日以内)</span>
                 </div>
-                <div id="subs-timeline-grid" class="grid" style="margin-top:20px;">タイムライン読み込み中...</div>
-            </div>
-        `;
+                <div id="subs-timeline-grid" class="grid" style="margin-top:20px;">読込中...</div>
+            </div>`;
 
-        // 2. タイムラインの読み込みロジック（一括取得）
         try {
             const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
             let allActivities = [];
-            
-            // 5チャンネルずつバッチ処理して負荷軽減
             for (let i = 0; i < subs.length; i += 5) {
                 const chunk = subs.slice(i, i + 5);
-                const promises = chunk.map(ch => YT.fetchAPI('activities', { 
-                    channelId: ch.id, 
-                    part: 'snippet,contentDetails', 
-                    maxResults: 5, 
-                    publishedAfter: threeDaysAgo.toISOString() 
-                }));
-                const results = await Promise.all(promises);
+                const results = await Promise.all(chunk.map(ch => YT.fetchAPI('activities', { channelId: ch.id, part: 'snippet,contentDetails', maxResults: 5, publishedAfter: threeDaysAgo.toISOString() })));
                 results.forEach(res => { if (res.items) allActivities = [...allActivities, ...res.items]; });
             }
-
-            const timelineVideos = allActivities
-                .filter(a => a.snippet.type === 'upload')
-                .sort((a, b) => new Date(b.snippet.publishedAt) - new Date(a.snippet.publishedAt));
-
-            this.currentList = timelineVideos;
-            await this.fillStats(this.currentList);
-            
+            const timelineVideos = allActivities.filter(a => a.snippet.type === 'upload').sort((a, b) => new Date(b.snippet.publishedAt) - new Date(a.snippet.publishedAt));
+            this.currentList = timelineVideos; await this.fillStats(this.currentList);
             const grid = document.getElementById('subs-timeline-grid');
-            if (timelineVideos.length === 0) {
-                grid.innerHTML = `<p style="color:#aaa; text-align:center; grid-column: 1/-1; padding:40px;">最近の新着動画はありません。</p>`;
-            } else {
-                grid.innerHTML = this.renderCards(timelineVideos);
-            }
-        } catch (e) {
-            console.error("Subs timeline error", e);
-            document.getElementById('subs-timeline-grid').innerHTML = "取得に失敗しました。";
-        }
+            grid.innerHTML = timelineVideos.length === 0 ? `<p style="color:#aaa; text-align:center; grid-column:1/-1; padding:40px;">新着なし</p>` : this.renderCards(timelineVideos);
+        } catch (e) { document.getElementById('subs-timeline-grid').innerHTML = "取得失敗"; }
     },
 
     showWatchLater() {
         this.currentView = "watchlater";
         const list = Storage.get('yt_watchlater');
         this.currentList = list.map(x => ({ id: x.id, snippet: { title: x.title, thumbnails: { high: { url: x.thumb } }, channelTitle: x.channelTitle, channelId: x.channelId, publishedAt: new Date().toISOString() } }));
-        this.activePlaylistName = "後で見る";
-        this.renderGrid("<h2>📌 後で見る</h2>");
+        this.activePlaylistName = "後で見る"; this.renderGrid("<h2>📌 後で見る</h2>");
     },
 
     showHistory() {
@@ -813,10 +768,10 @@ const Actions = {
         this.renderGrid("<h2>履歴</h2>");
     },
 
-    showGame() {
-        window.scrollTo(0, 0);
-        if (typeof M3U8Player !== 'undefined') M3U8Player.stopPlayer();
-        GameModule.renderGameMenu();
+    showGame() { 
+        window.scrollTo(0, 0); 
+        if (typeof M3U8Player !== 'undefined') M3U8Player.stopPlayer(); 
+        GameModule.renderGameMenu(); 
     }
 };
 
