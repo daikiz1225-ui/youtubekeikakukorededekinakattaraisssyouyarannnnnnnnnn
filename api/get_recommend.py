@@ -1,65 +1,69 @@
 from http.server import BaseHTTPRequestHandler
 import json
-import urllib.request
 import re
 
 class handler(BaseHTTPRequestHandler):
-    def do_POST(self):
-        # --- 設定 ---
-        # app.jsで使っているのと同じAPIキーをここに入れてください
-        YOUTUBE_API_KEY = "AIzaSyAA7IsnGA1X2GTv-cvZVeyiTIvFwRR7wT0"
+    def get_clean_keywords(self, text):
+        """タイトルから検索に役立つ単語だけを抽出する"""
+        # 1. 記号と、その中身を削除（【】など）
+        text = re.sub(r'【.*?】|\[.*?\]|（.*?）|\(.*?\)|<.*?>', ' ', text)
+        # 2. 邪魔な単語を削除
+        garbage = r'(公式|実況|配信|生放送|切り抜き|まとめ|shorts|ショート|字幕|和訳|MV|Music Video|Official|Part\.?\d+|第\d+話|#\d+)'
+        text = re.sub(garbage, ' ', text, flags=re.IGNORECASE)
+        # 3. 記号をスペースにして分割
+        text = re.sub(r'[!！?？|｜/／_＿\-ー~～★☆♪:：]', ' ', text)
+        words = text.split()
         
+        # 4. 2文字以上10文字以下の「意味がありそうな単語」だけ残す
+        valid_words = [w for w in words if 2 <= len(w) <= 10]
+        return valid_words
+
+    def do_POST(self):
         content_length = int(self.headers['Content-Length'])
         post_data = self.rfile.read(content_length)
         data = json.loads(post_data)
         
         history = data.get('history', [])
-        recommend_query = "YouTube おすすめ"
-        explanation = "あなたへのおすすめを分析中..."
+        
+        # 最初から「YouTube おすすめ」にせず、履歴から何とかして単語を絞り出す
+        final_query = ""
+        explanation = ""
 
-        if len(history) > 0 and YOUTUBE_API_KEY != "ここにあなたのYouTube_APIキーを入れてください":
-            last_video_id = history[0].get('videoId')
+        if len(history) > 0:
+            all_keywords = []
+            # 直近3件の履歴からキーワードをかき集める
+            for item in history[:3]:
+                all_keywords.extend(self.get_clean_keywords(item.get('title', '')))
             
-            try:
-                # 1. Pythonから直接YouTube APIに「関連動画」を問い合わせる
-                # relatedToVideoId はAPIの仕様変更で制限される場合があるため、
-                # 代替として「その動画のタイトル」をベースに公式の関連検索をシミュレートします
-                search_url = f"https://www.googleapis.com/youtube/v3/search?part=snippet&relatedToVideoId={last_video_id}&type=video&maxResults=5&key={YOUTUBE_API_KEY}"
+            if all_keywords:
+                # 1. 最新の動画から1つ、2〜3件目の動画から1つ、単語を組み合わせてみる
+                # これにより「特定の動画」に偏りすぎず、かつ関連性の高いワードになる
+                top_word = all_keywords[0]
                 
-                # 関連動画が取れない場合（API制限など）は、タイトルのキーワードを使う
-                with urllib.request.urlopen(search_url) as response:
-                    res_body = json.loads(response.read().decode('utf-8'))
-                    items = res_body.get('items', [])
-                    
-                    if items:
-                        # 関連動画の1番目のタイトルを取得
-                        related_title = items[0]['snippet']['title']
-                        # 余計な記号を消して、最初の2単語くらいを検索ワードにする
-                        clean_related = re.sub(r'[【】\[\]（）()|!！?？]', ' ', related_title)
-                        words = clean_related.split()
-                        recommend_query = " ".join(words[:2]) if len(words) >= 2 else words[0]
-                        explanation = f"前の動画に関連する「{recommend_query}」を提案します"
-            
-            except Exception as e:
-                # 関連動画APIが使えない場合は、急上昇（トレンド）からキーワードを拾う
-                try:
-                    trending_url = f"https://www.googleapis.com/youtube/v3/videos?part=snippet&chart=mostPopular&regionCode=JP&maxResults=1&key={YOUTUBE_API_KEY}"
-                    with urllib.request.urlopen(trending_url) as response:
-                        res_body = json.loads(response.read().decode('utf-8'))
-                        trending_title = res_body['items'][0]['snippet']['title']
-                        recommend_query = trending_title.split()[0]
-                        explanation = "今、日本で人気のトピックです"
-                except:
-                    recommend_query = "YouTube おすすめ"
+                if len(all_keywords) > 1:
+                    # 2つ目の単語を足して検索精度を上げる
+                    second_word = all_keywords[1]
+                    if top_word != second_word:
+                        final_query = f"{top_word} {second_word}"
+                    else:
+                        final_query = top_word
+                else:
+                    final_query = top_word
+                
+                explanation = f"最近の履歴「{final_query}」からおすすめを生成"
+        
+        # どうしてもキーワードが取れなかった場合のみフォールバック
+        if not final_query:
+            final_query = "人気 動画"
+            explanation = "おすすめを計算するためのデータが不足しています"
 
-        # --- レスポンス送信 ---
         self.send_response(200)
         self.send_header('Content-type', 'application/json')
         self.send_header('Access-Control-Allow-Origin', '*')
         self.end_headers()
         
         res_data = {
-            "query": recommend_query,
+            "query": final_query,
             "explanation": explanation
         }
         self.wfile.write(json.dumps(res_data).encode())
