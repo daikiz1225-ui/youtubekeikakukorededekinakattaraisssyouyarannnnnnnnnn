@@ -1,7 +1,5 @@
 from http.server import BaseHTTPRequestHandler
 import json
-import re
-from collections import Counter
 
 class handler(BaseHTTPRequestHandler):
     def do_POST(self):
@@ -10,49 +8,33 @@ class handler(BaseHTTPRequestHandler):
         data = json.loads(post_data)
         
         history = data.get('history', [])
-        recommend_query = "YouTube おすすめ"
-        explanation = "もっと動画を見てみましょう！"
+        
+        # デフォルト設定
+        recommend_type = "search"
+        recommend_value = "YouTube おすすめ"
+        explanation = "あなたへのおすすめ動画です"
 
+        # 履歴があれば、一番最後に見た動画の「関連動画」を狙う
         if len(history) >= 1:
-            # 1. 履歴のクリーンアップ（不要な記号を除去）
-            titles = [re.sub(r'[【】［］（）()\[\]]', ' ', item.get('title', '')) for item in history]
-            channels = [item.get('channelTitle', '') for item in history if item.get('channelTitle')]
+            last_video = history[0]
+            video_id = last_video.get('videoId')
+            video_title = last_video.get('title', '前の動画')
             
-            # --- ロジックA: 続編・次回作を狙う ---
-            # 最新の動画タイトルから数字を探す (例: #1, 第2話, Part3)
-            last_title = titles[0]
-            num_match = re.search(r'(#|第|Part|パート)\s*(\d+)', last_title, re.IGNORECASE)
-            
-            if num_match:
-                prefix = num_match.group(1)
-                num = int(num_match.group(2))
-                # 数字を+1して、シリーズ名(前方の文字)を抽出
-                base_name = last_title.split(num_match.group(0))[0].strip()
-                recommend_query = f"{base_name} {prefix}{num + 1}"
-                explanation = f"「{base_name}」の続きが気になりませんか？"
-
-            # --- ロジックB: よく見るチャンネルから選ぶ (Aが失敗した時など) ---
-            elif channels:
-                most_common_channel = Counter(channels).most_common(1)[0][0]
-                recommend_query = most_common_channel
-                explanation = f"お気に入りの「{most_common_channel}」の新着をチェック！"
-
-            # --- ロジックC: 過去10件のキーワード分析 (最終手段) ---
-            else:
-                # 頻出単語を簡易的に抽出
-                all_words = " ".join(titles).split()
-                # 3文字以上の単語を優先
-                keywords = [w for w in all_words if len(w) >= 3]
-                if keywords:
-                    top_word = Counter(keywords).most_common(1)[0][0]
-                    recommend_query = top_word
-                    explanation = f"最近よく見ている「{top_word}」に関連する動画です。"
+            if video_id:
+                # 検索ワードの代わりに、IDを渡す形式にする
+                # app.js側でこれを受け取って relatedToVideoId を使って検索させる
+                recommend_type = "related"
+                recommend_value = video_id
+                explanation = f"「{video_title[:15]}...」に関連する動画を見つけました"
 
         self.send_response(200)
         self.send_header('Content-type', 'application/json')
-        res_data = {
-            "query": recommend_query,
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.end_headers()
+        
+        response = {
+            "type": recommend_type,   # "related" か "search" かを判定させる
+            "value": recommend_value, # ID または 検索ワード
             "explanation": explanation
         }
-        self.end_headers()
-        self.wfile.write(json.dumps(res_data).encode())
+        self.wfile.write(json.dumps(response).encode())
