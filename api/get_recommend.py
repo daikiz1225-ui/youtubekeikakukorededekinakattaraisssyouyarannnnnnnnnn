@@ -1,12 +1,11 @@
 from http.server import BaseHTTPRequestHandler
 import json
 import google.generativeai as genai
-import os
 
-# あなたのAPIキー
-GEMINI_API_KEY = "AIzaSyAWBMQKuwlkV_zc_iQrbA7N_j_cdJZfdGc"
+# 1. 新しいAPIキーをセット
+GEMINI_API_KEY = "AIzaSyCfyCeL1SN7ZK-EYgJ_6vxmB0KsUXsUd14"
 
-# ライブラリの初期化設定
+# 2. 初期設定（最新のAPIバージョンを確実に使う設定）
 genai.configure(api_key=GEMINI_API_KEY)
 
 class handler(BaseHTTPRequestHandler):
@@ -17,36 +16,48 @@ class handler(BaseHTTPRequestHandler):
         
         history = data.get('history', [])
         recommend_query = "YouTube おすすめ"
-        explanation = "AIが接続を確認中..."
+        explanation = "AIがあなたの好みを分析中です..."
 
         if len(history) > 0:
             titles = [item.get('title', '') for item in history]
             
-            # --- ここでモデルを指定 ---
-            # Flashがダメなら、下の行を 'models/gemini-1.5-pro' に書き換えてみて！
-            model_name = 'models/gemini-1.5-flash' 
-            
             try:
-                # 生成モデルの読み込み
-                model = genai.GenerativeModel(model_name)
+                # 3. モデル名をフルパスで指定
+                model = genai.GenerativeModel('models/gemini-1.5-flash')
                 
-                # プロンプト（指示）
-                prompt = f"以下のYouTube履歴から次に見る動画の検索語を1つだけ。履歴: {', '.join(titles)}"
+                # 4. 指示文（プロンプト）
+                prompt = f"""
+                ユーザーのYouTube視聴履歴から、次に検索すべき単語を1つだけ出力してください。
                 
-                # AIに答えさせる
+                履歴:
+                {", ".join(titles)}
+                
+                ルール:
+                - 回答は検索キーワードのみ（1語または2語の組み合わせ）
+                - 挨拶や説明は不要
+                - 日本語で回答
+                """
+
+                # 5. AIにリクエスト
                 response = model.generate_content(prompt)
                 
-                if response.text:
-                    recommend_query = response.text.strip().replace('"', '').replace('「', '').replace('」', '')
-                    explanation = f"AI（{model_name}）のオススメ: {recommend_query}"
+                # 6. 結果の取り出し（404や空レスポンス対策）
+                if response and response.candidates:
+                    ai_text = response.text.strip()
+                    if ai_text:
+                        # 変な記号や引用符を掃除
+                        recommend_query = ai_text.replace('"', '').replace('「', '').replace('」', '').replace('*', '')
+                        explanation = f"AIが導き出したオススメ: {recommend_query}"
+                    else:
+                        explanation = "AIの回答が空でした"
                 else:
-                    explanation = "AIから応答がありませんでした"
+                    explanation = "AIが回答を生成できませんでした（設定を確認してください）"
 
             except Exception as e:
-                # 404エラーの詳細を表示
-                explanation = f"エラー発生: {str(e)}"
+                # エラーが出た場合はその内容を画面に表示
+                explanation = f"AIエラー: {str(e)}"
 
-        # 送信処理
+        # 7. ブラウザへのレスポンス
         self.send_response(200)
         self.send_header('Content-type', 'application/json')
         self.send_header('Access-Control-Allow-Origin', '*')
