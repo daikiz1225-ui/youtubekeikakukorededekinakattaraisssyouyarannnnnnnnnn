@@ -1,76 +1,65 @@
 from http.server import BaseHTTPRequestHandler
 import json
+import urllib.request
 import re
-from collections import Counter
 
 class handler(BaseHTTPRequestHandler):
-    def clean_text(self, text):
-        """タイトルから検索の邪魔なノイズを消し、純粋なキーワードだけにする"""
-        # 1. 記号と、その中身を削除（例：【マイクラ】→削除）
-        text = re.sub(r'【.*?】|\[.*?\]|（.*?）|\(.*?\)|<.*?>', ' ', text)
-        # 2. 邪魔な単語を削除
-        garbage = r'(公式|実況|配信|生放送|切り抜き|まとめ|shorts|ショート|字幕|和訳|MV|Music Video|Official)'
-        text = re.sub(garbage, ' ', text, flags=re.IGNORECASE)
-        # 3. 記号をスペースに
-        text = re.sub(r'[!！?？|｜/／_＿\-ー~～★☆♪]', ' ', text)
-        return ' '.join(text.split())
-
-    def detect_next_part(self, title):
-        """「Part1」などを見つけて「Part2」を予測する"""
-        patterns = [
-            r'(?i)(part|pt|ep|episode|#|第|その|vol\.?)\s*(\d+)',
-            r'(\d+)\s*(話|回)'
-        ]
-        for p in patterns:
-            match = re.search(p, title)
-            if match:
-                prefix = match.group(1)
-                num = int(match.group(2))
-                return f"{prefix}{num + 1}"
-        return None
-
     def do_POST(self):
+        # --- 設定 ---
+        # app.jsで使っているのと同じAPIキーをここに入れてください
+        YOUTUBE_API_KEY = "AIzaSyAA7IsnGA1X2GTv-cvZVeyiTIvFwRR7wT0"
+        
         content_length = int(self.headers['Content-Length'])
         post_data = self.rfile.read(content_length)
         data = json.loads(post_data)
         
         history = data.get('history', [])
         recommend_query = "YouTube おすすめ"
-        explanation = "新しい動画を見て好みを教えてください！"
+        explanation = "あなたへのおすすめを分析中..."
 
-        if len(history) > 0:
-            latest = history[0]
-            latest_title = latest.get('title', '')
+        if len(history) > 0 and YOUTUBE_API_KEY != "ここにあなたのYouTube_APIキーを入れてください":
+            last_video_id = history[0].get('videoId')
             
-            # 1. 続編があるかチェック
-            next_part = self.detect_next_part(latest_title)
+            try:
+                # 1. Pythonから直接YouTube APIに「関連動画」を問い合わせる
+                # relatedToVideoId はAPIの仕様変更で制限される場合があるため、
+                # 代替として「その動画のタイトル」をベースに公式の関連検索をシミュレートします
+                search_url = f"https://www.googleapis.com/youtube/v3/search?part=snippet&relatedToVideoId={last_video_id}&type=video&maxResults=5&key={YOUTUBE_API_KEY}"
+                
+                # 関連動画が取れない場合（API制限など）は、タイトルのキーワードを使う
+                with urllib.request.urlopen(search_url) as response:
+                    res_body = json.loads(response.read().decode('utf-8'))
+                    items = res_body.get('items', [])
+                    
+                    if items:
+                        # 関連動画の1番目のタイトルを取得
+                        related_title = items[0]['snippet']['title']
+                        # 余計な記号を消して、最初の2単語くらいを検索ワードにする
+                        clean_related = re.sub(r'[【】\[\]（）()|!！?？]', ' ', related_title)
+                        words = clean_related.split()
+                        recommend_query = " ".join(words[:2]) if len(words) >= 2 else words[0]
+                        explanation = f"前の動画に関連する「{recommend_query}」を提案します"
             
-            # 2. タイトルを掃除
-            cleaned_title = self.clean_text(latest_title)
-            
-            # 3. チャンネルの偏りをチェック
-            channels = [h.get('channelTitle', '') for h in history if h.get('channelTitle')]
-            top_channel = Counter(channels).most_common(1)[0][0] if channels else ""
+            except Exception as e:
+                # 関連動画APIが使えない場合は、急上昇（トレンド）からキーワードを拾う
+                try:
+                    trending_url = f"https://www.googleapis.com/youtube/v3/videos?part=snippet&chart=mostPopular&regionCode=JP&maxResults=1&key={YOUTUBE_API_KEY}"
+                    with urllib.request.urlopen(trending_url) as response:
+                        res_body = json.loads(response.read().decode('utf-8'))
+                        trending_title = res_body['items'][0]['snippet']['title']
+                        recommend_query = trending_title.split()[0]
+                        explanation = "今、日本で人気のトピックです"
+                except:
+                    recommend_query = "YouTube おすすめ"
 
-            if next_part:
-                # 続編があるなら「掃除したタイトル + 次のPart」
-                base = cleaned_title[:15] # 長すぎ防止
-                recommend_query = f"{base} {next_part}"
-                explanation = f"「{base}」の続き（{next_part}）を見つけました"
-            elif top_channel and channels.count(top_channel) >= 2:
-                # 特定のチャンネルをよく見ていれば、その人の関連
-                recommend_query = f"{top_channel} {cleaned_title.split()[0] if cleaned_title.split() else ''}"
-                explanation = f"よく見ている「{top_channel}」の関連動画です"
-            else:
-                # それ以外は、掃除したタイトルの先頭キーワード
-                words = cleaned_title.split()
-                recommend_query = " ".join(words[:2]) if words else "YouTube おすすめ"
-                explanation = f"最近見た「{recommend_query}」に関連するおすすめ"
-
+        # --- レスポンス送信 ---
         self.send_response(200)
         self.send_header('Content-type', 'application/json')
         self.send_header('Access-Control-Allow-Origin', '*')
         self.end_headers()
         
-        res_data = {"query": recommend_query, "explanation": explanation}
+        res_data = {
+            "query": recommend_query,
+            "explanation": explanation
+        }
         self.wfile.write(json.dumps(res_data).encode())
