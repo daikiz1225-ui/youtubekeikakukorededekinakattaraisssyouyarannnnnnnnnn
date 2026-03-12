@@ -100,7 +100,12 @@ const Storage = {
     isAdmin() { return localStorage.getItem('is_admin') === 'true'; },
     setAdmin(status) { localStorage.setItem('is_admin', status); },
 
+    // シークレットモード管理
+    isIncognito() { return localStorage.getItem('yt_incognito') === 'true'; },
+    setIncognito(status) { localStorage.setItem('yt_incognito', status); },
+
     saveResumeProgress(video, currentTime, duration) {
+        if (this.isIncognito()) return; // シークレットモード時は保存しない
         let list = this.get('yt_resume_list');
         if (!Array.isArray(list)) list = [];
         
@@ -133,7 +138,28 @@ const Storage = {
         return item ? item.time : 0;
     },
 
-    addHistory(v) { let h = this.get('yt_history'); h = [v, ...h.filter(x => x.id !== v.id)].slice(0, 50); this.set('yt_history', h); },
+    addHistory(v) { 
+        if (this.isIncognito()) return; // シークレットモード時は保存しない
+        let h = this.get('yt_history'); 
+        h = [v, ...h.filter(x => x.id !== v.id)].slice(0, 50); 
+        this.set('yt_history', h); 
+    },
+
+    // 履歴個別削除
+    deleteHistoryItem(vId) {
+        let h = this.get('yt_history');
+        h = h.filter(x => x.id !== vId);
+        this.set('yt_history', h);
+    },
+
+    // 履歴全削除
+    clearAllHistory() {
+        if (confirm("すべての視聴履歴を削除しますか？")) {
+            this.set('yt_history', []);
+            Actions.showHistory();
+        }
+    },
+
     toggleSub(ch) {
         let s = this.get('yt_subs');
         const i = s.findIndex(x => x.id === ch.id);
@@ -213,6 +239,19 @@ const Actions = {
             if (!document.getElementById('nav-ai-recommend')) {
                 const homeNav = document.querySelector('.sidebar .nav-item[onclick="Actions.goHome()"]');
                 if (homeNav) homeNav.insertAdjacentHTML('afterend', '<div id="nav-ai-recommend" class="nav-item" onclick="Actions.showAIRecommendations()">🤖<span>AIおすすめ</span></div>');
+            }
+
+            // シークレットモード切替追加
+            if (!document.getElementById('nav-incognito')) {
+                const isInc = Storage.isIncognito();
+                const historyNav = document.querySelector('.sidebar .nav-item[onclick="Actions.showHistory()"]');
+                if (historyNav) {
+                    historyNav.insertAdjacentHTML('afterend', `
+                        <div id="nav-incognito" class="nav-item" onclick="Actions.toggleIncognito()" style="color:${isInc ? '#00ff00' : '#aaa'};">
+                            👤<span>${isInc ? 'シークレット: ON' : 'シークレット: OFF'}</span>
+                        </div>
+                    `);
+                }
             }
 
             if (!document.getElementById('nav-admin-login')) {
@@ -805,12 +844,55 @@ const Actions = {
         this.renderGrid("<h2>📌 後で見る</h2>");
     },
 
+    // シークレットモード切替ロジック
+    toggleIncognito() {
+        const current = Storage.isIncognito();
+        Storage.setIncognito(!current);
+        const item = document.getElementById('nav-incognito');
+        if (item) {
+            const isInc = !current;
+            item.style.color = isInc ? '#00ff00' : '#aaa';
+            item.innerHTML = `👤<span>${isInc ? 'シークレット: ON' : 'シークレット: OFF'}</span>`;
+        }
+        Actions.showStatusNotification(current ? "シークレットモードを終了しました" : "シークレットモードを開始しました。履歴は保存されません。");
+    },
+
+    // 削除機能付き履歴表示
     showHistory() {
         this.currentView = "history";
         const history = Storage.get('yt_history');
         this.currentList = history.map(x => ({ id: x.id, snippet: { title: x.title, thumbnails: { high: { url: x.thumb } }, channelTitle: x.channelTitle, publishedAt: new Date().toISOString() } }));
         this.activePlaylistName = null;
-        this.renderGrid("<h2>履歴</h2>");
+        
+        const container = document.getElementById('view-container');
+        let html = `
+            <div style="padding:20px;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <h2>履歴</h2>
+                    <button class="btn" onclick="Storage.clearAllHistory()" style="background:#ff4e45; color:white; font-size:12px;">すべて削除</button>
+                </div>
+                <div class="grid" style="margin-top:20px;">`;
+        
+        if (history.length === 0) {
+            html += `<p style="padding:40px; color:#aaa; grid-column:1/-1; text-align:center;">視聴履歴はありません。</p>`;
+        } else {
+            this.currentList.forEach((v, i) => {
+                html += `
+                <div class="v-card">
+                    <div class="thumb-container" onclick="Actions.playFromList(${i})">
+                        <img src="${v.snippet.thumbnails.high.url}" class="main-thumb">
+                    </div>
+                    <div class="v-text">
+                        <h3>${v.snippet.title}</h3>
+                        <p>${v.snippet.channelTitle}</p>
+                        <button class="btn" onclick="Storage.deleteHistoryItem('${v.id}'); Actions.showHistory();" style="margin-top:5px; font-size:10px; padding:2px 5px; background:#444;">削除</button>
+                    </div>
+                </div>`;
+            });
+        }
+        
+        html += `</div></div>`;
+        container.innerHTML = html;
     },
 
     showGame() {
