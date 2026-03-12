@@ -48,8 +48,8 @@ class handler(BaseHTTPRequestHandler):
                     recommend_query = ai_result
                     explanation = f"AIがあなたの履歴から「{recommend_query}」に注目しました"
             except Exception as e:
-                # エラーが起きた場合はデフォルトに戻す
-                explanation = f"AI分析中にエラーが発生しました（予備の検索を行います）"
+                # エラーの内容を具体的に表示させる
+                explanation = f"エラー詳細: {str(e)}"
 
         # レスポンス送信
         self.send_response(200)
