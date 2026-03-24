@@ -621,10 +621,10 @@ const Actions = {
         const cp = document.getElementById('comment-panel'); if (cp) cp.remove();
         window.scrollTo(0, 0);
 
-        // プレーヤーHTML生成ロジック
+        // プレーヤーHTML生成ロジック（ストリーミング統合 & エラーハンドリング）
         const renderPlayerContent = () => {
             if (this.playbackMode === "streaming") {
-                return `<video id="yt-player" src="${window.location.origin}/api/streaming?id=${vId}" controls autoplay playsinline style="width:100%; height:100%; background:#000;" onerror="alert('API(api/streaming.js)との通信に失敗しました。ファイルパスまたはサーバー設定を確認してください。')"></video>`;
+                return `<video id="yt-player" src="${window.location.origin}/api/streaming?id=${vId}" controls autoplay playsinline crossorigin="anonymous" style="width:100%; height:100%; background:#000;" onerror="alert('ストリーミングAPIが混雑しています。Educationモードに切り替えるか、再読み込みしてください。')"></video>`;
             } else {
                 return `<iframe id="yt-player" src="${YT.getEmbedUrl(vId, isShorts)}" style="width:100%; height:100%; border:none;" allowfullscreen allow="autoplay"></iframe>`;
             }
