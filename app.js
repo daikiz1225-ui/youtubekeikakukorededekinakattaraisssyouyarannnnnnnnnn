@@ -215,7 +215,7 @@ const Actions = {
     activePlaylistName: null,
     videoStats: {},
     resumeTimer: null,
-    playbackMode: "edu", // 再生モード管理 (edu or streaming)
+    playbackMode: "edu", // 追加：再生モード状態 ('edu' または 'streaming')
 
     init() {
         const input = document.getElementById('search-input');
@@ -550,7 +550,7 @@ const Actions = {
     },
 
     changeSpeed(rate) {
-        const player = document.querySelector('.video-wrapper iframe, .shorts-container iframe, .video-wrapper video');
+        const player = document.getElementById('yt-player');
         if (!player) return;
         if (player.tagName === 'IFRAME') {
             player.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'setPlaybackRate', args: [rate] }), '*');
@@ -621,10 +621,10 @@ const Actions = {
         const cp = document.getElementById('comment-panel'); if (cp) cp.remove();
         window.scrollTo(0, 0);
 
-        // 再生プレーヤーのHTML（モード判定を含む）
-        const renderPlayer = () => {
-            if (this.playbackMode === 'streaming') {
-                return `<video id="yt-player" src="/api/streaming?id=${vId}" controls autoplay style="width:100%; height:100%; background:#000;"></video>`;
+        // プレーヤーHTML生成ロジック
+        const renderPlayerContent = () => {
+            if (this.playbackMode === "streaming") {
+                return `<video id="yt-player" src="/api/streaming?id=${vId}" controls autoplay playsinline style="width:100%; height:100%; background:#000;" onerror="alert('再生エラー：通信に失敗しました')"></video>`;
             } else {
                 return `<iframe id="yt-player" src="${YT.getEmbedUrl(vId, isShorts)}" style="width:100%; height:100%; border:none;" allowfullscreen allow="autoplay"></iframe>`;
             }
@@ -635,7 +635,9 @@ const Actions = {
                 <div class="shorts-container">
                     <div class="nav-arrow arrow-prev" onclick="Actions.playRelative(-1)">←</div>
                     <div class="nav-arrow arrow-next" onclick="Actions.playRelative(1)">→</div>
-                    <div style="width:360px; height:640px; background:#000; border-radius:15px; overflow:hidden;">${renderPlayer()}</div>
+                    <div style="width:360px; height:640px; background:#000; border-radius:15px; overflow:hidden;">
+                        ${renderPlayerContent()}
+                    </div>
                     <div style="width:360px; margin-top:15px;">
                         <h3>${snip.title}</h3>
                         <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 10px;">
@@ -653,7 +655,7 @@ const Actions = {
             document.getElementById('view-container').innerHTML = `
                 <div class="watch-layout">
                     <div class="player-area">
-                        <div class="video-wrapper">${renderPlayer()}</div>
+                        <div class="video-wrapper">${renderPlayerContent()}</div>
                         <div style="margin-top:15px; display:flex; gap:10px; align-items:center; background:#1e1e1e; padding:10px 20px; border-radius:10px; flex-wrap:wrap;">
                             <span style="font-size:14px; color:#aaa; font-weight:bold; margin-right:10px;">再生速度:</span>
                             <button class="btn" onclick="Actions.changeSpeed(0.5)">0.5x</button>
@@ -663,8 +665,8 @@ const Actions = {
                             <div style="margin-left:auto; display:flex; align-items:center; gap:10px;">
                                 <span style="font-size:12px; color:#aaa;">再生モード:</span>
                                 <select id="mode-select" class="btn" style="background:#333; color:#fff; border:none;" onchange="Actions.playbackMode=this.value; Actions.play(Actions.currentList[Actions.currentIndex] || Actions.relatedList[Actions.currentIndex])">
-                                    <option value="edu" ${this.playbackMode==='edu'?'selected':''}>Education</option>
-                                    <option value="streaming" ${this.playbackMode==='streaming'?'selected':''}>Streaming</option>
+                                    <option value="edu" ${this.playbackMode==='edu'?'selected':''}>YouTube Education</option>
+                                    <option value="streaming" ${this.playbackMode==='streaming'?'selected':''}>ストリーミング</option>
                                 </select>
                             </div>
                         </div>
