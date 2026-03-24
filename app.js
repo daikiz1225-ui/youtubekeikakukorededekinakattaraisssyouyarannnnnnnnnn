@@ -215,7 +215,7 @@ const Actions = {
     activePlaylistName: null,
     videoStats: {},
     resumeTimer: null,
-    playbackMode: "edu", // 追加：再生モード状態 ('edu' または 'streaming')
+    playbackMode: localStorage.getItem('yt_playback_mode') || "edu", // モードを永続化
 
     init() {
         const input = document.getElementById('search-input');
@@ -624,7 +624,7 @@ const Actions = {
         // プレーヤーHTML生成ロジック
         const renderPlayerContent = () => {
             if (this.playbackMode === "streaming") {
-                return `<video id="yt-player" src="/api/streaming?id=${vId}" controls autoplay playsinline style="width:100%; height:100%; background:#000;" onerror="alert('再生エラー：通信に失敗しました')"></video>`;
+                return `<video id="yt-player" src="${window.location.origin}/api/streaming?id=${vId}" controls autoplay playsinline style="width:100%; height:100%; background:#000;" onerror="alert('API(api/streaming.js)との通信に失敗しました。ファイルパスまたはサーバー設定を確認してください。')"></video>`;
             } else {
                 return `<iframe id="yt-player" src="${YT.getEmbedUrl(vId, isShorts)}" style="width:100%; height:100%; border:none;" allowfullscreen allow="autoplay"></iframe>`;
             }
@@ -664,7 +664,7 @@ const Actions = {
                             <button class="btn" onclick="Actions.changeSpeed(2.0)">2.0x</button>
                             <div style="margin-left:auto; display:flex; align-items:center; gap:10px;">
                                 <span style="font-size:12px; color:#aaa;">再生モード:</span>
-                                <select id="mode-select" class="btn" style="background:#333; color:#fff; border:none;" onchange="Actions.playbackMode=this.value; Actions.play(Actions.currentList[Actions.currentIndex] || Actions.relatedList[Actions.currentIndex])">
+                                <select id="mode-select" class="btn" style="background:#333; color:#fff; border:none;" onchange="Actions.playbackMode=this.value; localStorage.setItem('yt_playback_mode', this.value); Actions.play(Actions.currentList[Actions.currentIndex] || Actions.relatedList[Actions.currentIndex])">
                                     <option value="edu" ${this.playbackMode==='edu'?'selected':''}>YouTube Education</option>
                                     <option value="streaming" ${this.playbackMode==='streaming'?'selected':''}>ストリーミング</option>
                                 </select>
