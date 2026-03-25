@@ -1,11 +1,4 @@
-/* app.js - 1080p DASH Streaming & Full Game Support */
-
-// --- Dash.js ライブラリの自動読み込み ---
-if (!window.dashjs) {
-    const script = document.createElement('script');
-    script.src = "https://cdn.dashjs.org/latest/dash.all.min.js";
-    document.head.appendChild(script);
-}
+/* app.js - Dash.js (1080p) Integration & Full Features Preserved */
 
 // --- ユーティリティ ---
 function timeAgo(dateString) {
@@ -30,6 +23,19 @@ function formatViews(views) {
 const YT = {
     keys: ["AIzaSyBfCvyZ_J9mJiMFNYB6WfcuLyvf9zDdcUU", "AIzaSyCgVn-JWHKT_z6EC73Z6Vlex0F_d-BP_fY", "AIzaSyBbqPhAbqoWDOurTt7hejQmwc6dAoZ5Iy0", "AIzaSyAWk9mmie23-khi8-nipv1jHJND__UtEWA", "AIzaSyBL38iyqeiaKHoKqhloSnhG590DfJ35vCE","AIzaSyDU4jrOT0o2Jd4zDwZyU5OOBsKt1P3RJNs","AIzaSyB2L_plk45E1wihBUB4VJ516pIfqcBc2Yw","AIzaSyDcYrvxFDKcXNqI65Aihrqk0uK2Ebj7KVo","AIzaSyAmfASO-61oyXFOfzJCR9e3oGbnKenBZb","AIzaSyCU7xnDWAFbXt1ze0_DBaWDKt7NDT1XP7"],
     currentEduKey: "",
+    dashPlayer: null, // Dash.js インスタンス保持用
+
+    // Dash.js を動的にロード
+    async loadDash() {
+        if (window.dashjs) return true;
+        return new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = "https://cdn.dashjs.org/latest/dash.all.min.js";
+            script.onload = () => resolve(true);
+            script.onerror = () => reject(new Error("Dash.js load failed"));
+            document.head.appendChild(script);
+        });
+    },
 
     getVideoId(item) {
         if (!item) return "";
@@ -55,6 +61,10 @@ const YT = {
     },
 
     seek(seconds) {
+        if (this.dashPlayer) {
+            this.dashPlayer.seek(seconds);
+            return;
+        }
         const iframe = document.querySelector('.video-wrapper iframe, .shorts-container iframe');
         if (iframe) {
             iframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'seekTo', args: [seconds, true] }), '*');
@@ -111,7 +121,7 @@ const Storage = {
     setIncognito(status) { localStorage.setItem('yt_incognito', status); },
 
     saveResumeProgress(video, currentTime, duration) {
-        if (this.isIncognito()) return;
+        if (this.isIncognito()) return; 
         let list = this.get('yt_resume_list');
         if (!Array.isArray(list)) list = [];
         
@@ -145,7 +155,7 @@ const Storage = {
     },
 
     addHistory(v) { 
-        if (this.isIncognito()) return;
+        if (this.isIncognito()) return; 
         let h = this.get('yt_history'); 
         h = [v, ...h.filter(x => x.id !== v.id)].slice(0, 50); 
         this.set('yt_history', h); 
@@ -220,7 +230,6 @@ const Actions = {
     videoStats: {},
     resumeTimer: null,
     playbackMode: localStorage.getItem('yt_playback_mode') || "edu",
-    dashPlayer: null, // Dash.js インスタンス用
 
     init() {
         const input = document.getElementById('search-input');
@@ -233,6 +242,7 @@ const Actions = {
                 const homeNav = document.querySelector('.sidebar .nav-item[onclick="Actions.goHome()"]');
                 if (homeNav) homeNav.insertAdjacentHTML('afterend', '<div id="nav-resume" class="nav-item" onclick="Actions.showResumeList()" style="color:#ff8c00;">🕒<span>続きから見る</span></div>');
             }
+
             if (!document.getElementById('nav-watch-later')) {
                 const historyNav = document.querySelector('.sidebar .nav-item[onclick="Actions.showHistory()"]');
                 if (historyNav) historyNav.insertAdjacentHTML('beforebegin', '<div id="nav-watch-later" class="nav-item" onclick="Actions.showWatchLater()">📌<span>後で見る</span></div>');
@@ -245,6 +255,7 @@ const Actions = {
                 const homeNav = document.querySelector('.sidebar .nav-item[onclick="Actions.goHome()"]');
                 if (homeNav) homeNav.insertAdjacentHTML('afterend', '<div id="nav-ai-recommend" class="nav-item" onclick="Actions.showAIRecommendations()">🤖<span>AIおすすめ</span></div>');
             }
+
             if (!document.getElementById('nav-incognito')) {
                 const isInc = Storage.isIncognito();
                 const historyNav = document.querySelector('.sidebar .nav-item[onclick="Actions.showHistory()"]');
@@ -256,6 +267,7 @@ const Actions = {
                     `);
                 }
             }
+
             if (!document.getElementById('nav-admin-login')) {
                 sidebar.insertAdjacentHTML('beforeend', `<hr><div id="nav-admin-login" class="nav-item" onclick="Actions.adminLogin()" style="opacity:0.5; font-size:12px;">🔑<span>${Storage.isAdmin() ? '管理者ログイン済み' : '管理者ログイン'}</span></div>`);
             }
@@ -273,14 +285,17 @@ const Actions = {
         this.currentView = "resume";
         const list = Storage.get('yt_resume_list');
         const container = document.getElementById('view-container');
+        
         if (list.length === 0) {
             container.innerHTML = `<div style="padding:40px; text-align:center;"><h2>🕒 続きから見る動画はありません</h2><p style="color:#aaa;">視聴途中の動画がここに3つまで表示されます。</p></div>`;
             return;
         }
+
         this.currentList = list.map(x => ({ 
             id: x.id, 
             snippet: { title: x.title, thumbnails: { high: { url: x.thumb } }, channelTitle: x.channelTitle, publishedAt: new Date(x.timestamp).toISOString() } 
         }));
+
         let html = `<div style="padding:20px;"><h2>🕒 続きから見る</h2><div class="grid">`;
         list.forEach((v, i) => {
             const progress = (v.time / v.duration) * 100;
@@ -549,7 +564,9 @@ const Actions = {
     changeSpeed(rate) {
         const player = document.getElementById('yt-player');
         if (!player) return;
-        if (player.tagName === 'IFRAME') {
+        if (this.playbackMode === 'streaming' && YT.dashPlayer) {
+            YT.dashPlayer.setPlaybackRate(rate);
+        } else if (player.tagName === 'IFRAME') {
             player.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'setPlaybackRate', args: [rate] }), '*');
         } else {
             player.playbackRate = rate;
@@ -615,25 +632,21 @@ const Actions = {
         const safeChTitle = snip.channelTitle.replace(/'/g, "\\'").replace(/"/g, '&quot;');
         const thumbUrl = `/api/thumb?id=${vId}`;
         
+        // Dash.js ロード
+        if (this.playbackMode === 'streaming') await YT.loadDash();
+
+        // Dash.js 以前のインスタンス破棄
+        if (YT.dashPlayer) {
+            YT.dashPlayer.destroy();
+            YT.dashPlayer = null;
+        }
+
         const cp = document.getElementById('comment-panel'); if (cp) cp.remove();
         window.scrollTo(0, 0);
 
-        // --- DASH プレイヤー初期化用のヘルパー ---
-        const initDashPlayer = (vId) => {
-            if (this.dashPlayer) { this.dashPlayer.reset(); }
-            this.dashPlayer = dashjs.MediaPlayer().create();
-            const playerEl = document.getElementById('yt-player');
-            const streamUrl = `${window.location.origin}/api/streaming?id=${vId}`;
-            
-            this.dashPlayer.initialize(playerEl, streamUrl, true);
-            
-            // 続きから再生
-            const resumeTime = Storage.getResumeTime(vId);
-            if (resumeTime > 0) this.dashPlayer.seek(resumeTime);
-        };
-
         const renderPlayerContent = () => {
             if (this.playbackMode === "streaming") {
+                // Dash.js 用の video 要素
                 return `<video id="yt-player" controls autoplay playsinline style="width:100%; height:100%; background:#000;"></video>`;
             } else {
                 return `<iframe id="yt-player" src="${YT.getEmbedUrl(vId, isShorts)}" style="width:100%; height:100%; border:none;" allowfullscreen allow="autoplay"></iframe>`;
@@ -676,7 +689,7 @@ const Actions = {
                                 <span style="font-size:12px; color:#aaa;">再生モード:</span>
                                 <select id="mode-select" class="btn" style="background:#333; color:#fff; border:none;" onchange="Actions.playbackMode=this.value; localStorage.setItem('yt_playback_mode', this.value); Actions.play(Actions.currentList[Actions.currentIndex] || Actions.relatedList[Actions.currentIndex])">
                                     <option value="edu" ${this.playbackMode==='edu'?'selected':''}>Education</option>
-                                    <option value="streaming" ${this.playbackMode==='streaming'?'selected':''}>1080pストリーミング</option>
+                                    <option value="streaming" ${this.playbackMode==='streaming'?'selected':''}>ストリーミング (1080p)</option>
                                 </select>
                             </div>
                         </div>
@@ -705,7 +718,6 @@ const Actions = {
                     </div>
                     <div class="related-area"><h3 id="side-title" style="margin-top:0;">関連動画</h3><div id="side-content-box"></div></div>
                 </div>`;
-            
             const sideBox = document.getElementById('side-content-box');
             if (this.activePlaylistName) {
                 document.getElementById('side-title').innerText = `再生中: ${this.activePlaylistName}`;
@@ -722,10 +734,20 @@ const Actions = {
                     <div style="font-size:12px;"><div style="font-weight:bold; line-clamp:2; display:-webkit-box; -webkit-box-orient:vertical; overflow:hidden;">${i.snippet.title}</div><div style="color:#aaa;">${i.snippet.channelTitle}</div><div style="color:#888;">${formatViews(this.videoStats[YT.getVideoId(i)])}</div></div>
                 </div>`).join('');
         }
-
-        // ストリーミングモードなら Dash.js を初期化
+        
+        // Dash.js MediaPlayer 初期化
         if (this.playbackMode === "streaming") {
-            setTimeout(() => initDashPlayer(vId), 100);
+            const videoEl = document.getElementById('yt-player');
+            YT.dashPlayer = dashjs.MediaPlayer().create();
+            YT.dashPlayer.initialize(videoEl, `/api/streaming?id=${vId}`, true);
+            
+            // レジューム再生
+            const resumeSec = Storage.getResumeTime(vId);
+            if (resumeSec > 0) {
+                YT.dashPlayer.on(dashjs.MediaPlayer.events.STREAM_INITIALIZED, () => {
+                    YT.dashPlayer.seek(resumeSec);
+                });
+            }
         }
 
         Storage.addHistory({ id: vId, title: snip.title, thumb: thumbUrl, channelTitle: snip.channelTitle });
@@ -734,18 +756,22 @@ const Actions = {
         this.resumeTimer = setInterval(() => {
             const player = document.getElementById('yt-player');
             if (player) {
-                if (player.tagName === 'IFRAME') {
+                if (this.playbackMode === 'streaming' && YT.dashPlayer) {
+                    const currentTime = YT.dashPlayer.time();
+                    const duration = YT.dashPlayer.duration();
+                    if (currentTime > 0) Storage.saveResumeProgress(video, currentTime, duration);
+                } else if (player.tagName === 'IFRAME') {
                     player.contentWindow.postMessage(JSON.stringify({ event: 'listening' }), '*');
-                    window.addEventListener('message', function listener(e) {
+                    const listener = function(e) {
                         try {
                             const data = JSON.parse(e.data);
                             if (data.event === 'infoDelivery' && data.info && data.info.currentTime) {
                                 Storage.saveResumeProgress(video, data.info.currentTime, data.info.duration);
+                                window.removeEventListener('message', listener);
                             }
                         } catch(err) {}
-                    });
-                } else if (player.tagName === 'VIDEO') {
-                    Storage.saveResumeProgress(video, player.currentTime, player.duration);
+                    };
+                    window.addEventListener('message', listener);
                 }
             }
         }, 5000);
@@ -810,7 +836,18 @@ const Actions = {
         this.currentView = "subs";
         const subs = Storage.get('yt_subs');
         const container = document.getElementById('view-container');
-        const scrollStyles = `display: flex; overflow-x: auto; gap: 20px; padding: 20px; background: #0f0f0f; border-bottom: 1px solid #333; scrollbar-width: none; -ms-overflow-style: none;`;
+        
+        const scrollStyles = `
+            display: flex; 
+            overflow-x: auto; 
+            gap: 20px; 
+            padding: 20px; 
+            background: #0f0f0f;
+            border-bottom: 1px solid #333;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        `;
+        
         const channelItemsHtml = subs.map(ch => `
             <div style="flex: 0 0 auto; text-align: center; width: 85px; cursor: pointer;" onclick="Actions.showChannel('${ch.id}')">
                 <div style="position:relative; width:65px; height:65px; margin: 0 auto;">
@@ -819,6 +856,7 @@ const Actions = {
                 <div style="font-size: 11px; color: #fff; margin-top: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 2px;">${ch.name}</div>
             </div>
         `).join('');
+
         container.innerHTML = `
             <div style="${scrollStyles}" class="no-scrollbar">${channelItemsHtml}</div>
             <div style="padding: 20px;">
@@ -829,22 +867,40 @@ const Actions = {
                 <div id="subs-timeline-grid" class="grid" style="margin-top:20px;">タイムライン読み込み中...</div>
             </div>
         `;
+
         try {
             const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
             let allActivities = [];
+            
             for (let i = 0; i < subs.length; i += 5) {
                 const chunk = subs.slice(i, i + 5);
-                const promises = chunk.map(ch => YT.fetchAPI('activities', { channelId: ch.id, part: 'snippet,contentDetails', maxResults: 5, publishedAfter: threeDaysAgo.toISOString() }));
+                const promises = chunk.map(ch => YT.fetchAPI('activities', { 
+                    channelId: ch.id, 
+                    part: 'snippet,contentDetails', 
+                    maxResults: 5, 
+                    publishedAfter: threeDaysAgo.toISOString() 
+                }));
                 const results = await Promise.all(promises);
                 results.forEach(res => { if (res.items) allActivities = [...allActivities, ...res.items]; });
             }
-            const timelineVideos = allActivities.filter(a => a.snippet.type === 'upload').sort((a, b) => new Date(b.snippet.publishedAt) - new Date(a.snippet.publishedAt));
+
+            const timelineVideos = allActivities
+                .filter(a => a.snippet.type === 'upload')
+                .sort((a, b) => new Date(b.snippet.publishedAt) - new Date(a.snippet.publishedAt));
+
             this.currentList = timelineVideos;
             await this.fillStats(this.currentList);
+            
             const grid = document.getElementById('subs-timeline-grid');
-            if (timelineVideos.length === 0) grid.innerHTML = `<p style="color:#aaa; text-align:center; grid-column: 1/-1; padding:40px;">最近の新着動画はありません。</p>`;
-            else grid.innerHTML = this.renderCards(timelineVideos);
-        } catch (e) { document.getElementById('subs-timeline-grid').innerHTML = "取得に失敗しました。"; }
+            if (timelineVideos.length === 0) {
+                grid.innerHTML = `<p style="color:#aaa; text-align:center; grid-column: 1/-1; padding:40px;">最近の新着動画はありません。</p>`;
+            } else {
+                grid.innerHTML = this.renderCards(timelineVideos);
+            }
+        } catch (e) {
+            console.error("Subs timeline error", e);
+            document.getElementById('subs-timeline-grid').innerHTML = "取得に失敗しました。";
+        }
     },
 
     showWatchLater() {
@@ -872,14 +928,25 @@ const Actions = {
         const history = Storage.get('yt_history');
         this.currentList = history.map(x => ({ id: x.id, snippet: { title: x.title, thumbnails: { high: { url: x.thumb } }, channelTitle: x.channelTitle, publishedAt: new Date().toISOString() } }));
         this.activePlaylistName = null;
+        
         const container = document.getElementById('view-container');
-        let html = `<div style="padding:20px;"><div style="display:flex; justify-content:space-between; align-items:center;"><h2>履歴</h2><button class="btn" onclick="Storage.clearAllHistory()" style="background:#ff4e45; color:white; font-size:12px;">すべて削除</button></div><div class="grid" style="margin-top:20px;">`;
-        if (history.length === 0) html += `<p style="padding:40px; color:#aaa; grid-column:1/-1; text-align:center;">視聴履歴はありません。</p>`;
-        else {
+        let html = `
+            <div style="padding:20px;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <h2>履歴</h2>
+                    <button class="btn" onclick="Storage.clearAllHistory()" style="background:#ff4e45; color:white; font-size:12px;">すべて削除</button>
+                </div>
+                <div class="grid" style="margin-top:20px;">`;
+        
+        if (history.length === 0) {
+            html += `<p style="padding:40px; color:#aaa; grid-column:1/-1; text-align:center;">視聴履歴はありません。</p>`;
+        } else {
             this.currentList.forEach((v, i) => {
                 html += `
                 <div class="v-card">
-                    <div class="thumb-container" onclick="Actions.playFromList(${i})"><img src="${v.snippet.thumbnails.high.url}" class="main-thumb"></div>
+                    <div class="thumb-container" onclick="Actions.playFromList(${i})">
+                        <img src="${v.snippet.thumbnails.high.url}" class="main-thumb">
+                    </div>
                     <div class="v-text">
                         <h3>${v.snippet.title}</h3>
                         <p>${v.snippet.channelTitle}</p>
@@ -888,13 +955,13 @@ const Actions = {
                 </div>`;
             });
         }
+        
         html += `</div></div>`;
         container.innerHTML = html;
     },
 
     showGame() {
         window.scrollTo(0, 0);
-        if (this.dashPlayer) { this.dashPlayer.reset(); }
         if (typeof M3U8Player !== 'undefined') M3U8Player.stopPlayer();
         GameModule.renderGameMenu();
     }
@@ -906,6 +973,7 @@ window.onload = async () => {
     Actions.goHome(); 
 };
 
+/* 各種ゲーム起動用関数 */
 function startTetris() { if (typeof initTetris === 'function') initTetris(); else Actions.showStatusNotification("エラー"); }
 function startSnake() { if (typeof initSnake === 'function') initSnake(); else Actions.showStatusNotification("エラー"); }
 function startReversi() { if (typeof initReversi === 'function') initReversi(); else Actions.showStatusNotification("エラー"); }
