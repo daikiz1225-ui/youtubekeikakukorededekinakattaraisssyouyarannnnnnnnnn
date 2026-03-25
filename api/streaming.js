@@ -8,7 +8,7 @@ export default async function handler(req) {
 
     // main.py と yobi.py から抽出した、今生きている可能性が高いサーバーリスト
     const APIS = [
-        'https://inv.nadeko.net',
+        'https://invidious.f5.si',
         'https://yewtu.be',
         'https://iv.nboeck.de',
         'https://invidious.perennialte.ch',
