@@ -1,72 +1,48 @@
-// api/streaming.js - Enhanced Proxy Multi-Instance Gacha
-export const config = {
-    runtime: 'edge', // 高速なEdge Runtimeを使用
-};
+// api/streaming.js
+export const config = { runtime: 'edge' };
 
 export default async function handler(req) {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
-    if (!id) return new Response("IDが必要です", { status: 400 });
+    if (!id) return new Response("ID missing", { status: 400 });
 
-    const yStr = 'you' + 'tube';
-    const ytUrl = `https://www.${yStr}.com/watch?v=${id}`;
-
-    // --- インスタンスリスト (提供されたデータ) ---
-    const PIPED = [
-        'https://pipedapi.kavin.rocks', 'https://api-piped.mha.fi', 'https://pipedapi.adminforge.de',
-        'https://pipedapi.pfcd.me', 'https://api.piped.projectsegfau.lt', 'https://pipedapi.rivo.lol'
-    ];
-    
-    const INVIDIOUS = [
-        'https://invidious.nerdvpn.de', 'https://yewtu.be', 'https://invidious.f5.si',
-        'https://vid.puffyan.us', 'https://inv.vern.cc', 'https://iv.ggtyler.dev'
+    const APIS = [
+        'https://invidious.f5.si', 'https://yewtu.be', 'https://iv.nboeck.de',
+        'https://invidious.perennialte.ch', 'https://invidious.nerdvpn.de',
+        'https://inv.tux.pizza', 'https://iv.melmac.space', 'https://iv.ggtyler.dev'
     ];
 
-    // 1. Piped API 試行
-    for (const host of PIPED) {
+    const QUALITIES = ['720p', '1080p', '480p', '360p'];
+
+    for (const base of APIS) {
         try {
-            const res = await fetch(`${host}/streams/${id}`, { signal: AbortSignal.timeout(3000) });
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 3000);
+
+            const res = await fetch(`${base}/api/v1/videos/${id}`, { signal: controller.signal });
             const data = await res.json();
-            const stream = data.videoStreams?.find(s => s.format === 'mp4' || s.quality === '720p')?.url;
-            if (stream) return await proxyStream(stream);
+            clearTimeout(timeout);
+
+            let streamUrl = null;
+            // yobi.py方式：高画質から順にストリームを検索
+            for (const q of QUALITIES) {
+                const found = data.formatStreams?.find(s => s.qualityLabel === q || s.quality === q);
+                if (found?.url) { streamUrl = found.url; break; }
+            }
+
+            if (!streamUrl && data.formatStreams?.length > 0) streamUrl = data.formatStreams[0].url;
+
+            if (streamUrl) {
+                const videoRes = await fetch(streamUrl);
+                return new Response(videoRes.body, {
+                    headers: {
+                        'Content-Type': 'video/mp4',
+                        'Access-Control-Allow-Origin': '*',
+                        'Cache-Control': 'public, max-age=3600'
+                    }
+                });
+            }
         } catch (e) { continue; }
     }
-
-    // 2. Invidious API 試行
-    for (const host of INVIDIOUS) {
-        try {
-            const res = await fetch(`${host}/api/v1/videos/${id}`, { signal: AbortSignal.timeout(3000) });
-            const data = await res.json();
-            const stream = data.formatStreams?.reverse()[0]?.url;
-            if (stream) return await proxyStream(stream);
-        } catch (e) { continue; }
-    }
-
-    // 3. Cobalt (最終手段)
-    try {
-        const res = await fetch('https://api.cobalt.tools/api/json', {
-            method: 'POST',
-            headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url: ytUrl, videoQuality: '720', downloadMode: 'video' })
-        });
-        const data = await res.json();
-        if (data.url) return await proxyStream(data.url);
-    } catch (e) {}
-
-    return new Response("すべて失敗しました", { status: 500 });
-}
-
-// プロキシ中継関数
-async function proxyStream(url) {
-    const videoRes = await fetch(url);
-    const { readable, writable } = new TransformStream();
-    videoRes.body.pipeTo(writable);
-
-    return new Response(readable, {
-        headers: {
-            'Content-Type': 'video/mp4',
-            'Cache-Control': 'public, max-age=3600',
-            'Access-Control-Allow-Origin': '*'
-        }
-    });
+    return new Response("Failed to fetch stream", { status: 500 });
 }
