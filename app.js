@@ -544,9 +544,35 @@ const Actions = {
         }
     },
 
-    downloadVideo(vId) {
-        const targetUrl = `https://ja.savefrom.net/1-youtube-video-downloader-175dk.html?url=${encodeURIComponent('https://www.youtube.com/watch?v='+vId)}`;
-        window.open(targetUrl, '_blank');
+    // 外部サイト遷移から直接ダウンロードへアップグレード
+    async downloadVideo(vId, title) {
+        Actions.showStatusNotification("動画ファイルを準備中...");
+        try {
+            const response = await fetch(`${window.location.origin}/api/streaming?id=${vId}`);
+            if (!response.ok) throw new Error("ストリーミングの取得に失敗しました");
+            
+            Actions.showStatusNotification("ダウンロードを開始します...");
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            // タイトルに含まれる保存不可能な記号を簡易置換
+            const safeFileName = (title || vId).replace(/[\\/:*?"<>|]/g, "_");
+            a.download = `${safeFileName}.mp4`;
+            document.body.appendChild(a);
+            a.click();
+            
+            setTimeout(() => {
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+                Actions.showStatusNotification("保存が完了しました✅");
+            }, 100);
+        } catch (error) {
+            console.error("Download error:", error);
+            Actions.showStatusNotification("エラー: 直接保存できませんでした");
+            // 予備として以前の外部リンクを提示することも可能だが、今回は要件通りエラー通知のみ。
+        }
     },
 
     changeSpeed(rate) {
@@ -621,7 +647,7 @@ const Actions = {
         const cp = document.getElementById('comment-panel'); if (cp) cp.remove();
         window.scrollTo(0, 0);
 
-        // プレーヤーHTML生成ロジック（別枠再生を削除し、EduとStreamingの2択化）
+        // プレーヤーHTML生成ロジック
         const renderPlayerContent = () => {
             if (this.playbackMode === "streaming") {
                 return `<video id="yt-player" src="${window.location.origin}/api/streaming?id=${vId}" controls autoplay playsinline style="width:100%; height:100%; background:#000;" onerror="setTimeout(() => { this.src=this.src; }, 3000); console.log('Retrying streaming source...')"></video>`;
@@ -647,7 +673,7 @@ const Actions = {
                             <button class="btn ${isSubbed ? 'subbed' : ''}" onclick="Actions.handleSub('${snip.channelId}', '${safeChTitle}', true)">${isSubbed ? '登録済み' : '登録'}</button>
                             <button class="btn ${isWatchLater ? 'subbed' : ''}" onclick="Actions.handleWatchLater('${vId}', '${safeTitle}', '${safeChTitle}', '${thumbUrl}', '${snip.channelId}')">${isWatchLater ? '保存済み' : '📌 後で'}</button>
                             <button class="btn" style="background:#333;" onclick="Actions.showComments('${vId}')">💬</button>
-                            <button class="btn-download" onclick="Actions.downloadVideo('${vId}')">📥</button>
+                            <button class="btn-download" onclick="Actions.downloadVideo('${vId}', '${safeTitle}')">📥</button>
                         </div>
                     </div>
                 </div>`;
@@ -688,7 +714,7 @@ const Actions = {
                                     <button class="btn ${isSubbed ? 'subbed' : ''}" onclick="Actions.handleSub('${snip.channelId}', '${safeChTitle}', true)">${isSubbed ? '登録済み' : 'チャンネル登録'}</button>
                                     <button class="btn ${isWatchLater ? 'subbed' : ''}" onclick="Actions.handleWatchLater('${vId}', '${safeTitle}', '${safeChTitle}', '${thumbUrl}', '${snip.channelId}')">${isWatchLater ? '保存済み' : '📌 後で'}</button>
                                     <button class="btn" style="background:#333;" onclick="Actions.showComments('${vId}')">💬 コメント</button>
-                                    <button class="btn-download" onclick="Actions.downloadVideo('${vId}')">📥</button>
+                                    <button class="btn-download" onclick="Actions.downloadVideo('${vId}', '${safeTitle}')">📥</button>
                                 </div>
                             </div>
                         </div>
