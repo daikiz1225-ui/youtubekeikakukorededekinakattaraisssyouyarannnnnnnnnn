@@ -1,4 +1,4 @@
-/* app.js - Subscriptions Refined & Sidebar Cleaned (NO TRUNCATION) */
+/* app.js - Subscriptions Refined & Sidebar Cleaned + URL Routing (NO TRUNCATION) */
 
 // --- ユーティリティ ---
 function timeAgo(dateString) {
@@ -261,7 +261,6 @@ const Actions = {
         }
     },
 
-    // サイドバーの動画表示機能を排除（空関数化）
     loadSidebarLatest() {},
 
     async playFromSidebar(vId) {
@@ -270,6 +269,7 @@ const Actions = {
     },
 
     showResumeList() {
+        if (window.location.search.includes('v=')) window.history.pushState(null, '', window.location.pathname);
         this.currentView = "resume";
         const list = Storage.get('yt_resume_list');
         const container = document.getElementById('view-container');
@@ -327,6 +327,7 @@ const Actions = {
     },
 
     showMyPlaylists() {
+        if (window.location.search.includes('v=')) window.history.pushState(null, '', window.location.pathname);
         this.currentView = "my_playlists";
         const dict = Storage.getMyPlaylists();
         const container = document.getElementById('view-container');
@@ -350,6 +351,7 @@ const Actions = {
     },
 
     viewPlaylistDetail(name) {
+        if (window.location.search.includes('v=')) window.history.pushState(null, '', window.location.pathname);
         this.currentView = "playlist_detail";
         this.activePlaylistName = name;
         const dict = Storage.getMyPlaylists();
@@ -380,6 +382,7 @@ const Actions = {
     },
 
     async showAIRecommendations() {
+        if (window.location.search.includes('v=')) window.history.pushState(null, '', window.location.pathname);
         this.currentView = "ai_recommend";
         const container = document.getElementById('view-container');
         container.innerHTML = `<div style="padding:20px;"><h2>🤖 AIが分析中...</h2></div>`;
@@ -405,6 +408,7 @@ const Actions = {
     },
 
     async goHome() {
+        if (window.location.search.includes('v=')) window.history.pushState(null, '', window.location.pathname);
         this.currentView = "home";
         this.activePlaylistName = null;
         this.currentParams = { chart: 'mostPopular', regionCode: 'JP', part: 'snippet', maxResults: 24 };
@@ -416,6 +420,7 @@ const Actions = {
     },
 
     async showShorts() {
+        if (window.location.search.includes('v=')) window.history.pushState(null, '', window.location.pathname);
         this.currentView = "shorts";
         this.activePlaylistName = null;
         this.currentParams = { q: '#Shorts', part: 'snippet', type: 'video', videoDuration: 'short', maxResults: 24 };
@@ -427,6 +432,7 @@ const Actions = {
     },
 
     async showLiveHub() {
+        if (window.location.search.includes('v=')) window.history.pushState(null, '', window.location.pathname);
         this.currentView = "live";
         this.activePlaylistName = null;
         this.currentParams = { q: 'live', part: 'snippet', type: 'video', eventType: 'live', regionCode: 'JP', maxResults: 24 };
@@ -438,6 +444,7 @@ const Actions = {
     },
 
     async search() {
+        if (window.location.search.includes('v=')) window.history.pushState(null, '', window.location.pathname);
         const q = document.getElementById('search-input').value;
         if (!q) return;
         let finalQ = q;
@@ -544,7 +551,6 @@ const Actions = {
         }
     },
 
-    // 外部サイト遷移から直接ダウンロードへアップグレード
     async downloadVideo(vId, title) {
         Actions.showStatusNotification("動画ファイルを準備中...");
         try {
@@ -557,7 +563,6 @@ const Actions = {
             const a = document.createElement('a');
             a.style.display = 'none';
             a.href = url;
-            // タイトルに含まれる保存不可能な記号を簡易置換
             const safeFileName = (title || vId).replace(/[\\/:*?"<>|]/g, "_");
             a.download = `${safeFileName}.mp4`;
             document.body.appendChild(a);
@@ -571,7 +576,6 @@ const Actions = {
         } catch (error) {
             console.error("Download error:", error);
             Actions.showStatusNotification("エラー: 直接保存できませんでした");
-            // 予備として以前の外部リンクを提示することも可能だが、今回は要件通りエラー通知のみ。
         }
     },
 
@@ -636,6 +640,13 @@ const Actions = {
 
     async play(video) {
         const vId = YT.getVideoId(video);
+        
+        // --- URLルーティングの要：再生時にURLへIDを書き込む ---
+        if (new URLSearchParams(window.location.search).get('v') !== vId) {
+            window.history.pushState(null, '', '?v=' + vId);
+        }
+        // --------------------------------------------------
+
         const snip = video.snippet;
         const isSubbed = Storage.get('yt_subs').some(x => x.id === snip.channelId);
         const isWatchLater = Storage.isWatchLater(vId);
@@ -647,7 +658,6 @@ const Actions = {
         const cp = document.getElementById('comment-panel'); if (cp) cp.remove();
         window.scrollTo(0, 0);
 
-        // プレーヤーHTML生成ロジック
         const renderPlayerContent = () => {
             if (this.playbackMode === "streaming") {
                 return `<video id="yt-player" src="${window.location.origin}/api/streaming?id=${vId}" controls autoplay playsinline style="width:100%; height:100%; background:#000;" onerror="setTimeout(() => { this.src=this.src; }, 3000); console.log('Retrying streaming source...')"></video>`;
@@ -761,6 +771,7 @@ const Actions = {
     },
 
     async showChannel(chId) {
+        if (window.location.search.includes('v=')) window.history.pushState(null, '', window.location.pathname);
         this.currentView = "channel";
         const chData = await YT.fetchAPI('channels', { id: chId, part: 'snippet,brandingSettings' });
         const ch = chData.items[0];
@@ -801,6 +812,7 @@ const Actions = {
     },
 
     async showPlaylistView(plId, title) {
+        if (window.location.search.includes('v=')) window.history.pushState(null, '', window.location.pathname);
         this.currentView = "playlist";
         this.activePlaylistName = title;
         this.currentParams = { playlistId: plId, part: 'snippet,contentDetails', maxResults: 24 };
@@ -815,13 +827,12 @@ const Actions = {
         if (refresh) { if (this.currentView === "channel") this.showChannel(id); else if (this.currentIndex !== -1 && this.currentView !== "subs") this.play(this.currentList[this.currentIndex]); }
     },
 
-    // 「登録済み」メイン画面の刷新（横スライダー ＋ タイムライン表示）
     async showSubs() {
+        if (window.location.search.includes('v=')) window.history.pushState(null, '', window.location.pathname);
         this.currentView = "subs";
         const subs = Storage.get('yt_subs');
         const container = document.getElementById('view-container');
         
-        // 1. チャンネルアイコンの横スライダーUI
         const scrollStyles = `
             display: flex; 
             overflow-x: auto; 
@@ -853,12 +864,10 @@ const Actions = {
             </div>
         `;
 
-        // 2. タイムラインの読み込みロジック（一括取得）
         try {
             const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
             let allActivities = [];
             
-            // 5チャンネルずつバッチ処理して負荷軽減
             for (let i = 0; i < subs.length; i += 5) {
                 const chunk = subs.slice(i, i + 5);
                 const promises = chunk.map(ch => YT.fetchAPI('activities', { 
@@ -891,6 +900,7 @@ const Actions = {
     },
 
     showWatchLater() {
+        if (window.location.search.includes('v=')) window.history.pushState(null, '', window.location.pathname);
         this.currentView = "watchlater";
         const list = Storage.get('yt_watchlater');
         this.currentList = list.map(x => ({ id: x.id, snippet: { title: x.title, thumbnails: { high: { url: x.thumb } }, channelTitle: x.channelTitle, channelId: x.channelId, publishedAt: new Date().toISOString() } }));
@@ -898,7 +908,6 @@ const Actions = {
         this.renderGrid("<h2>📌 後で見る</h2>");
     },
 
-    // シークレットモード切替ロジック
     toggleIncognito() {
         const current = Storage.isIncognito();
         Storage.setIncognito(!current);
@@ -911,8 +920,8 @@ const Actions = {
         Actions.showStatusNotification(current ? "シークレットモードを終了しました" : "シークレットモードを開始しました。履歴は保存されません。");
     },
 
-    // 削除機能付き履歴表示
     showHistory() {
+        if (window.location.search.includes('v=')) window.history.pushState(null, '', window.location.pathname);
         this.currentView = "history";
         const history = Storage.get('yt_history');
         this.currentList = history.map(x => ({ id: x.id, snippet: { title: x.title, thumbnails: { high: { url: x.thumb } }, channelTitle: x.channelTitle, publishedAt: new Date().toISOString() } }));
@@ -950,16 +959,38 @@ const Actions = {
     },
 
     showGame() {
+        if (window.location.search.includes('v=')) window.history.pushState(null, '', window.location.pathname);
         window.scrollTo(0, 0);
         if (typeof M3U8Player !== 'undefined') M3U8Player.stopPlayer();
         GameModule.renderGameMenu();
     }
 };
 
+// --- URLから直接起動するための要 ---
 window.onload = async () => { 
     Actions.init(); 
     await YT.refreshEduKey(); 
-    Actions.goHome(); 
+    
+    // URLに ?v=○○ があるかチェック
+    const params = new URLSearchParams(window.location.search);
+    const vId = params.get('v');
+    if (vId) {
+        try {
+            const data = await YT.fetchAPI('videos', { id: vId, part: 'snippet' });
+            if (data && data.items && data.items.length > 0) {
+                Actions.currentList = data.items;
+                Actions.currentIndex = 0;
+                await Actions.fillStats(data.items);
+                Actions.play(data.items[0]);
+            } else {
+                Actions.goHome();
+            }
+        } catch(e) {
+            Actions.goHome();
+        }
+    } else {
+        Actions.goHome(); 
+    }
 };
 
 /* 各種ゲーム起動用関数 */
