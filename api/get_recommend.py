@@ -18,7 +18,7 @@ class handler(BaseHTTPRequestHandler):
             hashtags = []
             
             # 直近5件のタイトルと説明文をスキャン
-            for item in history[:5]:
+            for item in history[:15]:
                 title = item.get('title', '')
                 desc = item.get('description', '') # app.jsで送っていれば取得可能
                 combined = f"{title} {desc}"
