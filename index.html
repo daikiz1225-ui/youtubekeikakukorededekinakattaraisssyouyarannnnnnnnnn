@@ -6,14 +6,19 @@
     <title>YouTube Premium Client</title>
     <link rel="stylesheet" href="style.css">
 </head>
-<body onpopstate="location.reload()">
+<body>
     <header class="header">
-        <div class="logo" onclick="Actions.goHome()">
-            <span class="logo-red">▶</span> Premium
+        <div style="display: flex; align-items: center;">
+            <div class="back-btn" onclick="Actions.goBack()" style="font-size: 22px; cursor: pointer; margin-right: 15px; padding: 5px; color: #fff; user-select: none;">
+                ⬅️
+            </div>
+            <div class="logo" onclick="Actions.goHome()">
+                <span class="logo-red">▶</span> Premium
+            </div>
         </div>
         <div class="search-bar">
             <input type="text" id="search-input" placeholder="検索">
-            <button id="search-btn">🔍</button>
+            <button id="search-btn" onclick="Actions.search()">🔍</button>
         </div>
         <div class="user-icons">
             <div class="icon-circle" onclick="Actions.showSubs()">🔔</div>
@@ -42,10 +47,6 @@
     <script src="game2048.js"></script>
     <script src="towerdefense.js"></script>
     <script src="airhockey.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-    <script src="streaming.js"></script>
-    <script src="search.js"></script>
     <script src="app.js"></script>
-    <script src="playlist.js"></script>
 </body>
 </html>
