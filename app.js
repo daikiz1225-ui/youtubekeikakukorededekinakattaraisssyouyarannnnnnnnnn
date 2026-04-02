@@ -1,4 +1,4 @@
-/* app.js - Subscriptions Refined & Sidebar Cleaned + URL Routing (NO TRUNCATION) + History Back System */
+/* app.js - Subscriptions Refined & Sidebar Cleaned + URL Routing + History Back System + M3U8 Mode Integrated */
 
 // --- ユーティリティ ---
 function timeAgo(dateString) {
@@ -91,6 +91,48 @@ const YT = {
 
         if (isShort) { params.append('loop', '1'); params.append('playlist', id); }
         return `https://www.youtubeeducation.com/embed/${id}?${params.toString()}`;
+    }
+};
+
+// --- M3U8 再生エンジン ---
+const M3U8_PLAYER = {
+    hls: null,
+
+    async init(videoElement, videoId) {
+        if (this.hls) {
+            this.hls.destroy();
+            this.hls = null;
+        }
+
+        try {
+            // 外部APIからM3U8のURLを取得
+            const m3u8Url = await M3U8_API.getLiveStreamUrl(videoId);
+            if (!m3u8Url) throw new Error("M3U8 URLの取得に失敗しました");
+
+            if (Hls.isSupported()) {
+                this.hls = new Hls();
+                this.hls.loadSource(m3u8Url);
+                this.hls.attachMedia(videoElement);
+                this.hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                    const resumeTime = Storage.getResumeTime(videoId);
+                    if (resumeTime > 0) videoElement.currentTime = resumeTime;
+                    videoElement.play();
+                });
+            } else if (videoElement.canPlayType('application/vnd.apple.mpegurl')) {
+                // Safari用ネイティブサポート
+                videoElement.src = m3u8Url;
+                videoElement.addEventListener('loadedmetadata', () => {
+                    const resumeTime = Storage.getResumeTime(videoId);
+                    if (resumeTime > 0) videoElement.currentTime = resumeTime;
+                    videoElement.play();
+                });
+            }
+        } catch (err) {
+            console.error("M3U8 Player Error:", err);
+            Actions.showStatusNotification("M3U8再生エラー: ストリーミングモードに切り替えます");
+            Actions.playbackMode = "streaming";
+            Actions.play(Actions.currentList[Actions.currentIndex] || Actions.relatedList[Actions.currentIndex]);
+        }
     }
 };
 
@@ -255,13 +297,11 @@ const Actions = {
         }
     },
 
-    // 共通描画・履歴保存関数
     Maps(html, isBack = false) {
         const container = document.getElementById('view-container');
         const backBtn = document.getElementById('back-btn');
 
         if (!isBack) {
-            // 現在の状態をスタックに保存
             this.viewHistory.push({
                 html: container.innerHTML,
                 scroll: window.scrollY,
@@ -272,7 +312,6 @@ const Actions = {
 
         container.innerHTML = html;
         
-        // 戻るボタンの表示制御
         if (this.viewHistory.length > 0) {
             backBtn.style.display = 'block';
         } else {
@@ -289,7 +328,6 @@ const Actions = {
         const container = document.getElementById('view-container');
         container.dataset.header = lastState.header;
         
-        // Mapsを介さず直接描画し、スクロール位置を復元
         container.innerHTML = lastState.html;
         window.scrollTo(0, lastState.scroll);
 
@@ -444,7 +482,7 @@ const Actions = {
     async goHome() {
         if (window.location.search.includes('v=')) window.history.pushState(null, '', window.location.pathname);
         this.currentView = "home";
-        this.viewHistory = []; // ホームに戻る際は履歴リセット
+        this.viewHistory = []; 
         document.getElementById('back-btn').style.display = 'none';
         this.activePlaylistName = null;
         this.currentParams = { chart: 'mostPopular', regionCode: 'JP', part: 'snippet', maxResults: 24 };
@@ -690,6 +728,8 @@ const Actions = {
         const renderPlayerContent = () => {
             if (this.playbackMode === "streaming") {
                 return `<video id="yt-player" src="${window.location.origin}/api/streaming?id=${vId}" controls autoplay playsinline style="width:100%; height:100%; background:#000;" onerror="setTimeout(() => { this.src=this.src; }, 3000); console.log('Retrying streaming source...')"></video>`;
+            } else if (this.playbackMode === "m3u8") {
+                return `<video id="yt-player" controls autoplay playsinline style="width:100%; height:100%; background:#000;"></video>`;
             } else {
                 return `<iframe id="yt-player" src="${YT.getEmbedUrl(vId, isShorts)}" style="width:100%; height:100%; border:none;" allowfullscreen allow="autoplay"></iframe>`;
             }
@@ -733,6 +773,7 @@ const Actions = {
                                 <select id="mode-select" class="btn" style="background:#333; color:#fff; border:none;" onchange="Actions.playbackMode=this.value; localStorage.setItem('yt_playback_mode', this.value); Actions.play(Actions.currentList[Actions.currentIndex] || Actions.relatedList[Actions.currentIndex])">
                                     <option value="edu" ${this.playbackMode==='edu'?'selected':''}>Education</option>
                                     <option value="streaming" ${this.playbackMode==='streaming'?'selected':''}>ストリーミング</option>
+                                    <option value="m3u8" ${this.playbackMode==='m3u8'?'selected':''}>M3U8モード</option>
                                 </select>
                             </div>
                         </div>
@@ -764,6 +805,12 @@ const Actions = {
         }
 
         this.Maps(playHtml);
+
+        // M3U8プレイヤーの初期化（要素がDOMに追加された後に実行）
+        if (this.playbackMode === "m3u8") {
+            const videoEl = document.getElementById('yt-player');
+            if (videoEl) M3U8_PLAYER.init(videoEl, vId);
+        }
 
         const sideBox = document.getElementById('side-content-box');
         if (sideBox) {
@@ -965,7 +1012,7 @@ const Actions = {
     showGame() {
         if (window.location.search.includes('v=')) window.history.pushState(null, '', window.location.pathname);
         window.scrollTo(0, 0);
-        if (typeof M3U8Player !== 'undefined') M3U8Player.stopPlayer();
+        if (typeof M3U8Player !== 'undefined' && M3U8Player.stopPlayer) M3U8Player.stopPlayer();
         GameModule.renderGameMenu();
     }
 };
@@ -988,6 +1035,7 @@ window.onload = async () => {
     } else { Actions.goHome(); }
 };
 
+// --- ゲーム起動関数群 (完全維持) ---
 function startTetris() { if (typeof initTetris === 'function') initTetris(); else Actions.showStatusNotification("エラー"); }
 function startSnake() { if (typeof initSnake === 'function') initSnake(); else Actions.showStatusNotification("エラー"); }
 function startReversi() { if (typeof initReversi === 'function') initReversi(); else Actions.showStatusNotification("エラー"); }
