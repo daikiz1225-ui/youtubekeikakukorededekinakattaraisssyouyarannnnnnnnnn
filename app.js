@@ -1,4 +1,4 @@
-/* app.js - URL Routing System Integrated & Custom History Removed (NO TRUNCATION) */
+/* app.js - URL Routing System Integrated & Scroll Fixed (NO TRUNCATION) */
 
 // --- ユーティリティ ---
 function timeAgo(dateString) {
@@ -254,11 +254,13 @@ const Actions = {
         }
     },
 
-    // シンプルな描画関数（履歴スタック廃止）
-    Maps(html) {
+    // skipScroll が true の場合は一番上に戻らない
+    Maps(html, skipScroll = false) {
         const container = document.getElementById('view-container');
         container.innerHTML = html;
-        window.scrollTo(0, 0);
+        if (!skipScroll) {
+            window.scrollTo(0, 0);
+        }
     },
 
     // URLのパラメーターを読み取って正しい画面を表示するルーター
@@ -269,6 +271,7 @@ const Actions = {
         const mode = params.get('mode');
         const list = params.get('list');
         const channel = params.get('channel');
+        const ytPlaylist = params.get('playlist'); // 追加: YouTube公式プレイリスト用
 
         if (vId) {
             try {
@@ -285,6 +288,9 @@ const Actions = {
             Actions.search(true);
         } else if (list) {
             Actions.viewPlaylistDetail(list, true);
+        } else if (ytPlaylist) {
+            const plTitle = params.get('title') || '再生リスト';
+            Actions.showPlaylistView(ytPlaylist, plTitle, true);
         } else if (channel) {
             Actions.showChannel(channel, true);
         } else if (mode) {
@@ -420,7 +426,7 @@ const Actions = {
 
     removeFromPlaylistAndRefresh(name, id) {
         Storage.removeFromPlaylist(name, id);
-        this.viewPlaylistDetail(name, true); // trueでURL更新をスキップ
+        this.viewPlaylistDetail(name, true); 
     },
 
     async showAIRecommendations(skipPush = false) {
@@ -547,13 +553,16 @@ const Actions = {
         }).join('');
     },
 
-    renderGrid(headerHtml = "") {
+    // 追加読み込みの時は skipScroll=true が渡されるように変更
+    renderGrid(headerHtml = "", skipScroll = false) {
         const container = document.getElementById('view-container');
         const moreBtn = this.nextToken ? `<button class="btn" onclick="Actions.loadMore()" style="width:100%; margin:20px 0; background:#333; color:#fff;">もっと読み込む</button>` : "";
         if (headerHtml) container.dataset.header = headerHtml;
         const currentHeader = container.dataset.header || "";
         const finalHtml = `<div style="padding: 10px 20px;">${currentHeader}</div><div class="grid">${this.renderCards(this.currentList)}</div>${moreBtn}`;
-        this.Maps(finalHtml);
+        
+        // Mapsに skipScroll を渡す
+        this.Maps(finalHtml, skipScroll);
 
         const ids = this.currentList.map(i => i.snippet?.channelId).filter(id => id && !this.channelIcons[id]).join(',');
         if (ids) this.fetchMissingIcons(ids);
@@ -570,7 +579,9 @@ const Actions = {
         await this.fillStats(newItems);
         this.currentList = [...this.currentList, ...newItems];
         this.nextToken = data.nextPageToken || "";
-        this.renderGrid();
+        
+        // 読み込み時は既存のヘッダーを維持しつつ、スクロールをスキップ(true)する
+        this.renderGrid("", true);
     },
 
     playFromList(index) { this.currentIndex = index; this.play(this.currentList[index]); },
@@ -852,8 +863,9 @@ const Actions = {
         document.getElementById('more-btn-area').innerHTML = this.nextToken ? `<button class="btn" onclick="Actions.loadMore()" style="width:100%; margin:20px 0;">もっと読む</button>` : "";
     },
 
-    async showPlaylistView(plId, title) {
-        // この関数はチャンネル内プレイリストなどに呼ばれる
+    // 追加: URL対応化
+    async showPlaylistView(plId, title, skipPush = false) {
+        if (!skipPush) window.history.pushState(null, '', `?playlist=${plId}&title=${encodeURIComponent(title)}`);
         this.currentView = "playlist";
         this.activePlaylistName = title;
         this.currentParams = { playlistId: plId, part: 'snippet,contentDetails', maxResults: 24 };
