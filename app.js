@@ -1,4 +1,4 @@
-/* app.js - Subscriptions Refined & Sidebar Cleaned + URL Routing (NO TRUNCATION) + History Back System */
+/* app.js - URL Routing System Integrated & Custom History Removed (NO TRUNCATION) */
 
 // --- ユーティリティ ---
 function timeAgo(dateString) {
@@ -213,7 +213,6 @@ const Actions = {
     videoStats: {},
     resumeTimer: null,
     playbackMode: localStorage.getItem('yt_playback_mode') || "edu",
-    viewHistory: [], // 履歴スタック
 
     init() {
         const input = document.getElementById('search-input');
@@ -255,46 +254,54 @@ const Actions = {
         }
     },
 
-    // 共通描画・履歴保存関数
-    Maps(html, isBack = false) {
+    // シンプルな描画関数（履歴スタック廃止）
+    Maps(html) {
         const container = document.getElementById('view-container');
-        const backBtn = document.getElementById('back-btn');
-
-        if (!isBack) {
-            // 現在の状態をスタックに保存
-            this.viewHistory.push({
-                html: container.innerHTML,
-                scroll: window.scrollY,
-                view: this.currentView,
-                header: container.dataset.header || ""
-            });
-        }
-
         container.innerHTML = html;
-        
-        // 戻るボタンの表示制御
-        if (this.viewHistory.length > 0) {
-            backBtn.style.display = 'block';
-        } else {
-            backBtn.style.display = 'none';
-        }
-
-        if (!isBack) window.scrollTo(0, 0);
+        window.scrollTo(0, 0);
     },
 
-    goBack() {
-        if (this.viewHistory.length === 0) return;
-        const lastState = this.viewHistory.pop();
-        this.currentView = lastState.view;
-        const container = document.getElementById('view-container');
-        container.dataset.header = lastState.header;
-        
-        // Mapsを介さず直接描画し、スクロール位置を復元
-        container.innerHTML = lastState.html;
-        window.scrollTo(0, lastState.scroll);
+    // URLのパラメーターを読み取って正しい画面を表示するルーター
+    async routeCurrentUrl() {
+        const params = new URLSearchParams(window.location.search);
+        const vId = params.get('v');
+        const searchQ = params.get('search');
+        const mode = params.get('mode');
+        const list = params.get('list');
+        const channel = params.get('channel');
 
-        if (this.viewHistory.length === 0) {
-            document.getElementById('back-btn').style.display = 'none';
+        if (vId) {
+            try {
+                const data = await YT.fetchAPI('videos', { id: vId, part: 'snippet' });
+                if (data && data.items && data.items.length > 0) {
+                    Actions.currentList = data.items;
+                    Actions.currentIndex = 0;
+                    await Actions.fillStats(data.items);
+                    Actions.play(data.items[0], true); // true = URLの追加をスキップ
+                } else { Actions.goHome(true); }
+            } catch(e) { Actions.goHome(true); }
+        } else if (searchQ) {
+            document.getElementById('search-input').value = searchQ;
+            Actions.search(true);
+        } else if (list) {
+            Actions.viewPlaylistDetail(list, true);
+        } else if (channel) {
+            Actions.showChannel(channel, true);
+        } else if (mode) {
+            switch(mode) {
+                case 'shorts': Actions.showShorts(true); break;
+                case 'live': Actions.showLiveHub(true); break;
+                case 'subs': Actions.showSubs(true); break;
+                case 'history': Actions.showHistory(true); break;
+                case 'resume': Actions.showResumeList(true); break;
+                case 'playlists': Actions.showMyPlaylists(true); break;
+                case 'ai_recommend': Actions.showAIRecommendations(true); break;
+                case 'watchlater': Actions.showWatchLater(true); break;
+                case 'game': Actions.showGame(true); break;
+                default: Actions.goHome(true);
+            }
+        } else {
+            Actions.goHome(true);
         }
     },
 
@@ -305,8 +312,8 @@ const Actions = {
         if (data.items && data.items[0]) this.play(data.items[0]);
     },
 
-    showResumeList() {
-        if (window.location.search.includes('v=')) window.history.pushState(null, '', window.location.pathname);
+    showResumeList(skipPush = false) {
+        if (!skipPush) window.history.pushState(null, '', '?mode=resume');
         this.currentView = "resume";
         const list = Storage.get('yt_resume_list');
         
@@ -362,8 +369,8 @@ const Actions = {
         }
     },
 
-    showMyPlaylists() {
-        if (window.location.search.includes('v=')) window.history.pushState(null, '', window.location.pathname);
+    showMyPlaylists(skipPush = false) {
+        if (!skipPush) window.history.pushState(null, '', '?mode=playlists');
         this.currentView = "my_playlists";
         const dict = Storage.getMyPlaylists();
         let html = `<div style="padding:20px;"><div style="display:flex; justify-content:space-between; align-items:center;"><h2>📂 マイプレイリスト</h2><button class="btn" onclick="Actions.createNewPlaylistPrompt()" style="background:#3ea6ff; color:#fff;">＋ 新規作成</button></div><div class="grid" style="margin-top:20px;">`;
@@ -385,8 +392,8 @@ const Actions = {
         if (confirm(`プレイリスト「${name}」を削除しますか？`)) { Storage.deletePlaylist(name); this.showMyPlaylists(); }
     },
 
-    viewPlaylistDetail(name) {
-        if (window.location.search.includes('v=')) window.history.pushState(null, '', window.location.pathname);
+    viewPlaylistDetail(name, skipPush = false) {
+        if (!skipPush) window.history.pushState(null, '', '?list=' + encodeURIComponent(name));
         this.currentView = "playlist_detail";
         this.activePlaylistName = name;
         const dict = Storage.getMyPlaylists();
@@ -413,11 +420,11 @@ const Actions = {
 
     removeFromPlaylistAndRefresh(name, id) {
         Storage.removeFromPlaylist(name, id);
-        this.viewPlaylistDetail(name);
+        this.viewPlaylistDetail(name, true); // trueでURL更新をスキップ
     },
 
-    async showAIRecommendations() {
-        if (window.location.search.includes('v=')) window.history.pushState(null, '', window.location.pathname);
+    async showAIRecommendations(skipPush = false) {
+        if (!skipPush) window.history.pushState(null, '', '?mode=ai_recommend');
         this.currentView = "ai_recommend";
         this.Maps(`<div style="padding:20px;"><h2>🤖 AIが分析中...</h2></div>`);
         const history = Storage.get('yt_history');
@@ -441,11 +448,9 @@ const Actions = {
         setTimeout(() => { div.style.opacity = '0'; setTimeout(() => div.remove(), 500); }, 3000);
     },
 
-    async goHome() {
-        if (window.location.search.includes('v=')) window.history.pushState(null, '', window.location.pathname);
+    async goHome(skipPush = false) {
+        if (!skipPush) window.history.pushState(null, '', window.location.pathname);
         this.currentView = "home";
-        this.viewHistory = []; // ホームに戻る際は履歴リセット
-        document.getElementById('back-btn').style.display = 'none';
         this.activePlaylistName = null;
         this.currentParams = { chart: 'mostPopular', regionCode: 'JP', part: 'snippet', maxResults: 24 };
         const data = await YT.fetchAPI('videos', this.currentParams);
@@ -455,8 +460,8 @@ const Actions = {
         this.renderGrid("<h2>急上昇</h2>");
     },
 
-    async showShorts() {
-        if (window.location.search.includes('v=')) window.history.pushState(null, '', window.location.pathname);
+    async showShorts(skipPush = false) {
+        if (!skipPush) window.history.pushState(null, '', '?mode=shorts');
         this.currentView = "shorts";
         this.activePlaylistName = null;
         this.currentParams = { q: '#Shorts', part: 'snippet', type: 'video', videoDuration: 'short', maxResults: 24 };
@@ -467,8 +472,8 @@ const Actions = {
         this.renderGrid("<h2>ショート</h2>");
     },
 
-    async showLiveHub() {
-        if (window.location.search.includes('v=')) window.history.pushState(null, '', window.location.pathname);
+    async showLiveHub(skipPush = false) {
+        if (!skipPush) window.history.pushState(null, '', '?mode=live');
         this.currentView = "live";
         this.activePlaylistName = null;
         this.currentParams = { q: 'live', part: 'snippet', type: 'video', eventType: 'live', regionCode: 'JP', maxResults: 24 };
@@ -479,10 +484,11 @@ const Actions = {
         this.renderGrid("<h2>🔴 ライブ配信</h2>");
     },
 
-    async search() {
-        if (window.location.search.includes('v=')) window.history.pushState(null, '', window.location.pathname);
+    async search(skipPush = false) {
         const q = document.getElementById('search-input').value;
         if (!q) return;
+        if (!skipPush) window.history.pushState(null, '', '?search=' + encodeURIComponent(q));
+        
         let finalQ = q;
         const vParams = { part: 'snippet', maxResults: 15, type: 'video' };
         let includePlaylists = true;
@@ -628,8 +634,8 @@ const Actions = {
     handleWatchLater(id, title, channelTitle, thumb, channelId) {
         const proxiedThumb = `/api/thumb?id=${id}`;
         Storage.toggleWatchLater({ id, title, channelTitle, thumb: proxiedThumb, channelId });
-        if (this.currentIndex !== -1 && !["subs","watchlater"].includes(this.currentView)) this.play(this.currentList[this.currentIndex]);
-        else if (this.currentView === "watchlater") this.showWatchLater();
+        if (this.currentIndex !== -1 && !["subs","watchlater"].includes(this.currentView)) this.play(this.currentList[this.currentIndex], true);
+        else if (this.currentView === "watchlater") this.showWatchLater(true);
     },
 
     async showComments(vId, order = 'relevance') {
@@ -671,11 +677,9 @@ const Actions = {
         } catch (e) { document.getElementById('comment-list').innerHTML = "コメント取得失敗"; }
     },
 
-    async play(video) {
+    async play(video, skipPush = false) {
         const vId = YT.getVideoId(video);
-        if (new URLSearchParams(window.location.search).get('v') !== vId) {
-            window.history.pushState(null, '', '?v=' + vId);
-        }
+        if (!skipPush) window.history.pushState(null, '', '?v=' + vId);
 
         const snip = video.snippet;
         const isSubbed = Storage.get('yt_subs').some(x => x.id === snip.channelId);
@@ -730,7 +734,7 @@ const Actions = {
                             <button class="btn" onclick="Actions.changeSpeed(2.0)">2.0x</button>
                             <div style="margin-left:auto; display:flex; align-items:center; gap:10px;">
                                 <span style="font-size:12px; color:#aaa;">再生モード:</span>
-                                <select id="mode-select" class="btn" style="background:#333; color:#fff; border:none;" onchange="Actions.playbackMode=this.value; localStorage.setItem('yt_playback_mode', this.value); Actions.play(Actions.currentList[Actions.currentIndex] || Actions.relatedList[Actions.currentIndex])">
+                                <select id="mode-select" class="btn" style="background:#333; color:#fff; border:none;" onchange="Actions.playbackMode=this.value; localStorage.setItem('yt_playback_mode', this.value); Actions.play(Actions.currentList[Actions.currentIndex] || Actions.relatedList[Actions.currentIndex], true)">
                                     <option value="edu" ${this.playbackMode==='edu'?'selected':''}>Education</option>
                                     <option value="streaming" ${this.playbackMode==='streaming'?'selected':''}>ストリーミング</option>
                                 </select>
@@ -806,8 +810,8 @@ const Actions = {
         }, 5000);
     },
 
-    async showChannel(chId) {
-        if (window.location.search.includes('v=')) window.history.pushState(null, '', window.location.pathname);
+    async showChannel(chId, skipPush = false) {
+        if (!skipPush) window.history.pushState(null, '', '?channel=' + chId);
         this.currentView = "channel";
         const chData = await YT.fetchAPI('channels', { id: chId, part: 'snippet,brandingSettings' });
         const ch = chData.items[0];
@@ -849,7 +853,7 @@ const Actions = {
     },
 
     async showPlaylistView(plId, title) {
-        if (window.location.search.includes('v=')) window.history.pushState(null, '', window.location.pathname);
+        // この関数はチャンネル内プレイリストなどに呼ばれる
         this.currentView = "playlist";
         this.activePlaylistName = title;
         this.currentParams = { playlistId: plId, part: 'snippet,contentDetails', maxResults: 24 };
@@ -861,11 +865,11 @@ const Actions = {
 
     handleSub(id, name, refresh = false) {
         Storage.toggleSub({ id, name, thumb: this.channelIcons[id] || '' });
-        if (refresh) { if (this.currentView === "channel") this.showChannel(id); else if (this.currentIndex !== -1 && this.currentView !== "subs") this.play(this.currentList[this.currentIndex]); }
+        if (refresh) { if (this.currentView === "channel") this.showChannel(id, true); else if (this.currentIndex !== -1 && this.currentView !== "subs") this.play(this.currentList[this.currentIndex], true); }
     },
 
-    async showSubs() {
-        if (window.location.search.includes('v=')) window.history.pushState(null, '', window.location.pathname);
+    async showSubs(skipPush = false) {
+        if (!skipPush) window.history.pushState(null, '', '?mode=subs');
         this.currentView = "subs";
         const subs = Storage.get('yt_subs');
         
@@ -906,8 +910,8 @@ const Actions = {
         } catch (e) { if(document.getElementById('subs-timeline-grid')) document.getElementById('subs-timeline-grid').innerHTML = "取得に失敗しました。"; }
     },
 
-    showWatchLater() {
-        if (window.location.search.includes('v=')) window.history.pushState(null, '', window.location.pathname);
+    showWatchLater(skipPush = false) {
+        if (!skipPush) window.history.pushState(null, '', '?mode=watchlater');
         this.currentView = "watchlater";
         const list = Storage.get('yt_watchlater');
         this.currentList = list.map(x => ({ id: x.id, snippet: { title: x.title, thumbnails: { high: { url: x.thumb } }, channelTitle: x.channelTitle, channelId: x.channelId, publishedAt: new Date().toISOString() } }));
@@ -927,8 +931,8 @@ const Actions = {
         Actions.showStatusNotification(current ? "シークレットモードを終了しました" : "シークレットモードを開始しました。履歴は保存されません。");
     },
 
-    showHistory() {
-        if (window.location.search.includes('v=')) window.history.pushState(null, '', window.location.pathname);
+    showHistory(skipPush = false) {
+        if (!skipPush) window.history.pushState(null, '', '?mode=history');
         this.currentView = "history";
         const history = Storage.get('yt_history');
         this.currentList = history.map(x => ({ id: x.id, snippet: { title: x.title, thumbnails: { high: { url: x.thumb } }, channelTitle: x.channelTitle, publishedAt: new Date().toISOString() } }));
@@ -953,7 +957,7 @@ const Actions = {
                     <div class="v-text">
                         <h3>${v.snippet.title}</h3>
                         <p>${v.snippet.channelTitle}</p>
-                        <button class="btn" onclick="Storage.deleteHistoryItem('${v.id}'); Actions.showHistory();" style="margin-top:5px; font-size:10px; padding:2px 5px; background:#444;">削除</button>
+                        <button class="btn" onclick="Storage.deleteHistoryItem('${v.id}'); Actions.showHistory(true);" style="margin-top:5px; font-size:10px; padding:2px 5px; background:#444;">削除</button>
                     </div>
                 </div>`;
             });
@@ -962,8 +966,8 @@ const Actions = {
         this.Maps(html);
     },
 
-    showGame() {
-        if (window.location.search.includes('v=')) window.history.pushState(null, '', window.location.pathname);
+    showGame(skipPush = false) {
+        if (!skipPush) window.history.pushState(null, '', '?mode=game');
         window.scrollTo(0, 0);
         if (typeof M3U8Player !== 'undefined') M3U8Player.stopPlayer();
         GameModule.renderGameMenu();
@@ -973,21 +977,11 @@ const Actions = {
 window.onload = async () => { 
     Actions.init(); 
     await YT.refreshEduKey(); 
-    const params = new URLSearchParams(window.location.search);
-    const vId = params.get('v');
-    if (vId) {
-        try {
-            const data = await YT.fetchAPI('videos', { id: vId, part: 'snippet' });
-            if (data && data.items && data.items.length > 0) {
-                Actions.currentList = data.items;
-                Actions.currentIndex = 0;
-                await Actions.fillStats(data.items);
-                Actions.play(data.items[0]);
-            } else { Actions.goHome(); }
-        } catch(e) { Actions.goHome(); }
-    } else { Actions.goHome(); }
+    // ブラウザの戻るボタン対応：ページロード時にURLを読み取って正しい画面を表示する
+    Actions.routeCurrentUrl();
 };
 
+// ゲーム起動関数群
 function startTetris() { if (typeof initTetris === 'function') initTetris(); else Actions.showStatusNotification("エラー"); }
 function startSnake() { if (typeof initSnake === 'function') initSnake(); else Actions.showStatusNotification("エラー"); }
 function startReversi() { if (typeof initReversi === 'function') initReversi(); else Actions.showStatusNotification("エラー"); }
