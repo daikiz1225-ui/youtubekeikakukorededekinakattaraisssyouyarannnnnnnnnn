@@ -93,27 +93,38 @@ const YT = {
         return `https://www.youtubeeducation.com/embed/${id}?${params.toString()}`;
     },
 
-    // --- 【追加】プロキシから本物の関連動画IDを取得し、APIで詳細化する ---
-    async getRealRelatedVideos(videoId) {
-        try {
-            const response = await fetch(`/api/proxy?videoId=${videoId}`);
-            if (!response.ok) throw new Error('Proxy failed');
-            const relatedIds = await response.json(); // ["id1", "id2", ...]
-            
-            if (!relatedIds || relatedIds.length === 0) return null;
+    // --- 【変更】リトライ機能付き：プロキシから本物の関連動画IDを取得 ---
+    async getRealRelatedVideos(videoId, maxRetries = 3) {
+        for (let i = 0; i < maxRetries; i++) {
+            try {
+                console.log(`🔥 関連動画スクレイピング トライ ${i + 1}/${maxRetries}回目...`);
+                const response = await fetch(`/api/proxy?videoId=${videoId}`);
+                if (!response.ok) throw new Error(`Proxy HTTP Error: ${response.status}`);
+                
+                const relatedIds = await response.json(); // ["id1", "id2", ...]
+                
+                if (!Array.isArray(relatedIds) || relatedIds.length === 0) {
+                    throw new Error('ID配列が空です');
+                }
 
-            // 取得したID配列の先頭15件を使って動画の詳細データを一括取得
-            const idsString = relatedIds.slice(0, 15).join(',');
-            const data = await this.fetchAPI('videos', { id: idsString, part: 'snippet' });
-            
-            if (data && data.items) {
-                return data.items;
+                // 取得したID配列の先頭15件を使って動画の詳細データを一括取得
+                const idsString = relatedIds.slice(0, 15).join(',');
+                const data = await this.fetchAPI('videos', { id: idsString, part: 'snippet' });
+                
+                if (data && data.items && data.items.length > 0) {
+                    console.log("✅ スクレイピング成功！");
+                    return data.items;
+                }
+                throw new Error('APIでの詳細化に失敗');
+            } catch (error) {
+                console.error(`❌ スクレイピング失敗 (${i + 1}/${maxRetries}):`, error);
+                if (i === maxRetries - 1) return null; // 最後のトライなら諦める
+                
+                // 失敗時は1.5秒待ってから再トライ
+                await new Promise(resolve => setTimeout(resolve, 1500));
             }
-            return null;
-        } catch (error) {
-            console.error("本物関連動画の取得に失敗しました:", error);
-            return null;
         }
+        return null;
     }
 };
 
@@ -450,7 +461,6 @@ const Actions = {
         this.viewPlaylistDetail(name, true); 
     },
 
-    // --- 【変更】AIおすすめを、プロキシ（ID配列）対応版に書き換え ---
     async showAIRecommendations(skipPush = false) {
         if (!skipPush) window.history.pushState(null, '', '?mode=ai_recommend');
         this.currentView = "ai_recommend";
@@ -463,16 +473,14 @@ const Actions = {
         }
         
         try {
-            // プロキシ経由で履歴の動画IDを投げ、関連動画のID配列を受け取る
             const resp = await fetch('/api/get_recommend', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ history: history }) });
             const recommendedIds = await resp.json();
             
             if (recommendedIds && recommendedIds.length > 0) {
-                // ID配列から詳細データを取得してリスト化
                 const idsString = recommendedIds.slice(0, 24).join(',');
                 const data = await YT.fetchAPI('videos', { id: idsString, part: 'snippet' });
                 this.currentList = data.items || [];
-                this.nextToken = ""; // 公式の関連動画には次ページがないためクリア
+                this.nextToken = ""; 
                 await this.fillStats(this.currentList);
                 this.renderGrid(`<h2>🤖 あなたへのAIおすすめ</h2><p style="color:#aaa; margin:-10px 0 20px 0;">最新の視聴履歴からYouTube公式の関連動画を抽出しました✨</p>`);
             } else {
@@ -721,6 +729,7 @@ const Actions = {
         } catch (e) { document.getElementById('comment-list').innerHTML = "コメント取得失敗"; }
     },
 
+    // --- 【変更】再生画面の表示と、関連動画取得時の待機・リトライ処理 ---
     async play(video, skipPush = false) {
         const vId = YT.getVideoId(video);
         if (!skipPush) window.history.pushState(null, '', '?v=' + vId);
@@ -819,26 +828,38 @@ const Actions = {
                 document.getElementById('side-title').innerText = `再生中: ${this.activePlaylistName}`;
                 this.relatedList = this.currentList;
             } else {
-                // --- 【変更】ここからプロキシ経由の「本物」の関連動画取得ロジック ---
+                // UIにローディングメッセージを表示
+                sideBox.innerHTML = `
+                    <div style="padding:40px 20px; text-align:center; color:#aaa; font-size:14px;">
+                        <div style="margin-bottom:10px; font-size:24px;">🔄</div>
+                        YouTubeから関連動画を取得中...<br>
+                        <span style="font-size:11px;">(失敗した場合は自動で数回リトライします)</span>
+                    </div>`;
+                
+                // 完全に入れ替えた新ロジック（旧キーワード検索は削除）
                 let realRelated = await YT.getRealRelatedVideos(vId);
                 
                 if (realRelated && realRelated.length > 0) {
                     this.relatedList = realRelated;
-                    console.log("🔥 プロキシ経由で本物の関連動画を取得しました！");
+                    await this.fillStats(this.relatedList);
                 } else {
-                    console.log("⚠️ プロキシ失敗: 旧ロジック(キーワード検索)で代替します");
-                    const qK = snip.title.replace(/[【】「」]/g, ' ').split(' ').filter(w => w.length > 1).slice(0, 3).join(' ');
-                    const rel = await YT.fetchAPI('search', { q: qK, type: 'video', part: 'snippet', maxResults: 15 });
-                    this.relatedList = rel.items || [];
+                    this.relatedList = [];
+                    sideBox.innerHTML = `
+                        <div style="padding:40px 20px; text-align:center; color:#ff4e45; font-size:14px;">
+                            ❌ 関連動画の取得に失敗しました。<br>
+                            <span style="font-size:11px; color:#aaa;">(YouTube側の制限等の可能性があります)</span>
+                        </div>`;
                 }
-                await this.fillStats(this.relatedList);
-                // --- 変更ここまで ---
             }
-            sideBox.innerHTML = this.relatedList.map((i, idx) => `
-                <div class="v-card" style="display:flex; gap:10px; margin-bottom:12px; ${idx === this.currentIndex && this.activePlaylistName ? 'background:#333; border-left:4px solid #3ea6ff;' : ''}" onclick="Actions.playFromRelated(${idx})">
-                    <img src="${YT.getProxiedThumb(i)}" style="width:140px; aspect-ratio:16/9; object-fit:cover; border-radius:8px;">
-                    <div style="font-size:12px;"><div style="font-weight:bold; line-clamp:2; display:-webkit-box; -webkit-box-orient:vertical; overflow:hidden;">${i.snippet.title}</div><div style="color:#aaa;">${i.snippet.channelTitle}</div><div style="color:#888;">${formatViews(this.videoStats[YT.getVideoId(i)])}</div></div>
-                </div>`).join('');
+            
+            // 取得に成功した場合のみリストを描画
+            if (this.relatedList.length > 0) {
+                sideBox.innerHTML = this.relatedList.map((i, idx) => `
+                    <div class="v-card" style="display:flex; gap:10px; margin-bottom:12px; ${idx === this.currentIndex && this.activePlaylistName ? 'background:#333; border-left:4px solid #3ea6ff;' : ''}" onclick="Actions.playFromRelated(${idx})">
+                        <img src="${YT.getProxiedThumb(i)}" style="width:140px; aspect-ratio:16/9; object-fit:cover; border-radius:8px;">
+                        <div style="font-size:12px;"><div style="font-weight:bold; line-clamp:2; display:-webkit-box; -webkit-box-orient:vertical; overflow:hidden;">${i.snippet.title}</div><div style="color:#aaa;">${i.snippet.channelTitle}</div><div style="color:#888;">${formatViews(this.videoStats[YT.getVideoId(i)])}</div></div>
+                    </div>`).join('');
+            }
         }
 
         Storage.addHistory({ id: vId, title: snip.title, thumb: thumbUrl, channelTitle: snip.channelTitle });
