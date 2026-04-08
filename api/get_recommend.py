@@ -1,61 +1,47 @@
-from http.server import BaseHTTPRequestHandler
-import json
-import re
-from collections import Counter
+export default async function handler(req, res) {
+  const { videoId } = req.query;
 
-class handler(BaseHTTPRequestHandler):
-    def do_POST(self):
-        content_length = int(self.headers['Content-Length'])
-        post_data = self.rfile.read(content_length)
-        data = json.loads(post_data)
-        
-        history = data.get('history', [])
-        recommend_query = "YouTube おすすめ"
-        explanation = "視聴履歴から今のトレンドを解析中..."
+  if (!videoId) {
+    return res.status(400).json({ error: "videoId is required" });
+  }
 
-        if history:
-            # 直近5件を重点的に分析
-            recent_items = history[:5]
-            words_pool = []
-            
-            # ノイズを除去するための定義
-            noise = r'(実況|配信|動画|公式|最新|攻略|対戦|まとめ|LIVE|shorts|パート|Part|ちゃんねる|チャンネル|【】|\[\])'
-            
-            for i, item in enumerate(recent_items):
-                title = item.get('title', '')
-                
-                # キーワード抽出（カッコ内、ハッシュタグ、3文字以上の固有名詞）
-                brackets = re.findall(r'[【「\[](.*?)[】」\]]', title)
-                tags = re.findall(r'#([^\s#]+)', title)
-                keywords = re.findall(r'[一-龠ぁ-んァ-ヶa-zA-Z0-9ー]{3,}', title)
-                
-                found_words = brackets + tags + keywords
-                
-                # スコア計算：最新（i=0）は5点、古い（i=4）は1点としてプールに追加
-                weight = 5 - i
-                for word in found_words:
-                    clean_word = re.sub(noise, '', word).strip()
-                    if len(clean_word) >= 2:
-                        words_pool.extend([clean_word] * weight)
+  const targetUrl = `https://www.youtube.com/watch?v=${videoId}`;
 
-            if words_pool:
-                # 出現頻度（重み付き）が高い順に2つ取得
-                most_common = Counter(words_pool).most_common(2)
-                
-                if len(most_common) >= 2:
-                    w1, w2 = most_common[0][0], most_common[1][0]
-                    recommend_query = f"{w1} {w2}"
-                    explanation = f"最近の視聴「{w1}」と「{w2}」からAIが推論しました"
-                elif len(most_common) == 1:
-                    w1 = most_common[0][0]
-                    recommend_query = w1
-                    explanation = f"今のマイトレンド「{w1}」に合わせたおすすめ"
+  try {
+    const headers = new Headers();
+    // ブラウザのふりをしてYouTubeにアクセス
+    headers.set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+    headers.set("Accept-Language", "ja,en-US;q=0.9,en;q=0.8");
 
-        # レスポンス送信
-        self.send_response(200)
-        self.send_header('Content-type', 'application/json')
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.end_headers()
-        
-        output = {"query": recommend_query, "explanation": explanation}
-        self.wfile.write(json.dumps(output).encode('utf-8'))
+    const response = await fetch(targetUrl, {
+      method: "GET",
+      headers: headers
+    });
+
+    const html = await response.text();
+
+    // ytInitialDataの中にYouTubeが用意した関連動画データが入っている
+    const jsonMatch = html.match(/var ytInitialData = (\{.*?\});/);
+    if (!jsonMatch) {
+      return res.status(404).json({ error: "Data not found" });
+    }
+
+    const rawData = JSON.parse(jsonMatch[1]);
+    
+    // 関連動画のリスト（Secondary Results）を抽出
+    const results = rawData.contents?.twoColumnWatchNextResults?.secondaryResults?.secondaryResults?.results || [];
+
+    // IDだけを抽出して配列にする
+    const relatedIds = results
+      .map(item => item.compactVideoRenderer?.videoId)
+      .filter(id => id !== undefined);
+
+    res.setHeader("Content-Type", "application/json");
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    // 配列だけをシンプルに返す
+    return res.status(200).json(relatedIds);
+
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+}
