@@ -1,7 +1,7 @@
 from http.server import BaseHTTPRequestHandler
 import json
-import re
-from collections import Counter
+import urllib.request
+import urllib.parse
 
 class handler(BaseHTTPRequestHandler):
     def do_POST(self):
@@ -9,54 +9,26 @@ class handler(BaseHTTPRequestHandler):
         post_data = self.rfile.read(content_length)
         data = json.loads(post_data)
         
+        # app.jsから送られてきた視聴履歴
         history = data.get('history', [])
-        recommend_query = "YouTube おすすめ"
-        explanation = "視聴履歴から今のトレンドを解析中..."
+        recommended_ids = []
 
-        if len(history) > 0:
-            all_text = ""
-            hashtags = []
+        if history:
+            # 履歴の最新の動画IDを取得
+            latest_video_id = history[0].get('id')
             
-            # 直近5件のタイトルと説明文をスキャン
-            for item in history[:15]:
-                title = item.get('title', '')
-                desc = item.get('description', '') # app.jsで送っていれば取得可能
-                combined = f"{title} {desc}"
-                all_text += " " + combined
-                
-                # 1. ハッシュタグを抽出（これが一番「ハマってるもの」を表しやすい）
-                tags = re.findall(r'#(\w+)', combined)
-                hashtags.extend(tags)
-
-            # 2. ハッシュタグがあれば、その中で最も多いものを採用
-            if hashtags:
-                most_common_tag = Counter(hashtags).most_common(1)[0][0]
-                recommend_query = most_common_tag
-                explanation = f"ハッシュタグ #{most_common_tag} からおすすめを生成"
-            
-            else:
-                # 3. ハッシュタグがない場合：タイトルから固有名詞っぽ単語を抽出
-                # 【 】や [ ] の中身はジャンル名（例：ポケポケ、スプラ）が多いので優先
-                brackets = re.findall(r'[【「\[](.*?)[】」\]]', all_text)
-                
-                # 掃除：よくあるノイズ単語を除外
-                noise = r'(実況|配信|動画|公式|最新|攻略|対戦|まとめ|LIVE|shorts)'
-                clean_brackets = [re.sub(noise, '', b).strip() for b in brackets if len(re.sub(noise, '', b).strip()) >= 2]
-                
-                if clean_brackets:
-                    # カッコ内の単語で一番多いものを採用
-                    best_word = Counter(clean_brackets).most_common(1)[0][0]
-                    recommend_query = best_word
-                    explanation = f"よく見ている「{best_word}」関連のおすすめ"
-                else:
-                    # 4. 最終手段：単純な単語の出現頻度
-                    words = re.findall(r'[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF]{2,}', all_text)
-                    # ノイズ削除
-                    filtered_words = [w for w in words if not re.match(noise, w)]
-                    if filtered_words:
-                        best_word = Counter(filtered_words).most_common(1)[0][0]
-                        recommend_query = best_word
-                        explanation = f"最近の関心事「{best_word}」から検索"
+            if latest_video_id:
+                try:
+                    # 自分のドメインのproxy.jsを叩く（ホスト名はリクエストヘッダーから取得）
+                    host = self.headers.get('Host')
+                    protocol = "https" if "vercel.app" in host else "http"
+                    proxy_url = f"{protocol}://{host}/api/proxy?videoId={latest_video_id}"
+                    
+                    # プロキシに動画IDを投げて関連動画IDリストを取得
+                    with urllib.request.urlopen(proxy_url) as response:
+                        recommended_ids = json.loads(response.read().decode())
+                except Exception as e:
+                    print(f"Error calling proxy: {e}")
 
         # レスポンス送信
         self.send_response(200)
@@ -64,5 +36,5 @@ class handler(BaseHTTPRequestHandler):
         self.send_header('Access-Control-Allow-Origin', '*')
         self.end_headers()
         
-        res_data = {"query": recommend_query, "explanation": explanation}
-        self.wfile.write(json.dumps(res_data).encode())
+        # フロントエンドにIDの配列をそのまま返す
+        self.wfile.write(json.dumps(recommended_ids).encode('utf-8'))
