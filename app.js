@@ -26,6 +26,7 @@ const YT = {
 
     getVideoId(item) {
         if (!item) return "";
+        // IDがオブジェクトの場合(YouTube API)と文字列の場合(Invidious/独自API)の両方に対応
         return item.id?.videoId || item.contentDetails?.videoId || item.contentDetails?.upload?.videoId || item.snippet?.resourceId?.videoId || (typeof item.id === 'string' ? item.id : "");
     },
 
@@ -459,27 +460,27 @@ const Actions = {
         this.currentView = "home";
         this.activePlaylistName = null;
         
-        // 改造内容: 履歴からAIおすすめを取得して表示
+        // 改造: 履歴5件をPOSTしておすすめを取得
+        const history = Storage.get('yt_history').slice(0, 5);
         try {
-            const history = Storage.get('yt_history').slice(0, 5);
-            const resp = await fetch('/api/get_recommend', { 
-                method: 'POST', 
-                headers: { 'Content-Type': 'application/json' }, 
-                body: JSON.stringify({ history: history }) 
+            const resp = await fetch('/api/get_recommend', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ history: history })
             });
             const aiData = await resp.json();
             this.currentList = aiData.videos || [];
-            this.nextToken = ""; // 独自APIのため一旦空
+            this.nextToken = ""; // 推奨APIの場合はトークンなし
             await this.fillStats(this.currentList);
-            this.renderGrid(`<h2>あなたへのおすすめ</h2><p style="color:#aaa; margin:-10px 0 20px 0;">${aiData.explanation || ''}</p>`);
+            this.renderGrid(`<h2>あなたへのおすすめ</h2><p style="color:#aaa; margin:-10px 0 20px 0;">${aiData.explanation || '視聴履歴に基づいた選曲です'}</p>`);
         } catch (e) {
-            // エラー時はフォールバックとして急上昇を表示
+            // エラー時は旧来の急上昇を表示
             this.currentParams = { chart: 'mostPopular', regionCode: 'JP', part: 'snippet', maxResults: 24 };
             const data = await YT.fetchAPI('videos', this.currentParams);
             this.currentList = data.items || [];
             this.nextToken = data.nextPageToken || "";
             await this.fillStats(this.currentList);
-            this.renderGrid("<h2>急上昇 (取得エラーのため)</h2>");
+            this.renderGrid("<h2>急上昇 (おすすめ取得失敗)</h2>");
         }
     },
 
@@ -803,7 +804,7 @@ const Actions = {
                 document.getElementById('side-title').innerText = `再生中: ${this.activePlaylistName}`;
                 this.relatedList = this.currentList;
             } else {
-                // 改造内容: YouTube API 経由を廃止し、独自APIから関連動画を取得
+                // 改造: YouTube APIを廃止し、/api/kanrenn?videoId=[動画ID]から取得
                 try {
                     const relResp = await fetch(`/api/kanrenn?videoId=${vId}`);
                     const relData = await relResp.json();
