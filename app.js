@@ -1,4 +1,4 @@
-/* app.js - URL Routing System Integrated & Scroll Fixed (NO TRUNCATION) */
+/* app.js - URL Routing System Integrated & Comment Panel Fixed */
 
 // --- ユーティリティ ---
 function timeAgo(dateString) {
@@ -269,7 +269,7 @@ const Actions = {
         const mode = params.get('mode');
         const list = params.get('list');
         const channel = params.get('channel');
-        const ytPlaylist = params.get('playlist');
+        const ytPlaylist = params.get('playlist'); 
 
         if (vId) {
             try {
@@ -278,7 +278,7 @@ const Actions = {
                     Actions.currentList = data.items;
                     Actions.currentIndex = 0;
                     await Actions.fillStats(data.items);
-                    Actions.play(data.items[0], true);
+                    Actions.play(data.items[0], true); 
                 } else { Actions.goHome(true); }
             } catch(e) { Actions.goHome(true); }
         } else if (searchQ) {
@@ -644,88 +644,72 @@ const Actions = {
         else if (this.currentView === "watchlater") this.showWatchLater(true);
     },
 
-    // --- 修正されたコメント機能 ---
+    // --- 復活させたサイドパネル式コメント機能 ---
     async showComments(vId, order = 'relevance') {
         let panel = document.getElementById('comment-panel');
         const layout = document.querySelector('.watch-layout, .shorts-container');
 
-        // パネルを閉じる内部共通関数
         const closePanel = () => {
             if (panel) panel.remove();
-            if (layout) {
-                layout.style.marginRight = "0";
-                layout.style.width = "100%";
-            }
+            if (layout) { layout.style.marginRight = "0"; layout.style.width = "100%"; }
         };
 
-        // トグル機能: すでに同じ条件で開いていれば閉じる
+        // トグル動作: すでに同じ動画のパネルが開いていれば閉じる
         if (panel && panel.dataset.vId === vId && panel.dataset.order === order) {
-            closePanel();
-            return;
+            closePanel(); return;
         }
 
-        // レイアウト調整 (PCサイズのみ右側を開ける)
+        // デスクトップ表示時に動画を左に寄せる
         if (layout && window.innerWidth > 1000) {
             layout.style.marginRight = "400px";
             layout.style.transition = "margin 0.3s ease";
         }
 
-        // パネルの初期化
         if (!panel) {
             panel = document.createElement('div');
             panel.id = 'comment-panel';
-            panel.style = `
-                position:fixed; top:60px; right:0; width:400px; height:calc(100vh - 60px); 
-                background:#0f0f0f; border-left:1px solid #333; z-index:1000; 
-                padding:0; overflow:hidden; color:white; display:flex; flex-direction:column;
-                box-shadow: -5px 0 15px rgba(0,0,0,0.5);
-            `;
+            panel.style = `position:fixed; top:60px; right:0; width:400px; height:calc(100vh - 60px); background:#0f0f0f; border-left:1px solid #333; z-index:1000; display:flex; flex-direction:column; color:white; box-shadow:-5px 0 15px rgba(0,0,0,0.5);`;
             document.body.appendChild(panel);
         }
 
         panel.dataset.vId = vId;
         panel.dataset.order = order;
-
-        // パネル構造: ヘッダー(固定) + リスト(スクロール)
         panel.innerHTML = `
             <div style="padding:15px; border-bottom:1px solid #333; display:flex; justify-content:space-between; align-items:center; background:#161616;">
                 <h3 style="margin:0; font-size:18px;">コメント</h3>
                 <div style="display:flex; gap:8px; align-items:center;">
                     <select onchange="Actions.showComments('${vId}', this.value)" style="background:#333; color:white; border:none; padding:4px; border-radius:4px; font-size:12px; cursor:pointer;">
-                        <option value="relevance" ${order === 'relevance' ? 'selected' : ''}>いいね順</option>
-                        <option value="time" ${order === 'time' ? 'selected' : ''}>新着順</option>
+                        <option value="relevance" ${order==='relevance'?'selected':''}>いいね順</option>
+                        <option value="time" ${order==='time'?'selected':''}>新着順</option>
                     </select>
-                    <button id="comment-close-btn" style="background:none; border:none; color:white; font-size:24px; cursor:pointer; line-height:1;">&times;</button>
+                    <button onclick="document.getElementById('comment-panel').remove(); if(document.querySelector('.watch-layout')) document.querySelector('.watch-layout').style.marginRight='0';" style="background:none; border:none; color:white; font-size:24px; cursor:pointer;">&times;</button>
                 </div>
             </div>
             <div id="comment-list" style="flex:1; overflow-y:auto; padding:20px;">読み込み中...</div>
         `;
 
-        document.getElementById('comment-close-btn').onclick = closePanel;
-
         try {
             const resp = await fetch(`/api/komento?vId=${vId}&key=${YT.getCurrentKey()}&order=${order}`);
             const data = await resp.json();
             const list = document.getElementById('comment-list');
-            
-            if (!data.items || data.items.length === 0) { 
-                list.innerHTML = `<div style="text-align:center; color:#aaa; margin-top:40px;">コメントが無効か、存在しません。</div>`; 
-                return; 
+            if (!data.items || data.items.length === 0) {
+                list.innerHTML = `<div style="text-align:center; color:#aaa; margin-top:40px;">コメントは非表示か、存在しません。</div>`;
+                return;
             }
-
             list.innerHTML = data.items.map(item => {
                 const c = item.snippet.topLevelComment.snippet;
-                return `
-                    <div style="display:flex; gap:12px; margin-bottom:24px; font-size:13px;">
-                        <img src="${c.authorProfileImageUrl}" style="width:35px; height:35px; border-radius:50%; background:#333;">
-                        <div style="flex:1;">
-                            <div style="font-weight:bold; color:#f1f1f1;">${c.authorDisplayName} <span style="color:#aaa; font-weight:normal; font-size:11px; margin-left:5px;">${timeAgo(c.publishedAt)}</span></div>
-                            <div style="margin-top:5px; white-space:pre-wrap; line-height:1.4;">${c.textDisplay}</div>
-                            <div style="color:#aaa; margin-top:8px;">👍 ${c.likeCount}</div>
-                        </div>
-                    </div>`;
+                return `<div style="display:flex; gap:12px; margin-bottom:20px; font-size:13px;">
+                    <img src="${c.authorProfileImageUrl}" style="width:35px; height:35px; border-radius:50%;">
+                    <div>
+                        <div style="font-weight:bold;">${c.authorDisplayName} <span style="font-weight:normal; color:#aaa; font-size:11px;">${timeAgo(c.publishedAt)}</span></div>
+                        <div style="margin-top:4px; white-space:pre-wrap;">${c.textDisplay}</div>
+                        <div style="color:#aaa; margin-top:5px;">👍 ${c.likeCount}</div>
+                    </div>
+                </div>`;
             }).join('');
-        } catch (e) { document.getElementById('comment-list').innerHTML = `<div style="text-align:center; color:#ff4e45;">取得に失敗しました</div>`; }
+        } catch (e) {
+            document.getElementById('comment-list').innerHTML = "取得エラーが発生しました。";
+        }
     },
 
     async play(video, skipPush = false) {
@@ -740,13 +724,8 @@ const Actions = {
         const safeChTitle = snip.channelTitle.replace(/'/g, "\\'").replace(/"/g, '&quot;');
         const thumbUrl = `/api/thumb?id=${vId}`;
         
-        // 動画切り替え時にコメントパネルをクリア
-        const cp = document.getElementById('comment-panel'); 
-        if (cp) {
-            cp.remove();
-            const layout = document.querySelector('.watch-layout, .shorts-container');
-            if (layout) layout.style.marginRight = "0";
-        }
+        // 動画切り替え時に古いパネルを削除
+        const cp = document.getElementById('comment-panel'); if (cp) cp.remove();
 
         const renderPlayerContent = () => {
             if (this.playbackMode === "streaming") {
@@ -852,14 +831,6 @@ const Actions = {
             if (player) {
                 if (player.tagName === 'IFRAME') {
                     player.contentWindow.postMessage(JSON.stringify({ event: 'listening' }), '*');
-                    window.addEventListener('message', function listener(e) {
-                        try {
-                            const data = JSON.parse(e.data);
-                            if (data.event === 'infoDelivery' && data.info && data.info.currentTime) {
-                                Storage.saveResumeProgress(video, data.info.currentTime, data.info.duration);
-                            }
-                        } catch(err) {}
-                    });
                 } else if (player.tagName === 'VIDEO') {
                     Storage.saveResumeProgress(video, player.currentTime, player.duration);
                 }
@@ -1037,7 +1008,6 @@ window.onload = async () => {
     Actions.routeCurrentUrl();
 };
 
-// ゲーム起動関数群
 function startTetris() { if (typeof initTetris === 'function') initTetris(); else Actions.showStatusNotification("エラー"); }
 function startSnake() { if (typeof initSnake === 'function') initSnake(); else Actions.showStatusNotification("エラー"); }
 function startReversi() { if (typeof initReversi === 'function') initReversi(); else Actions.showStatusNotification("エラー"); }
