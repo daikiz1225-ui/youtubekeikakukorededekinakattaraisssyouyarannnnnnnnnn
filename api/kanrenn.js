@@ -1,12 +1,8 @@
-// api/kanrenn.js
 export default async function handler(req, res) {
   const { videoId } = req.query;
-  if (!videoId) return res.status(400).json({ error: "videoId is required" });
-
-  // あなたが指定した Invidious インスタンスリスト
   const instances = [
-    'https://inv.nadeko.net/', 'https://invidious.f5.si/', 'https://invidious.lunivers.trade/',
-    'https://invidious.ducks.party/', 'https://iv.melmac.space/', 'https://invidious.nerdvpn.de/',
+    'https://inv.nadeko.net', 'https://invidious.f5.si', 'https://invidious.lunivers.trade',
+    'https://invidious.ducks.party', 'https://iv.melmac.space', 'https://invidious.nerdvpn.de',
     'https://invidious.privacyredirect.com', 'https://invidious.technicalvoid.dev',
     'https://invidious.darkness.services', 'https://invidious.nikkosphere.com',
     'https://invidious.schenkel.eti.br', 'https://invidious.tiekoetter.com',
@@ -14,32 +10,44 @@ export default async function handler(req, res) {
     'https://invidious.private.coffee', 'https://invidious.privacydev.net'
   ];
 
-  // ランダムに1つ選択して末尾のスラッシュを削除
-  const instance = instances[Math.floor(Math.random() * instances.length)].replace(/\/$/, "");
+  // 試行回数
+  const maxRetries = 3;
+  let lastError = null;
 
-  try {
-    // Invidious API の動画詳細エンドポイントを叩く (ここに関連動画が含まれる)
-    const response = await fetch(`${instance}/api/v1/videos/${videoId}`, {
-      headers: { 'User-Agent': 'Mozilla/5.0' }
-    });
+  // ランダムに並び替えて先頭から試す
+  const shuffled = instances.sort(() => 0.5 - Math.random());
 
-    if (!response.ok) throw new Error("Invidious API Response Error");
+  for (let i = 0; i < maxRetries; i++) {
+    const instance = shuffled[i].replace(/\/$/, "");
+    try {
+      // タイムアウトを3秒に設定して、遅いインスタンスをすぐ見切る
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 3000);
 
-    const data = await response.json();
+      const response = await fetch(`${instance}/api/v1/videos/${videoId}`, {
+        headers: { 'User-Agent': 'Mozilla/5.0' },
+        signal: controller.signal
+      });
+      clearTimeout(timeout);
 
-    // 関連動画 (relatedVideos) だけを抽出して整形
-    const relatedVideos = (data.relatedVideos || []).map(v => ({
-      id: v.videoId,
-      title: v.title,
-      channelTitle: v.author,
-      thumbnail: `https://i.ytimg.com/vi/${v.videoId}/mqdefault.jpg`,
-      viewCount: v.viewCountShort || "関連動画"
-    }));
+      if (!response.ok) throw new Error("Status: " + response.status);
 
-    // フロントエンドに返す
-    res.status(200).json(relatedVideos);
-  } catch (error) {
-    console.error("API Error:", error);
-    res.status(500).json({ error: "Failed to fetch from Invidious" });
+      const data = await response.json();
+      const relatedVideos = (data.relatedVideos || []).map(v => ({
+        id: v.videoId,
+        title: v.title,
+        channelTitle: v.author,
+        thumbnail: `https://i.ytimg.com/vi/${v.videoId}/mqdefault.jpg`,
+        viewCount: v.viewCountShort || "関連動画"
+      }));
+
+      return res.status(200).json(relatedVideos);
+    } catch (error) {
+      lastError = error.message;
+      console.log(`Retry ${i+1}: Failed at ${instance} (${error.message})`);
+      continue; // 次のインスタンスへ
+    }
   }
+
+  res.status(500).json({ error: "All retries failed", lastError });
 }
