@@ -254,7 +254,6 @@ const Actions = {
         }
     },
 
-    // skipScroll が true の場合は一番上に戻らない
     Maps(html, skipScroll = false) {
         const container = document.getElementById('view-container');
         container.innerHTML = html;
@@ -263,7 +262,6 @@ const Actions = {
         }
     },
 
-    // URLのパラメーターを読み取って正しい画面を表示するルーター
     async routeCurrentUrl() {
         const params = new URLSearchParams(window.location.search);
         const vId = params.get('v');
@@ -271,7 +269,7 @@ const Actions = {
         const mode = params.get('mode');
         const list = params.get('list');
         const channel = params.get('channel');
-        const ytPlaylist = params.get('playlist'); // 追加: YouTube公式プレイリスト用
+        const ytPlaylist = params.get('playlist');
 
         if (vId) {
             try {
@@ -280,7 +278,7 @@ const Actions = {
                     Actions.currentList = data.items;
                     Actions.currentIndex = 0;
                     await Actions.fillStats(data.items);
-                    Actions.play(data.items[0], true); // true = URLの追加をスキップ
+                    Actions.play(data.items[0], true);
                 } else { Actions.goHome(true); }
             } catch(e) { Actions.goHome(true); }
         } else if (searchQ) {
@@ -553,7 +551,6 @@ const Actions = {
         }).join('');
     },
 
-    // 追加読み込みの時は skipScroll=true が渡されるように変更
     renderGrid(headerHtml = "", skipScroll = false) {
         const container = document.getElementById('view-container');
         const moreBtn = this.nextToken ? `<button class="btn" onclick="Actions.loadMore()" style="width:100%; margin:20px 0; background:#333; color:#fff;">もっと読み込む</button>` : "";
@@ -561,7 +558,6 @@ const Actions = {
         const currentHeader = container.dataset.header || "";
         const finalHtml = `<div style="padding: 10px 20px;">${currentHeader}</div><div class="grid">${this.renderCards(this.currentList)}</div>${moreBtn}`;
         
-        // Mapsに skipScroll を渡す
         this.Maps(finalHtml, skipScroll);
 
         const ids = this.currentList.map(i => i.snippet?.channelId).filter(id => id && !this.channelIcons[id]).join(',');
@@ -579,8 +575,6 @@ const Actions = {
         await this.fillStats(newItems);
         this.currentList = [...this.currentList, ...newItems];
         this.nextToken = data.nextPageToken || "";
-        
-        // 読み込み時は既存のヘッダーを維持しつつ、スクロールをスキップ(true)する
         this.renderGrid("", true);
     },
 
@@ -794,12 +788,10 @@ const Actions = {
             } else {
                 sideBox.innerHTML = `<p style="padding: 20px; color: #aaa; text-align: center;">関連動画を読み込み中...</p>`;
                 try {
-                    // 追加箇所: Invidious API から関連動画を取得
                     const res = await fetch(`/api/kanrenn?videoId=${vId}`);
                     if (!res.ok) throw new Error("Invidious API Error");
                     const invData = await res.json();
                     
-                    // アプリ内で使い回せるように元のYouTubeAPIの形式に似せてマッピング
                     this.relatedList = invData.map(v => ({
                         id: v.id,
                         snippet: {
@@ -808,11 +800,10 @@ const Actions = {
                             thumbnails: { high: { url: v.thumbnail }, default: { url: v.thumbnail } },
                             publishedAt: new Date().toISOString()
                         },
-                        invidiousViewCount: v.viewCount // Invidiousの整形済み再生数
+                        invidiousViewCount: v.viewCount
                     }));
                 } catch (e) {
                     console.error("Related videos fetch error", e);
-                    // エラー時のフォールバック: 従来のYouTube APIを使ったキーワード検索
                     const qK = snip.title.replace(/[【】「」]/g, ' ').split(' ').filter(w => w.length > 1).slice(0, 3).join(' ');
                     const rel = await YT.fetchAPI('search', { q: qK, type: 'video', part: 'snippet', maxResults: 15 });
                     this.relatedList = rel.items || [];
@@ -895,7 +886,6 @@ const Actions = {
         document.getElementById('more-btn-area').innerHTML = this.nextToken ? `<button class="btn" onclick="Actions.loadMore()" style="width:100%; margin:20px 0;">もっと読む</button>` : "";
     },
 
-    // 追加: URL対応化
     async showPlaylistView(plId, title, skipPush = false) {
         if (!skipPush) window.history.pushState(null, '', `?playlist=${plId}&title=${encodeURIComponent(title)}`);
         this.currentView = "playlist";
@@ -1021,11 +1011,9 @@ const Actions = {
 window.onload = async () => { 
     Actions.init(); 
     await YT.refreshEduKey(); 
-    // ブラウザの戻るボタン対応：ページロード時にURLを読み取って正しい画面を表示する
     Actions.routeCurrentUrl();
 };
 
-// ゲーム起動関数群
 function startTetris() { if (typeof initTetris === 'function') initTetris(); else Actions.showStatusNotification("エラー"); }
 function startSnake() { if (typeof initSnake === 'function') initSnake(); else Actions.showStatusNotification("エラー"); }
 function startReversi() { if (typeof initReversi === 'function') initReversi(); else Actions.showStatusNotification("エラー"); }
