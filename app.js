@@ -254,7 +254,6 @@ const Actions = {
         }
     },
 
-    // skipScroll が true の場合は一番上に戻らない
     Maps(html, skipScroll = false) {
         const container = document.getElementById('view-container');
         container.innerHTML = html;
@@ -263,7 +262,6 @@ const Actions = {
         }
     },
 
-    // URLのパラメーターを読み取って正しい画面を表示するルーター
     async routeCurrentUrl() {
         const params = new URLSearchParams(window.location.search);
         const vId = params.get('v');
@@ -271,7 +269,7 @@ const Actions = {
         const mode = params.get('mode');
         const list = params.get('list');
         const channel = params.get('channel');
-        const ytPlaylist = params.get('playlist'); // 追加: YouTube公式プレイリスト用
+        const ytPlaylist = params.get('playlist'); 
 
         if (vId) {
             try {
@@ -280,7 +278,7 @@ const Actions = {
                     Actions.currentList = data.items;
                     Actions.currentIndex = 0;
                     await Actions.fillStats(data.items);
-                    Actions.play(data.items[0], true); // true = URLの追加をスキップ
+                    Actions.play(data.items[0], true); 
                 } else { Actions.goHome(true); }
             } catch(e) { Actions.goHome(true); }
         } else if (searchQ) {
@@ -553,15 +551,12 @@ const Actions = {
         }).join('');
     },
 
-    // 追加読み込みの時は skipScroll=true が渡されるように変更
     renderGrid(headerHtml = "", skipScroll = false) {
         const container = document.getElementById('view-container');
         const moreBtn = this.nextToken ? `<button class="btn" onclick="Actions.loadMore()" style="width:100%; margin:20px 0; background:#333; color:#fff;">もっと読み込む</button>` : "";
         if (headerHtml) container.dataset.header = headerHtml;
         const currentHeader = container.dataset.header || "";
         const finalHtml = `<div style="padding: 10px 20px;">${currentHeader}</div><div class="grid">${this.renderCards(this.currentList)}</div>${moreBtn}`;
-        
-        // Mapsに skipScroll を渡す
         this.Maps(finalHtml, skipScroll);
 
         const ids = this.currentList.map(i => i.snippet?.channelId).filter(id => id && !this.channelIcons[id]).join(',');
@@ -579,8 +574,6 @@ const Actions = {
         await this.fillStats(newItems);
         this.currentList = [...this.currentList, ...newItems];
         this.nextToken = data.nextPageToken || "";
-        
-        // 読み込み時は既存のヘッダーを維持しつつ、スクロールをスキップ(true)する
         this.renderGrid("", true);
     },
 
@@ -647,6 +640,66 @@ const Actions = {
         Storage.toggleWatchLater({ id, title, channelTitle, thumb: proxiedThumb, channelId });
         if (this.currentIndex !== -1 && !["subs","watchlater"].includes(this.currentView)) this.play(this.currentList[this.currentIndex], true);
         else if (this.currentView === "watchlater") this.showWatchLater(true);
+    },
+
+    // --- コメント機能 ---
+    async loadComments(videoId, sortOrder) {
+        const container = document.getElementById('comments-container');
+        if (!container) return;
+        container.innerHTML = '<p style="padding:20px; color:#aaa;">コメント読み込み中...</p>';
+        
+        try {
+            const data = await YT.fetchAPI('commentThreads', {
+                videoId: videoId,
+                part: 'snippet',
+                maxResults: 20,
+                order: sortOrder
+            });
+            this.renderComments(data.items || [], videoId, sortOrder);
+        } catch (e) {
+            container.innerHTML = '<p style="padding:20px; color:#aaa;">コメントを取得できませんでした。</p>';
+        }
+    },
+
+    renderComments(items, videoId, currentSort) {
+        const container = document.getElementById('comments-container');
+        if (!container) return;
+
+        let html = `
+            <div style="margin-top:30px; border-top:1px solid #333; padding-top:20px;">
+                <div style="display:flex; align-items:center; gap:20px; margin-bottom:20px;">
+                    <h3 style="margin:0;">コメント</h3>
+                    <div style="display:flex; gap:10px;">
+                        <button class="btn" style="font-size:12px; padding:5px 12px; ${currentSort === 'relevance' ? 'background:#3ea6ff;' : 'background:#333;'}" onclick="Actions.loadComments('${videoId}', 'relevance')">人気順</button>
+                        <button class="btn" style="font-size:12px; padding:5px 12px; ${currentSort === 'time' ? 'background:#3ea6ff;' : 'background:#333;'}" onclick="Actions.loadComments('${videoId}', 'time')">新しい順</button>
+                    </div>
+                </div>
+                <div id="comment-list">`;
+
+        if (items.length === 0) {
+            html += '<p style="color:#aaa;">コメントがありません。</p>';
+        } else {
+            items.forEach(item => {
+                const c = item.snippet.topLevelComment.snippet;
+                html += `
+                    <div style="display:flex; gap:15px; margin-bottom:25px;">
+                        <img src="${c.authorProfileImageUrl}" style="width:40px; height:40px; border-radius:50%; flex-shrink:0;">
+                        <div style="font-size:14px;">
+                            <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+                                <span style="font-weight:bold; color:#fff;">${c.authorDisplayName}</span>
+                                <span style="color:#aaa; font-size:12px;">${timeAgo(c.publishedAt)}</span>
+                            </div>
+                            <div style="line-height:1.4; white-space:pre-wrap; color:#efefef;">${c.textDisplay}</div>
+                            <div style="margin-top:8px; color:#aaa; font-size:12px; display:flex; align-items:center; gap:5px;">
+                                👍 ${c.likeCount || 0}
+                            </div>
+                        </div>
+                    </div>`;
+            });
+        }
+
+        html += `</div></div>`;
+        container.innerHTML = html;
     },
 
     async showComments(vId, order = 'relevance') {
@@ -730,6 +783,7 @@ const Actions = {
                             <button class="btn" style="background:#333;" onclick="Actions.showComments('${vId}')">💬</button>
                             <button class="btn-download" onclick="Actions.downloadVideo('${vId}', '${safeTitle}')">📥</button>
                         </div>
+                        <div id="comments-container"></div>
                     </div>
                 </div>`;
         } else {
@@ -773,12 +827,14 @@ const Actions = {
                                 </div>
                             </div>
                         </div>
+                        <div id="comments-container"></div>
                     </div>
                     <div class="related-area"><h3 id="side-title" style="margin-top:0;">関連動画</h3><div id="side-content-box"></div></div>
                 </div>`;
         }
 
         this.Maps(playHtml);
+        this.loadComments(vId, 'relevance');
 
         const sideBox = document.getElementById('side-content-box');
         if (sideBox) {
@@ -863,7 +919,6 @@ const Actions = {
         document.getElementById('more-btn-area').innerHTML = this.nextToken ? `<button class="btn" onclick="Actions.loadMore()" style="width:100%; margin:20px 0;">もっと読む</button>` : "";
     },
 
-    // 追加: URL対応化
     async showPlaylistView(plId, title, skipPush = false) {
         if (!skipPush) window.history.pushState(null, '', `?playlist=${plId}&title=${encodeURIComponent(title)}`);
         this.currentView = "playlist";
@@ -989,7 +1044,6 @@ const Actions = {
 window.onload = async () => { 
     Actions.init(); 
     await YT.refreshEduKey(); 
-    // ブラウザの戻るボタン対応：ページロード時にURLを読み取って正しい画面を表示する
     Actions.routeCurrentUrl();
 };
 
