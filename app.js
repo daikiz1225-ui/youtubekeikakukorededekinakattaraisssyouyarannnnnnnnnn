@@ -269,7 +269,7 @@ const Actions = {
         const mode = params.get('mode');
         const list = params.get('list');
         const channel = params.get('channel');
-        const ytPlaylist = params.get('playlist'); 
+        const ytPlaylist = params.get('playlist');
 
         if (vId) {
             try {
@@ -278,7 +278,7 @@ const Actions = {
                     Actions.currentList = data.items;
                     Actions.currentIndex = 0;
                     await Actions.fillStats(data.items);
-                    Actions.play(data.items[0], true); 
+                    Actions.play(data.items[0], true);
                 } else { Actions.goHome(true); }
             } catch(e) { Actions.goHome(true); }
         } else if (searchQ) {
@@ -557,6 +557,7 @@ const Actions = {
         if (headerHtml) container.dataset.header = headerHtml;
         const currentHeader = container.dataset.header || "";
         const finalHtml = `<div style="padding: 10px 20px;">${currentHeader}</div><div class="grid">${this.renderCards(this.currentList)}</div>${moreBtn}`;
+        
         this.Maps(finalHtml, skipScroll);
 
         const ids = this.currentList.map(i => i.snippet?.channelId).filter(id => id && !this.channelIcons[id]).join(',');
@@ -574,6 +575,7 @@ const Actions = {
         await this.fillStats(newItems);
         this.currentList = [...this.currentList, ...newItems];
         this.nextToken = data.nextPageToken || "";
+        
         this.renderGrid("", true);
     },
 
@@ -642,103 +644,88 @@ const Actions = {
         else if (this.currentView === "watchlater") this.showWatchLater(true);
     },
 
-    // --- コメント機能 ---
-    async loadComments(videoId, sortOrder) {
-        const container = document.getElementById('comments-container');
-        if (!container) return;
-        container.innerHTML = '<p style="padding:20px; color:#aaa;">コメント読み込み中...</p>';
-        
-        try {
-            const data = await YT.fetchAPI('commentThreads', {
-                videoId: videoId,
-                part: 'snippet',
-                maxResults: 20,
-                order: sortOrder
-            });
-            this.renderComments(data.items || [], videoId, sortOrder);
-        } catch (e) {
-            container.innerHTML = '<p style="padding:20px; color:#aaa;">コメントを取得できませんでした。</p>';
-        }
-    },
-
-    renderComments(items, videoId, currentSort) {
-        const container = document.getElementById('comments-container');
-        if (!container) return;
-
-        let html = `
-            <div style="margin-top:30px; border-top:1px solid #333; padding-top:20px;">
-                <div style="display:flex; align-items:center; gap:20px; margin-bottom:20px;">
-                    <h3 style="margin:0;">コメント</h3>
-                    <div style="display:flex; gap:10px;">
-                        <button class="btn" style="font-size:12px; padding:5px 12px; ${currentSort === 'relevance' ? 'background:#3ea6ff;' : 'background:#333;'}" onclick="Actions.loadComments('${videoId}', 'relevance')">人気順</button>
-                        <button class="btn" style="font-size:12px; padding:5px 12px; ${currentSort === 'time' ? 'background:#3ea6ff;' : 'background:#333;'}" onclick="Actions.loadComments('${videoId}', 'time')">新しい順</button>
-                    </div>
-                </div>
-                <div id="comment-list">`;
-
-        if (items.length === 0) {
-            html += '<p style="color:#aaa;">コメントがありません。</p>';
-        } else {
-            items.forEach(item => {
-                const c = item.snippet.topLevelComment.snippet;
-                html += `
-                    <div style="display:flex; gap:15px; margin-bottom:25px;">
-                        <img src="${c.authorProfileImageUrl}" style="width:40px; height:40px; border-radius:50%; flex-shrink:0;">
-                        <div style="font-size:14px;">
-                            <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
-                                <span style="font-weight:bold; color:#fff;">${c.authorDisplayName}</span>
-                                <span style="color:#aaa; font-size:12px;">${timeAgo(c.publishedAt)}</span>
-                            </div>
-                            <div style="line-height:1.4; white-space:pre-wrap; color:#efefef;">${c.textDisplay}</div>
-                            <div style="margin-top:8px; color:#aaa; font-size:12px; display:flex; align-items:center; gap:5px;">
-                                👍 ${c.likeCount || 0}
-                            </div>
-                        </div>
-                    </div>`;
-            });
-        }
-
-        html += `</div></div>`;
-        container.innerHTML = html;
-    },
-
+    // --- 修正されたコメント機能 ---
     async showComments(vId, order = 'relevance') {
         let panel = document.getElementById('comment-panel');
+        const layout = document.querySelector('.watch-layout, .shorts-container');
+
+        // パネルを閉じる内部共通関数
+        const closePanel = () => {
+            if (panel) panel.remove();
+            if (layout) {
+                layout.style.marginRight = "0";
+                layout.style.width = "100%";
+            }
+        };
+
+        // トグル機能: すでに同じ条件で開いていれば閉じる
         if (panel && panel.dataset.vId === vId && panel.dataset.order === order) {
-            panel.remove();
-            document.querySelector('.watch-layout, .shorts-container').style.marginRight = "0";
+            closePanel();
             return;
         }
-        const layout = document.querySelector('.watch-layout, .shorts-container');
-        if (layout) layout.style.marginRight = "400px";
+
+        // レイアウト調整 (PCサイズのみ右側を開ける)
+        if (layout && window.innerWidth > 1000) {
+            layout.style.marginRight = "400px";
+            layout.style.transition = "margin 0.3s ease";
+        }
+
+        // パネルの初期化
         if (!panel) {
             panel = document.createElement('div');
             panel.id = 'comment-panel';
-            panel.style = "position:fixed; top:60px; right:0; width:400px; height:calc(100vh - 60px); background:#0f0f0f; border-left:1px solid #333; z-index:100; padding:20px; overflow-y:auto; color:white;";
+            panel.style = `
+                position:fixed; top:60px; right:0; width:400px; height:calc(100vh - 60px); 
+                background:#0f0f0f; border-left:1px solid #333; z-index:1000; 
+                padding:0; overflow:hidden; color:white; display:flex; flex-direction:column;
+                box-shadow: -5px 0 15px rgba(0,0,0,0.5);
+            `;
             document.body.appendChild(panel);
         }
+
         panel.dataset.vId = vId;
         panel.dataset.order = order;
+
+        // パネル構造: ヘッダー(固定) + リスト(スクロール)
         panel.innerHTML = `
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-                <h3 style="margin:0;">コメント</h3>
-                <div style="display:flex; gap:10px;">
-                    <button class="btn" style="font-size:11px; padding:4px 8px; ${order === 'relevance' ? 'background:#3ea6ff;' : 'background:#333;'}" onclick="Actions.showComments('${vId}', 'relevance')">いいね順</button>
-                    <button class="btn" style="font-size:11px; padding:4px 8px; ${order === 'time' ? 'background:#3ea6ff;' : 'background:#333;'}" onclick="Actions.showComments('${vId}', 'time')">新着順</button>
+            <div style="padding:15px; border-bottom:1px solid #333; display:flex; justify-content:space-between; align-items:center; background:#161616;">
+                <h3 style="margin:0; font-size:18px;">コメント</h3>
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <select onchange="Actions.showComments('${vId}', this.value)" style="background:#333; color:white; border:none; padding:4px; border-radius:4px; font-size:12px; cursor:pointer;">
+                        <option value="relevance" ${order === 'relevance' ? 'selected' : ''}>いいね順</option>
+                        <option value="time" ${order === 'time' ? 'selected' : ''}>新着順</option>
+                    </select>
+                    <button id="comment-close-btn" style="background:none; border:none; color:white; font-size:24px; cursor:pointer; line-height:1;">&times;</button>
                 </div>
             </div>
-            <div id="comment-list">読み込み中...</div>`;
+            <div id="comment-list" style="flex:1; overflow-y:auto; padding:20px;">読み込み中...</div>
+        `;
+
+        document.getElementById('comment-close-btn').onclick = closePanel;
 
         try {
             const resp = await fetch(`/api/komento?vId=${vId}&key=${YT.getCurrentKey()}&order=${order}`);
             const data = await resp.json();
             const list = document.getElementById('comment-list');
-            if (!data.items || data.items.length === 0) { list.innerHTML = "コメントが無効か、存在しません。"; return; }
+            
+            if (!data.items || data.items.length === 0) { 
+                list.innerHTML = `<div style="text-align:center; color:#aaa; margin-top:40px;">コメントが無効か、存在しません。</div>`; 
+                return; 
+            }
+
             list.innerHTML = data.items.map(item => {
                 const c = item.snippet.topLevelComment.snippet;
-                return `<div style="display:flex; gap:10px; margin-bottom:20px; font-size:13px;"><img src="${c.authorProfileImageUrl}" style="width:35px; height:35px; border-radius:50%;"><div><div style="font-weight:bold;">${c.authorDisplayName} <span style="color:#aaa; font-weight:normal;">${timeAgo(c.publishedAt)}</span></div><div style="margin-top:5px; white-space:pre-wrap;">${c.textDisplay}</div><div style="color:#aaa; margin-top:5px;">👍 ${c.likeCount}</div></div></div>`;
+                return `
+                    <div style="display:flex; gap:12px; margin-bottom:24px; font-size:13px;">
+                        <img src="${c.authorProfileImageUrl}" style="width:35px; height:35px; border-radius:50%; background:#333;">
+                        <div style="flex:1;">
+                            <div style="font-weight:bold; color:#f1f1f1;">${c.authorDisplayName} <span style="color:#aaa; font-weight:normal; font-size:11px; margin-left:5px;">${timeAgo(c.publishedAt)}</span></div>
+                            <div style="margin-top:5px; white-space:pre-wrap; line-height:1.4;">${c.textDisplay}</div>
+                            <div style="color:#aaa; margin-top:8px;">👍 ${c.likeCount}</div>
+                        </div>
+                    </div>`;
             }).join('');
-        } catch (e) { document.getElementById('comment-list').innerHTML = "コメント取得失敗"; }
+        } catch (e) { document.getElementById('comment-list').innerHTML = `<div style="text-align:center; color:#ff4e45;">取得に失敗しました</div>`; }
     },
 
     async play(video, skipPush = false) {
@@ -753,7 +740,13 @@ const Actions = {
         const safeChTitle = snip.channelTitle.replace(/'/g, "\\'").replace(/"/g, '&quot;');
         const thumbUrl = `/api/thumb?id=${vId}`;
         
-        const cp = document.getElementById('comment-panel'); if (cp) cp.remove();
+        // 動画切り替え時にコメントパネルをクリア
+        const cp = document.getElementById('comment-panel'); 
+        if (cp) {
+            cp.remove();
+            const layout = document.querySelector('.watch-layout, .shorts-container');
+            if (layout) layout.style.marginRight = "0";
+        }
 
         const renderPlayerContent = () => {
             if (this.playbackMode === "streaming") {
@@ -783,7 +776,6 @@ const Actions = {
                             <button class="btn" style="background:#333;" onclick="Actions.showComments('${vId}')">💬</button>
                             <button class="btn-download" onclick="Actions.downloadVideo('${vId}', '${safeTitle}')">📥</button>
                         </div>
-                        <div id="comments-container"></div>
                     </div>
                 </div>`;
         } else {
@@ -827,14 +819,12 @@ const Actions = {
                                 </div>
                             </div>
                         </div>
-                        <div id="comments-container"></div>
                     </div>
                     <div class="related-area"><h3 id="side-title" style="margin-top:0;">関連動画</h3><div id="side-content-box"></div></div>
                 </div>`;
         }
 
         this.Maps(playHtml);
-        this.loadComments(vId, 'relevance');
 
         const sideBox = document.getElementById('side-content-box');
         if (sideBox) {
