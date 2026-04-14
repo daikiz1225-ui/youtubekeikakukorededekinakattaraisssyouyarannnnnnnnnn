@@ -1,4 +1,4 @@
-/* app.js - URL Routing System Integrated & Scroll Fixed (NO TRUNCATION) */
+/* app.js - URL Routing System & Invidious API Integrated (FULL CODE) */
 
 // --- ユーティリティ ---
 function timeAgo(dateString) {
@@ -21,7 +21,7 @@ function formatViews(views) {
 }
 
 const YT = {
-    keys: ["AIzaSyBfCvyZ_J9mJiMFNYB6WfcuLyvf9zDdcUU", "AIzaSyCgVn-JWHKT_z6EC73Z6Vlex0F_d-BP_fY", "AIzaSyBbqPhAbqoWDOurTt7hejQmwc6dAoZ5Iy0", "AIzaSyAWk9mmie23-khi8-nipv1jHJND__UtEWA", "AIzaSyBL38iyqeiaKHoKqhloSnhG590DfJ35vCE","AIzaSyDU4jrOT0o2Jd4zDwZyU5OOBsKt1P3RJNs","AIzaSyB2L_plk45E1wihBUB4VJ516pIfqcBc2Yw","AIzaSyDcYrvxFDKcXNqI65Aihrqk0uK2Ebj7KVo","AIzaSyAmfASO-61oyXFOfzJCR9e3oGbnKenBZb","AIzaSyCU7xnDWAFbXt1ze0_DBaWDKt7NDT1XP7"],
+    keys: ["AIzaSyBfCvyZ_J9mJiMFNYB6WfcuLyvf9zDdcUU", "AIzaSyCgVn-JWHKT_z6EC73Z6Vlex0F_d-BP_fY", "AIzaSyBbqPhAbqoWDOurTt7hejQmwc6dAoZ5Iy0", "AIzaSyAWk9mmie23-khi8-nipv1jHJND__UtEWA", "AIzaSyBL38iyqeiaKHoKqhloSnhG590DfJ35vCE","AIzaSyDU4jrOT0o2Jd4zDwZyU5OOBsKt1P3RJNs","AIzaSyB2L_plk45E1wihBUB4VJ516pIfqcBc2Yw","AIzaSyDcYrvxFDKcXNqI65Aihrqk0I2Ebj7KVo","AIzaSyAmfASO-61oyXFOfzJCR9e3oGbnKenBZb","AIzaSyCU7xnDWAFbXt1ze0_DBaWDKt7NDT1XP7"],
     currentEduKey: "",
 
     getVideoId(item) {
@@ -254,7 +254,6 @@ const Actions = {
         }
     },
 
-    // skipScroll が true の場合は一番上に戻らない
     Maps(html, skipScroll = false) {
         const container = document.getElementById('view-container');
         container.innerHTML = html;
@@ -263,7 +262,6 @@ const Actions = {
         }
     },
 
-    // URLのパラメーターを読み取って正しい画面を表示するルーター
     async routeCurrentUrl() {
         const params = new URLSearchParams(window.location.search);
         const vId = params.get('v');
@@ -271,7 +269,7 @@ const Actions = {
         const mode = params.get('mode');
         const list = params.get('list');
         const channel = params.get('channel');
-        const ytPlaylist = params.get('playlist'); // 追加: YouTube公式プレイリスト用
+        const ytPlaylist = params.get('playlist');
 
         if (vId) {
             try {
@@ -280,7 +278,7 @@ const Actions = {
                     Actions.currentList = data.items;
                     Actions.currentIndex = 0;
                     await Actions.fillStats(data.items);
-                    Actions.play(data.items[0], true); // true = URLの追加をスキップ
+                    Actions.play(data.items[0], true);
                 } else { Actions.goHome(true); }
             } catch(e) { Actions.goHome(true); }
         } else if (searchQ) {
@@ -553,7 +551,6 @@ const Actions = {
         }).join('');
     },
 
-    // 追加読み込みの時は skipScroll=true が渡されるように変更
     renderGrid(headerHtml = "", skipScroll = false) {
         const container = document.getElementById('view-container');
         const moreBtn = this.nextToken ? `<button class="btn" onclick="Actions.loadMore()" style="width:100%; margin:20px 0; background:#333; color:#fff;">もっと読み込む</button>` : "";
@@ -561,7 +558,6 @@ const Actions = {
         const currentHeader = container.dataset.header || "";
         const finalHtml = `<div style="padding: 10px 20px;">${currentHeader}</div><div class="grid">${this.renderCards(this.currentList)}</div>${moreBtn}`;
         
-        // Mapsに skipScroll を渡す
         this.Maps(finalHtml, skipScroll);
 
         const ids = this.currentList.map(i => i.snippet?.channelId).filter(id => id && !this.channelIcons[id]).join(',');
@@ -579,8 +575,6 @@ const Actions = {
         await this.fillStats(newItems);
         this.currentList = [...this.currentList, ...newItems];
         this.nextToken = data.nextPageToken || "";
-        
-        // 読み込み時は既存のヘッダーを維持しつつ、スクロールをスキップ(true)する
         this.renderGrid("", true);
     },
 
@@ -704,7 +698,7 @@ const Actions = {
 
         const renderPlayerContent = () => {
             if (this.playbackMode === "streaming") {
-                return `<video id="yt-player" src="${window.location.origin}/api/streaming?id=${vId}" controls autoplay playsinline style="width:100%; height:100%; background:#000;" onerror="setTimeout(() => { this.src=this.src; }, 3000); console.log('Retrying streaming source...')"></video>`;
+                return `<video id="yt-player" src="${window.location.origin}/api/streaming?id=${vId}" controls autoplay playsinline style="width:100%; height:100%; background:#000;"></video>`;
             } else {
                 return `<iframe id="yt-player" src="${YT.getEmbedUrl(vId, isShorts)}" style="width:100%; height:100%; border:none;" allowfullscreen allow="autoplay"></iframe>`;
             }
@@ -788,37 +782,48 @@ const Actions = {
                 sideBox.innerHTML = this.relatedList.map((i, idx) => `
                     <div class="v-card" style="display:flex; gap:10px; margin-bottom:12px; ${idx === this.currentIndex && this.activePlaylistName ? 'background:#333; border-left:4px solid #3ea6ff;' : ''}" onclick="Actions.playFromRelated(${idx})">
                         <img src="${YT.getProxiedThumb(i)}" style="width:140px; aspect-ratio:16/9; object-fit:cover; border-radius:8px;">
-                        <div style="font-size:12px;"><div style="font-weight:bold; line-clamp:2; display:-webkit-box; -webkit-box-orient:vertical; overflow:hidden;">${i.snippet.title}</div><div style="color:#aaa;">${i.snippet.channelTitle}</div><div style="color:#888;">${formatViews(this.videoStats[YT.getVideoId(i)])}</div></div>
+                        <div style="font-size:12px;"><div style="font-weight:bold; line-clamp:2; display:-webkit-box; -webkit-box-orient:vertical; overflow:hidden;">${i.snippet.title}</div><div style="color:#aaa;">${i.snippet.channelTitle}</div></div>
                     </div>`).join('');
             } else {
                 sideBox.innerHTML = '<div style="color:#aaa; padding:20px;">関連動画を読み込み中...</div>';
                 try {
-                    // ここが Invidious API連携部分
                     const relResp = await fetch(`/api/kanrenn?vId=${vId}`);
-                    if (!relResp.ok) throw new Error("関連動画の取得に失敗しました");
+                    if (!relResp.ok) throw new Error("API error");
                     const relData = await relResp.json();
                     
-                    this.relatedList = relData.map(v => ({
-                        id: v.videoId,
-                        snippet: {
-                            title: v.title,
-                            channelTitle: v.author,
-                            channelId: v.authorId || "", // フォールバック対応
-                            thumbnails: { high: { url: v.thumbnail }, default: { url: v.thumbnail } }
-                        }
-                    }));
-                } catch(e) {
-                    this.relatedList = [];
-                }
+                    // Invidious APIのレスポンス形式を正規化 (配列直接 or relatedVideosプロパティ)
+                    const rawVideos = Array.isArray(relData) ? relData : (relData.relatedVideos || []);
+                    
+                    this.relatedList = rawVideos.map(v => {
+                        // サムネイルURLの抽出
+                        const tUrl = (v.videoThumbnails && v.videoThumbnails.length > 0) ? v.videoThumbnails[0].url : (v.thumbnail || "");
+                        return {
+                            id: v.videoId,
+                            snippet: {
+                                title: v.title,
+                                channelTitle: v.author,
+                                channelId: v.authorId || "",
+                                thumbnails: { high: { url: tUrl }, default: { url: tUrl } }
+                            }
+                        };
+                    });
 
-                if (this.relatedList.length === 0) {
-                    sideBox.innerHTML = '<div style="color:#aaa; padding:20px;">関連動画が見つかりませんでした。</div>';
-                } else {
-                    sideBox.innerHTML = this.relatedList.map((i, idx) => `
-                        <div class="v-card" style="display:flex; gap:10px; margin-bottom:12px; cursor:pointer;" onclick="Actions.playFromRelated(${idx})">
-                            <img src="${YT.getProxiedThumb(i)}" style="width:140px; aspect-ratio:16/9; object-fit:cover; border-radius:8px;">
-                            <div style="font-size:12px;"><div style="font-weight:bold; line-clamp:2; display:-webkit-box; -webkit-box-orient:vertical; overflow:hidden; color:#fff;">${i.snippet.title}</div><div style="color:#aaa; margin-top:4px;">${i.snippet.channelTitle}</div></div>
-                        </div>`).join('');
+                    if (this.relatedList.length === 0) {
+                        sideBox.innerHTML = '<div style="color:#aaa; padding:20px;">関連動画が見つかりませんでした。</div>';
+                    } else {
+                        sideBox.innerHTML = this.relatedList.map((i, idx) => `
+                            <div class="v-card" style="display:flex; gap:10px; margin-bottom:12px; cursor:pointer;" onclick="Actions.playFromRelated(${idx})">
+                                <img src="${YT.getProxiedThumb(i)}" style="width:140px; aspect-ratio:16/9; object-fit:cover; border-radius:8px;">
+                                <div style="font-size:12px;">
+                                    <div style="font-weight:bold; line-clamp:2; display:-webkit-box; -webkit-box-orient:vertical; overflow:hidden; color:#fff;">${i.snippet.title}</div>
+                                    <div style="color:#aaa; margin-top:4px;">${i.snippet.channelTitle}</div>
+                                </div>
+                            </div>`).join('');
+                    }
+                } catch(e) {
+                    console.error("Related fetch error:", e);
+                    sideBox.innerHTML = '<div style="color:#aaa; padding:20px;">関連動画の取得に失敗しました。</div>';
+                    this.relatedList = [];
                 }
             }
         }
@@ -888,7 +893,6 @@ const Actions = {
         document.getElementById('more-btn-area').innerHTML = this.nextToken ? `<button class="btn" onclick="Actions.loadMore()" style="width:100%; margin:20px 0;">もっと読む</button>` : "";
     },
 
-    // 追加: URL対応化
     async showPlaylistView(plId, title, skipPush = false) {
         if (!skipPush) window.history.pushState(null, '', `?playlist=${plId}&title=${encodeURIComponent(title)}`);
         this.currentView = "playlist";
@@ -1014,11 +1018,9 @@ const Actions = {
 window.onload = async () => { 
     Actions.init(); 
     await YT.refreshEduKey(); 
-    // ブラウザの戻るボタン対応：ページロード時にURLを読み取って正しい画面を表示する
     Actions.routeCurrentUrl();
 };
 
-// ゲーム起動関数群
 function startTetris() { if (typeof initTetris === 'function') initTetris(); else Actions.showStatusNotification("エラー"); }
 function startSnake() { if (typeof initSnake === 'function') initSnake(); else Actions.showStatusNotification("エラー"); }
 function startReversi() { if (typeof initReversi === 'function') initReversi(); else Actions.showStatusNotification("エラー"); }
