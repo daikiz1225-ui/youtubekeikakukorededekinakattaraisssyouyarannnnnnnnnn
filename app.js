@@ -1,4 +1,4 @@
-/* app.js - URL Routing System Integrated & Scroll Fixed (NO TRUNCATION) */
+/* app.js - URL Routing System Integrated & AI Recommendations Updated (ID-based) */
 
 // --- ユーティリティ ---
 function timeAgo(dateString) {
@@ -254,7 +254,6 @@ const Actions = {
         }
     },
 
-    // skipScroll が true の場合は一番上に戻らない
     Maps(html, skipScroll = false) {
         const container = document.getElementById('view-container');
         container.innerHTML = html;
@@ -263,7 +262,6 @@ const Actions = {
         }
     },
 
-    // URLのパラメーターを読み取って正しい画面を表示するルーター
     async routeCurrentUrl() {
         const params = new URLSearchParams(window.location.search);
         const vId = params.get('v');
@@ -271,7 +269,7 @@ const Actions = {
         const mode = params.get('mode');
         const list = params.get('list');
         const channel = params.get('channel');
-        const ytPlaylist = params.get('playlist'); // 追加: YouTube公式プレイリスト用
+        const ytPlaylist = params.get('playlist'); 
 
         if (vId) {
             try {
@@ -280,7 +278,7 @@ const Actions = {
                     Actions.currentList = data.items;
                     Actions.currentIndex = 0;
                     await Actions.fillStats(data.items);
-                    Actions.play(data.items[0], true); // true = URLの追加をスキップ
+                    Actions.play(data.items[0], true); 
                 } else { Actions.goHome(true); }
             } catch(e) { Actions.goHome(true); }
         } else if (searchQ) {
@@ -429,22 +427,45 @@ const Actions = {
         this.viewPlaylistDetail(name, true); 
     },
 
+    // --- AIおすすめ機能の修正 (IDリスト受信方式) ---
     async showAIRecommendations(skipPush = false) {
         if (!skipPush) window.history.pushState(null, '', '?mode=ai_recommend');
         this.currentView = "ai_recommend";
         this.Maps(`<div style="padding:20px;"><h2>🤖 AIが分析中...</h2></div>`);
         const history = Storage.get('yt_history');
-        if (history.length < 3) { this.Maps(`<div style="padding:20px;"><h2>🤖 あと ${3 - history.length} 件の視聴履歴が必要です。</h2></div>`); return; }
+        if (history.length < 3) { 
+            this.Maps(`<div style="padding:20px;"><h2>🤖 あと ${3 - history.length} 件の視聴履歴が必要です。</h2></div>`); 
+            return; 
+        }
         try {
-            const resp = await fetch('/api/get_recommend', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ history: history }) });
+            // 1. バックエンドから動画IDのリスト (ids) を取得
+            const resp = await fetch('/api/get_recommend', { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify({ history: history }) 
+            });
             const aiData = await resp.json();
-            this.currentParams = { q: aiData.query, part: 'snippet', maxResults: 24, type: 'video' };
-            const data = await YT.fetchAPI('search', this.currentParams);
+            
+            if (!aiData.ids || aiData.ids.length === 0) {
+                this.Maps(`<div style="padding:20px;"><h2>🤖 おすすめが見つかりませんでした。</h2></div>`);
+                return;
+            }
+
+            // 2. 受け取ったIDリストを使い、一括で動画詳細を取得
+            this.currentParams = { id: aiData.ids.join(','), part: 'snippet,statistics' };
+            const data = await YT.fetchAPI('videos', this.currentParams);
+            
             this.currentList = data.items || [];
-            this.nextToken = data.nextPageToken || "";
+            this.nextToken = ""; // ID指定取得の場合はトークンなし
+            this.activePlaylistName = null;
+            
+            // 3. 統計情報をセットして表示
             await this.fillStats(this.currentList);
-            this.renderGrid(`<h2>🤖 AIおすすめ: ${aiData.query}</h2><p style="color:#aaa; margin:-10px 0 20px 0;">${aiData.explanation}</p>`);
-        } catch (e) { this.Maps(`<div style="padding:20px;"><h2>AI分析エラーが発生しました。</h2></div>`); }
+            this.renderGrid(`<h2>🤖 AIおすすめ</h2><p style="color:#aaa; margin:-10px 0 20px 0;">${aiData.explanation}</p>`);
+        } catch (e) { 
+            console.error("AI分析エラー:", e);
+            this.Maps(`<div style="padding:20px;"><h2>AI分析エラーが発生しました。</h2></div>`); 
+        }
     },
 
     showStatusNotification(text) {
@@ -553,7 +574,6 @@ const Actions = {
         }).join('');
     },
 
-    // 追加読み込みの時は skipScroll=true が渡されるように変更
     renderGrid(headerHtml = "", skipScroll = false) {
         const container = document.getElementById('view-container');
         const moreBtn = this.nextToken ? `<button class="btn" onclick="Actions.loadMore()" style="width:100%; margin:20px 0; background:#333; color:#fff;">もっと読み込む</button>` : "";
@@ -561,7 +581,6 @@ const Actions = {
         const currentHeader = container.dataset.header || "";
         const finalHtml = `<div style="padding: 10px 20px;">${currentHeader}</div><div class="grid">${this.renderCards(this.currentList)}</div>${moreBtn}`;
         
-        // Mapsに skipScroll を渡す
         this.Maps(finalHtml, skipScroll);
 
         const ids = this.currentList.map(i => i.snippet?.channelId).filter(id => id && !this.channelIcons[id]).join(',');
@@ -580,7 +599,6 @@ const Actions = {
         this.currentList = [...this.currentList, ...newItems];
         this.nextToken = data.nextPageToken || "";
         
-        // 読み込み時は既存のヘッダーを維持しつつ、スクロールをスキップ(true)する
         this.renderGrid("", true);
     },
 
@@ -786,7 +804,6 @@ const Actions = {
                 document.getElementById('side-title').innerText = `再生中: ${this.activePlaylistName}`;
                 this.relatedList = this.currentList;
             } else {
-                // 修正: 自作バックエンドから関連動画IDを取得するように変更
                 try {
                     const relResp = await fetch(`/api/kanrenn?vId=${vId}`);
                     const relIds = await relResp.json();
@@ -874,7 +891,6 @@ const Actions = {
         document.getElementById('more-btn-area').innerHTML = this.nextToken ? `<button class="btn" onclick="Actions.loadMore()" style="width:100%; margin:20px 0;">もっと読む</button>` : "";
     },
 
-    // 追加: URL対応化
     async showPlaylistView(plId, title, skipPush = false) {
         if (!skipPush) window.history.pushState(null, '', `?playlist=${plId}&title=${encodeURIComponent(title)}`);
         this.currentView = "playlist";
@@ -1000,7 +1016,6 @@ const Actions = {
 window.onload = async () => { 
     Actions.init(); 
     await YT.refreshEduKey(); 
-    // ブラウザの戻るボタン対応：ページロード時にURLを読み取って正しい画面を表示する
     Actions.routeCurrentUrl();
 };
 
