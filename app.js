@@ -429,23 +429,38 @@ const Actions = {
         this.viewPlaylistDetail(name, true); 
     },
 
+    // --- ここが新しい「AIおすすめ機能」のロジック ---
     async showAIRecommendations(skipPush = false) {
         if (!skipPush) window.history.pushState(null, '', '?mode=ai_recommend');
         this.currentView = "ai_recommend";
         this.Maps(`<div style="padding:20px;"><h2>🤖 AIが分析中...</h2></div>`);
         const history = Storage.get('yt_history');
         if (history.length < 3) { this.Maps(`<div style="padding:20px;"><h2>🤖 あと ${3 - history.length} 件の視聴履歴が必要です。</h2></div>`); return; }
+        
         try {
-            const resp = await fetch('/api/get_recommend', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ history: history }) });
-            const aiData = await resp.json();
-            this.currentParams = { q: aiData.query, part: 'snippet', maxResults: 24, type: 'video' };
-            const data = await YT.fetchAPI('search', this.currentParams);
-            this.currentList = data.items || [];
-            this.nextToken = data.nextPageToken || "";
-            await this.fillStats(this.currentList);
-            this.renderGrid(`<h2>🤖 AIおすすめ: ${aiData.query}</h2><p style="color:#aaa; margin:-10px 0 20px 0;">${aiData.explanation}</p>`);
-        } catch (e) { this.Maps(`<div style="padding:20px;"><h2>AI分析エラーが発生しました。</h2></div>`); }
+            const resp = await fetch('/api/get_recommend', { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify({ history: history }) 
+            });
+            const recommendedIds = await resp.json();
+            
+            if (Array.isArray(recommendedIds) && recommendedIds.length > 0) {
+                // 配列のIDを使って動画情報を取得
+                this.currentParams = { id: recommendedIds.join(','), part: 'snippet', maxResults: 50 };
+                const data = await YT.fetchAPI('videos', this.currentParams);
+                this.currentList = data.items || [];
+                this.nextToken = ""; // 決め打ちのIDリストなので次のページはなし
+                await this.fillStats(this.currentList);
+                this.renderGrid(`<h2>🤖 AIおすすめ (関連動画から厳選)</h2><p style="color:#aaa; margin:-10px 0 20px 0;">最近の視聴傾向から抽出しました</p>`);
+            } else {
+                this.Maps(`<div style="padding:20px;"><h2>🤖 おすすめ動画が見つかりませんでした。</h2></div>`);
+            }
+        } catch (e) { 
+            this.Maps(`<div style="padding:20px;"><h2>AI分析エラーが発生しました。</h2></div>`); 
+        }
     },
+    // ---------------------------------------------
 
     showStatusNotification(text) {
         const div = document.createElement('div');
