@@ -427,76 +427,56 @@ const Actions = {
         this.viewPlaylistDetail(name, true); 
     },
 
-    // --- 【新】AIおすすめ機能 (kanrenn.js流用版) ---
+   // --- 【超・高密度版】AIおすすめ機能 ---
     async showAIRecommendations(skipPush = false) {
         if (!skipPush) window.history.pushState(null, '', '?mode=ai_recommend');
         this.currentView = "ai_recommend";
-        this.Maps(`<div style="padding:20px;"><h2>🤖 AIが分析中...</h2><p style="color:#aaa; font-size:12px;">※複数の関連動画を収集しています。少しお待ちください。</p></div>`);
+        this.Maps(`<div style="padding:20px;"><h2>🤖 AIが10件の履歴を深掘り中...</h2><p style="color:#aaa; font-size:12px;">各動画の関連TOP2を抽出しています。</p></div>`);
         
         const history = Storage.get('yt_history');
-        if (history.length < 3) { 
-            this.Maps(`<div style="padding:20px;"><h2>🤖 あと ${3 - history.length} 件の視聴履歴が必要です。</h2></div>`); 
+        if (history.length < 1) { 
+            this.Maps(`<div style="padding:20px;"><h2>🤖 履歴がまだありません。</h2></div>`); 
             return; 
         }
         
         try {
-            // 1. 履歴の最新10件からランダムに3件抽出
-            const recentHistory = history.slice(0, 10);
-            const shuffled = recentHistory.sort(() => 0.5 - Math.random());
-            const targetItems = shuffled.slice(0, 3);
+            // 1. 履歴の最新10件を対象にする
+            const targetItems = history.slice(0, 10);
             
-            let recommendedIds = [];
-            let sourceTitles = [];
-
-            // 2. 動いている kanrenn.js を使い、フロントから1つずつ取得
-            for (const item of targetItems) {
-                const vId = item.id;
-                sourceTitles.push(item.title.substring(0, 12));
-                
+            // 2. 10件分の関連動画取得を並列で実行（爆速化）
+            const results = await Promise.all(targetItems.map(async (item) => {
                 try {
-                    const relResp = await fetch(`/api/kanrenn?vId=${vId}`);
-                    const relIds = await relResp.json();
-                    
-                    // 正常な配列が返ってきた場合
-                    if (Array.isArray(relIds) && relIds.length > 0 && !relIds[0].includes("Error") && relIds[0] !== "DEBUG_EMPTY_DATA" && relIds[0] !== "No ID") {
-                        // 1動画につき上位5件を追加
-                        recommendedIds.push(...relIds.slice(0, 5));
+                    const res = await fetch(`/api/kanrenn?vId=${item.id}`);
+                    const ids = await res.json();
+                    if (Array.isArray(ids) && ids.length >= 2) {
+                        return ids.slice(0, 2); // 上から2つだけ抜く
                     }
-                } catch (err) {
-                    console.error("kanrenn fetch error:", err);
-                }
-                
-                // 連続アクセスによるサーバー負荷を避けるため待機
-                await new Promise(resolve => setTimeout(resolve, 300));
-            }
+                    return ids.slice(0, 1); // 1つしかなければそれだけ
+                } catch (e) { return []; }
+            }));
 
-            // 重複を削除
-            recommendedIds = [...new Set(recommendedIds)];
+            // 3. 2次元配列を平坦化して重複削除
+            let recommendedIds = [...new Set(results.flat())].filter(id => id && !id.includes("Error") && id !== "DEBUG_EMPTY_DATA");
 
             if (recommendedIds.length === 0) {
-                this.Maps(`<div style="padding:20px;"><h2>🤖 おすすめが見つかりませんでした。</h2><p style="color:#aaa; font-size:12px;">通信エラーか、関連動画が取得できませんでした。</p></div>`);
+                this.Maps(`<div style="padding:20px;"><h2>🤖 関連動画が見つかりませんでした。</h2></div>`);
                 return;
             }
 
-            const explanation = `✅ 履歴の「${sourceTitles.join(' / ')}...」から構成しました。`;
-
-            // 3. 受け取ったIDリストを使い、一括で動画詳細を取得
+            // 4. YouTube APIで詳細取得（最大20件程度になるはず）
             this.currentParams = { id: recommendedIds.slice(0, 20).join(','), part: 'snippet,statistics' };
             const data = await YT.fetchAPI('videos', this.currentParams);
             
             this.currentList = data.items || [];
             this.nextToken = ""; 
-            this.activePlaylistName = null;
-            
-            // 4. 統計情報をセットして表示
             await this.fillStats(this.currentList);
-            this.renderGrid(`<h2>🤖 AIおすすめ</h2><p style="color:#aaa; margin:-10px 0 20px 0; font-size:12px;">${explanation}</p>`);
+            
+            this.renderGrid(`<h2>🤖 AIおすすめ (超濃縮版)</h2><p style="color:#aaa; margin:-10px 0 20px 0; font-size:12px;">直近10件の視聴傾向から上位2件ずつを抽出しました。</p>`);
         } catch (e) { 
             console.error("AI分析エラー:", e);
-            this.Maps(`<div style="padding:20px;"><h2>❌ AI分析エラーが発生しました。</h2></div>`); 
+            this.Maps(`<div style="padding:20px;"><h2>❌ 抽出エラーが発生しました。</h2></div>`); 
         }
     },
-
     showStatusNotification(text) {
         const div = document.createElement('div');
         div.style = "position:fixed; top:20px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,0.8); color:white; padding:10px 20px; border-radius:20px; z-index:9999; font-size:14px; pointer-events:none; transition: opacity 0.5s;";
