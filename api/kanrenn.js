@@ -1,55 +1,68 @@
-export const config = { runtime: 'edge' };
+from http.server import BaseHTTPRequestHandler
+import json
+import urllib.request
+import concurrent.futures
 
-export default async function handler(req) {
-    const { searchParams } = new URL(req.url);
-    const vId = searchParams.get('vId');
+class handler(BaseHTTPRequestHandler):
+    def do_POST(self):
+        # 1. リクエストボディの読み込み
+        content_length = int(self.headers['Content-Length'])
+        post_data = self.rfile.read(content_length)
+        data = json.loads(post_data)
+        
+        # app.jsから届く履歴（IDのリスト）
+        history = data.get('history', [])
+        target_instance = 'https://inv.thepixora.com'
+        
+        recommended_ids = []
 
-    if (!vId) return new Response(JSON.stringify(["No ID"]), { status: 400 });
+        if len(history) > 0:
+            # 最新10件を対象にする
+            target_history = history[:10]
+            
+            # 各動画の関連動画IDを取得する関数
+            def fetch_related_ids(item):
+                # app.jsの履歴形式に合わせてIDを取得
+                v_id = item.get('id') or item.get('videoId')
+                if not v_id:
+                    return []
+                try:
+                    # Invidious API 呼び出し
+                    url = f"{target_instance}/api/v1/videos/{v_id}"
+                    # 1.5秒でタイムアウト設定（回転を速くする）
+                    with urllib.request.urlopen(url, timeout=1.5) as response:
+                        res_data = json.loads(response.read().decode())
+                        related = res_data.get('relatedVideos', [])
+                        # 上位2件のvideoIdを抽出
+                        return [v.get('videoId') for v in related[:2] if v.get('videoId')]
+                except:
+                    return []
 
-    const TARGET_INSTANCE = 'https://inv.thepixora.com';
+            # ThreadPoolExecutorを使って10件並列で一斉にAPIを叩く
+            with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+                results = list(executor.map(fetch_related_ids, target_history))
+            
+            # 2次元リストを1次元にまとめつつ、重複を削除（順序維持）
+            seen = set()
+            for sublist in results:
+                for v_id in sublist:
+                    if v_id not in seen:
+                        recommended_ids.append(v_id)
+                        seen.add(v_id)
 
-    try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 4000); // 少し長めに待機
+        # 2. レスポンス送信
+        self.send_response(200)
+        self.send_header('Content-type', 'application/json')
+        self.send_header('Access-Control-Allow-Origin', '*') # CORS対応
+        self.end_headers()
+        
+        # 純粋なIDの配列 JSON [ "id1", "id2", ... ] を返す
+        self.wfile.write(json.dumps(recommended_ids).encode())
 
-        const res = await fetch(`${TARGET_INSTANCE}/api/v1/videos/${vId}`, {
-            signal: controller.signal,
-            headers: { 'User-Agent': 'Mozilla/5.0' }
-        });
-
-        if (!res.ok) {
-            return new Response(JSON.stringify([`Error: ${res.status}`]), { status: 200 });
-        }
-
-        const data = await res.json();
-        clearTimeout(timeoutId);
-
-        // --- ID抽出ロジックの強化 ---
-        let ids = [];
-
-        // パターン1: 標準的な relatedVideos
-        if (data.relatedVideos && Array.isArray(data.relatedVideos)) {
-            ids = data.relatedVideos.map(v => v.videoId).filter(id => id);
-        } 
-        // パターン2: 推奨動画 (recommendedVideos) という名前の場合もあるため
-        else if (data.recommendedVideos && Array.isArray(data.recommendedVideos)) {
-            ids = data.recommendedVideos.map(v => v.videoId).filter(id => id);
-        }
-
-        // それでも空なら、データの中身自体がおかしい
-        if (ids.length === 0) {
-            console.log("No related videos found in the JSON structure.");
-            // デバッグ用に、インスタンスが返してきた生データの一部を文字化け覚悟で返す設定も可能ですが、
-            // まずは空かどうかをフロントに伝えます。
-            return new Response(JSON.stringify(["DEBUG_EMPTY_DATA"]), { status: 200 });
-        }
-
-        return new Response(JSON.stringify(ids), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
-        });
-
-    } catch (err) {
-        return new Response(JSON.stringify([`Fetch Error: ${err.message}`]), { status: 200 });
-    }
-}
+    # Vercel等の環境でのCORSプリフライトリクエスト対応
+    def do_OPTIONS(self):
+        self.send_response(200)
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'POST, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        self.end_headers()
