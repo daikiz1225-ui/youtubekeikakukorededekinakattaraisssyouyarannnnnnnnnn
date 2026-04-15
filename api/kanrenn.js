@@ -1,64 +1,55 @@
-// api/kanrenn.js - 成功するまで無限にサーバーを巡回し、動画IDを抜き出す
 export const config = { runtime: 'edge' };
 
 export default async function handler(req) {
     const { searchParams } = new URL(req.url);
     const vId = searchParams.get('vId');
 
-    if (!vId) return new Response(JSON.stringify([]), { status: 400 });
+    if (!vId) return new Response(JSON.stringify(["No ID"]), { status: 400 });
 
-    const INSTANCES = [
-        'https://inv.thepixora.com',
-        'https://iv.nboeck.de',
-        'https://invidious.asir.dev',
-        'https://inv.n66.be',
-        'https://yewtu.be',
-        'https://invidious.nerdvpn.de',
-        'https://invidious.f5.si',
-        'https://inv.tux.pizza',
-        'https://iv.melmac.space',
-        'https://invidious.lunar.icu'
-    ];
+    const TARGET_INSTANCE = 'https://inv.thepixora.com';
 
-    // 成功するまで終わらない無限ループ
-    while (true) {
-        for (const base of INSTANCES) {
-            try {
-                const controller = new AbortController();
-                // 1.5秒でタイムアウトさせて次へ
-                const timeoutId = setTimeout(() => controller.abort(), 1500);
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 4000); // 少し長めに待機
 
-                // region=JPを外して、とにかくレスポンス率を優先
-                const res = await fetch(`${base}/api/v1/videos/${vId}`, {
-                    signal: controller.signal,
-                    headers: { 'User-Agent': 'Mozilla/5.0' }
-                });
+        const res = await fetch(`${TARGET_INSTANCE}/api/v1/videos/${vId}`, {
+            signal: controller.signal,
+            headers: { 'User-Agent': 'Mozilla/5.0' }
+        });
 
-                if (!res.ok) throw new Error("Next");
-
-                const data = await res.json();
-                clearTimeout(timeoutId);
-
-                // 関連動画が存在するか確認
-                if (data && data.relatedVideos && data.relatedVideos.length > 0) {
-                    const idList = data.relatedVideos
-                        .filter(v => v.videoId)
-                        .map(v => v.videoId);
-
-                    return new Response(JSON.stringify(idList), {
-                        status: 200,
-                        headers: { 
-                            'Content-Type': 'application/json',
-                            'Access-Control-Allow-Origin': '*' 
-                        }
-                    });
-                }
-            } catch (err) {
-                // 失敗したら即座に次のサーバーへ
-                continue; 
-            }
+        if (!res.ok) {
+            return new Response(JSON.stringify([`Error: ${res.status}`]), { status: 200 });
         }
-        // リスト1周して全滅した場合、1秒だけ待って最初からやり直し
-        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        const data = await res.json();
+        clearTimeout(timeoutId);
+
+        // --- ID抽出ロジックの強化 ---
+        let ids = [];
+
+        // パターン1: 標準的な relatedVideos
+        if (data.relatedVideos && Array.isArray(data.relatedVideos)) {
+            ids = data.relatedVideos.map(v => v.videoId).filter(id => id);
+        } 
+        // パターン2: 推奨動画 (recommendedVideos) という名前の場合もあるため
+        else if (data.recommendedVideos && Array.isArray(data.recommendedVideos)) {
+            ids = data.recommendedVideos.map(v => v.videoId).filter(id => id);
+        }
+
+        // それでも空なら、データの中身自体がおかしい
+        if (ids.length === 0) {
+            console.log("No related videos found in the JSON structure.");
+            // デバッグ用に、インスタンスが返してきた生データの一部を文字化け覚悟で返す設定も可能ですが、
+            // まずは空かどうかをフロントに伝えます。
+            return new Response(JSON.stringify(["DEBUG_EMPTY_DATA"]), { status: 200 });
+        }
+
+        return new Response(JSON.stringify(ids), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+        });
+
+    } catch (err) {
+        return new Response(JSON.stringify([`Fetch Error: ${err.message}`]), { status: 200 });
     }
 }
