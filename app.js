@@ -63,20 +63,35 @@ const YT = {
         let index = (parseInt(localStorage.getItem('yt_key_index')) || 0) + 1;
         if (index >= this.keys.length) index = 0;
         localStorage.setItem('yt_key_index', index);
+        return index;
     },
 
-    async fetchAPI(endpoint, params) {
+    async fetchAPI(endpoint, params, retryCount = 0) {
         if (typeof SearchHandler !== 'undefined') {
             return await SearchHandler.fetch(endpoint, params);
         }
+        
+        // 全てのキーを試してもダメならエラーとして返す（無限ループ防止）
+        if (retryCount >= this.keys.length) {
+            console.error("すべてのYouTube APIキーが制限に達しています。");
+            return { items: [], nextPageToken: "" };
+        }
+
         const queryParams = new URLSearchParams({ ...params, key: this.getCurrentKey() });
         const url = `https://www.googleapis.com/youtube/v3/${endpoint}?${queryParams.toString()}`;
+        
         try {
             const response = await fetch(url);
-            if (response.status === 403) { this.rotateKey(); return this.fetchAPI(endpoint, params); }
+            if (response.status === 403) { 
+                this.rotateKey(); 
+                return this.fetchAPI(endpoint, params, retryCount + 1); 
+            }
             if (!response.ok) throw new Error("API error");
             return await response.json();
-        } catch (error) { return { items: [], nextPageToken: "" }; }
+        } catch (error) { 
+            console.error("API Fetch Error:", error);
+            return { items: [], nextPageToken: "" }; 
+        }
     },
 
     getEmbedUrl(id, isShort = false) {
@@ -254,7 +269,6 @@ const Actions = {
         }
     },
 
-    // skipScroll が true の場合は一番上に戻らない
     Maps(html, skipScroll = false) {
         const container = document.getElementById('view-container');
         container.innerHTML = html;
@@ -263,7 +277,6 @@ const Actions = {
         }
     },
 
-    // URLのパラメーターを読み取って正しい画面を表示するルーター
     async routeCurrentUrl() {
         const params = new URLSearchParams(window.location.search);
         const vId = params.get('v');
@@ -271,7 +284,7 @@ const Actions = {
         const mode = params.get('mode');
         const list = params.get('list');
         const channel = params.get('channel');
-        const ytPlaylist = params.get('playlist'); // 追加: YouTube公式プレイリスト用
+        const ytPlaylist = params.get('playlist');
 
         if (vId) {
             try {
@@ -280,7 +293,7 @@ const Actions = {
                     Actions.currentList = data.items;
                     Actions.currentIndex = 0;
                     await Actions.fillStats(data.items);
-                    Actions.play(data.items[0], true); // true = URLの追加をスキップ
+                    Actions.play(data.items[0], true);
                 } else { Actions.goHome(true); }
             } catch(e) { Actions.goHome(true); }
         } else if (searchQ) {
@@ -429,13 +442,16 @@ const Actions = {
         this.viewPlaylistDetail(name, true); 
     },
 
-    // --- ここが新しい「AIおすすめ機能」のロジック ---
     async showAIRecommendations(skipPush = false) {
         if (!skipPush) window.history.pushState(null, '', '?mode=ai_recommend');
         this.currentView = "ai_recommend";
-        this.Maps(`<div style="padding:20px;"><h2>🤖 AIが分析中...</h2></div>`);
+        this.Maps(`<div style="padding:20px;"><h2>🤖 AIが分析中...</h2><p style="color:#aaa;">履歴10件から関連動画を抽出しています。</p></div>`);
+        
         const history = Storage.get('yt_history');
-        if (history.length < 3) { this.Maps(`<div style="padding:20px;"><h2>🤖 あと ${3 - history.length} 件の視聴履歴が必要です。</h2></div>`); return; }
+        if (!Array.isArray(history) || history.length < 3) { 
+            this.Maps(`<div style="padding:20px;"><h2>🤖 あと ${3 - (history?.length || 0)} 件の視聴履歴が必要です。</h2><p>もっと動画を見てから試してね！</p></div>`); 
+            return; 
+        }
         
         try {
             const resp = await fetch('/api/get_recommend', { 
@@ -443,24 +459,27 @@ const Actions = {
                 headers: { 'Content-Type': 'application/json' }, 
                 body: JSON.stringify({ history: history }) 
             });
+            
+            if (!resp.ok) throw new Error(`サーバーエラー: ${resp.status}`);
+            
             const recommendedIds = await resp.json();
             
             if (Array.isArray(recommendedIds) && recommendedIds.length > 0) {
-                // 配列のIDを使って動画情報を取得
+                // 配列のIDを使って動画情報を一括取得
                 this.currentParams = { id: recommendedIds.join(','), part: 'snippet', maxResults: 50 };
                 const data = await YT.fetchAPI('videos', this.currentParams);
                 this.currentList = data.items || [];
-                this.nextToken = ""; // 決め打ちのIDリストなので次のページはなし
+                this.nextToken = ""; 
                 await this.fillStats(this.currentList);
-                this.renderGrid(`<h2>🤖 AIおすすめ (関連動画から厳選)</h2><p style="color:#aaa; margin:-10px 0 20px 0;">最近の視聴傾向から抽出しました</p>`);
+                this.renderGrid(`<h2>🤖 AIおすすめ (関連動画から厳選)</h2><p style="color:#aaa; margin:-10px 0 20px 0;">あなたの好みに近い動画を見つけてきました</p>`);
             } else {
-                this.Maps(`<div style="padding:20px;"><h2>🤖 おすすめ動画が見つかりませんでした。</h2></div>`);
+                this.Maps(`<div style="padding:20px;"><h2>🤖 おすすめ動画が見つかりませんでした。</h2><p>履歴の動画が特殊すぎて分析できなかったかもしれません。</p></div>`);
             }
         } catch (e) { 
-            this.Maps(`<div style="padding:20px;"><h2>AI分析エラーが発生しました。</h2></div>`); 
+            console.error("Recommendation System Error:", e);
+            this.Maps(`<div style="padding:20px;"><h2>AI分析エラーが発生しました。</h2><p style="color:#ff4e45;">原因: ${e.message}</p><button class="btn" onclick="Actions.showAIRecommendations(true)" style="margin-top:10px;">再試行する</button></div>`); 
         }
     },
-    // ---------------------------------------------
 
     showStatusNotification(text) {
         const div = document.createElement('div');
@@ -568,7 +587,6 @@ const Actions = {
         }).join('');
     },
 
-    // 追加読み込みの時は skipScroll=true が渡されるように変更
     renderGrid(headerHtml = "", skipScroll = false) {
         const container = document.getElementById('view-container');
         const moreBtn = this.nextToken ? `<button class="btn" onclick="Actions.loadMore()" style="width:100%; margin:20px 0; background:#333; color:#fff;">もっと読み込む</button>` : "";
@@ -576,7 +594,6 @@ const Actions = {
         const currentHeader = container.dataset.header || "";
         const finalHtml = `<div style="padding: 10px 20px;">${currentHeader}</div><div class="grid">${this.renderCards(this.currentList)}</div>${moreBtn}`;
         
-        // Mapsに skipScroll を渡す
         this.Maps(finalHtml, skipScroll);
 
         const ids = this.currentList.map(i => i.snippet?.channelId).filter(id => id && !this.channelIcons[id]).join(',');
@@ -595,7 +612,6 @@ const Actions = {
         this.currentList = [...this.currentList, ...newItems];
         this.nextToken = data.nextPageToken || "";
         
-        // 読み込み時は既存のヘッダーを維持しつつ、スクロールをスキップ(true)する
         this.renderGrid("", true);
     },
 
@@ -801,7 +817,6 @@ const Actions = {
                 document.getElementById('side-title').innerText = `再生中: ${this.activePlaylistName}`;
                 this.relatedList = this.currentList;
             } else {
-                // 修正: 自作バックエンドから関連動画IDを取得するように変更
                 try {
                     const relResp = await fetch(`/api/kanrenn?vId=${vId}`);
                     const relIds = await relResp.json();
@@ -889,7 +904,6 @@ const Actions = {
         document.getElementById('more-btn-area').innerHTML = this.nextToken ? `<button class="btn" onclick="Actions.loadMore()" style="width:100%; margin:20px 0;">もっと読む</button>` : "";
     },
 
-    // 追加: URL対応化
     async showPlaylistView(plId, title, skipPush = false) {
         if (!skipPush) window.history.pushState(null, '', `?playlist=${plId}&title=${encodeURIComponent(title)}`);
         this.currentView = "playlist";
@@ -1015,11 +1029,9 @@ const Actions = {
 window.onload = async () => { 
     Actions.init(); 
     await YT.refreshEduKey(); 
-    // ブラウザの戻るボタン対応：ページロード時にURLを読み取って正しい画面を表示する
     Actions.routeCurrentUrl();
 };
 
-// ゲーム起動関数群
 function startTetris() { if (typeof initTetris === 'function') initTetris(); else Actions.showStatusNotification("エラー"); }
 function startSnake() { if (typeof initSnake === 'function') initSnake(); else Actions.showStatusNotification("エラー"); }
 function startReversi() { if (typeof initReversi === 'function') initReversi(); else Actions.showStatusNotification("エラー"); }
