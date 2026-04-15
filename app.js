@@ -810,7 +810,7 @@ const Actions = {
                                 <select id="mode-select" class="btn" style="background:#333; color:#fff; border:none;" onchange="Actions.playbackMode=this.value; localStorage.setItem('yt_playback_mode', this.value); Actions.play(Actions.currentList[Actions.currentIndex] || Actions.relatedList[Actions.currentIndex], true)">
                                     <option value="edu" ${this.playbackMode==='edu'?'selected':''}>Education</option>
                                     <option value="streaming" ${this.playbackMode==='streaming'?'selected':''}>ストリーミング</option>
-                                    <option value="piped" ${this.playbackMode==='piped'?'selected':''}>piped（m3u8）</option>
+                                    <option value="piped" ${this.playbackMode==='piped'?'selected':''}>Piped (m3u8)</option>
                                 </select>
                             </div>
                         </div>
