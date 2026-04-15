@@ -6,36 +6,56 @@ export default async function handler(req) {
 
     if (!vId) return new Response(JSON.stringify([]), { status: 400 });
 
-    const TARGET_INSTANCE = 'https://inv.thepixora.com';
+    const INSTANCES = [
+        'https://inv.thepixora.com',
+        'https://iv.nboeck.de',
+        'https://invidious.asir.dev',
+        'https://inv.n66.be',
+        'https://yewtu.be',
+        'https://invidious.nerdvpn.de',
+        'https://invidious.f5.si'
+    ];
 
-    try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 4000);
+    // 無限ループ開始
+    while (true) {
+        for (const base of INSTANCES) {
+            try {
+                const controller = new AbortController();
+                // 1.5秒で見切りをつけて次へ（回転を速くする）
+                const timeoutId = setTimeout(() => controller.abort(), 1500);
 
-        // URLの末尾に region=JP を追加
-        const res = await fetch(`${TARGET_INSTANCE}/api/v1/videos/${vId}?region=JP`, {
-            signal: controller.signal,
-            headers: { 'User-Agent': 'Mozilla/5.0' }
-        });
+                const res = await fetch(`${base}/api/v1/videos/${vId}?region=JP`, {
+                    signal: controller.signal,
+                    headers: { 'User-Agent': 'Mozilla/5.0' }
+                });
 
-        if (!res.ok) return new Response(JSON.stringify([]), { status: 200 });
+                if (!res.ok) throw new Error("Next server");
 
-        const data = await res.json();
-        clearTimeout(timeoutId);
+                const data = await res.json();
+                clearTimeout(timeoutId);
 
-        let ids = [];
-        if (data.relatedVideos && Array.isArray(data.relatedVideos)) {
-            // 日本語が含まれている動画を優先的にフィルタリングするロジック（簡易版）を足すことも可能ですが、
-            // まずは region 指定でインスタンスの挙動を見ます
-            ids = data.relatedVideos.map(v => v.videoId).filter(id => id);
+                if (data?.relatedVideos?.length > 0) {
+                    const idList = data.relatedVideos
+                        .filter(v => v.videoId)
+                        .map(v => v.videoId);
+
+                    return new Response(JSON.stringify(idList), {
+                        status: 200,
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'Access-Control-Allow-Origin': '*' 
+                        }
+                    });
+                }
+            } catch (err) {
+                // 失敗しても何もしない。ただ次のインスタンスへ進むだけ
+                continue; 
+            }
         }
-
-        return new Response(JSON.stringify(ids), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
-        });
-
-    } catch (err) {
-        return new Response(JSON.stringify([]), { status: 200 });
+        
+        // --- リストを1周しても見つからなかった場合 ---
+        // サーバーを叩きすぎてブロックされないよう、1周ごとに1秒だけ待機して再開
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        console.log("Restarting loop for ID:", vId);
     }
 }
