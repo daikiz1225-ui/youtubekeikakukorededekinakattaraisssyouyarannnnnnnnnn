@@ -6,7 +6,7 @@ import traceback
 class handler(BaseHTTPRequestHandler):
     def fetch_related_ids(self, video_id):
         """1本だけリクエストを送る（最小負荷）"""
-        target_instance = 'https://inv.thepixora.com'
+        target_instance = 'https://invidious.nerdvpn.de'
         url = f'{target_instance}/api/v1/videos/{video_id}'
         
         try:
