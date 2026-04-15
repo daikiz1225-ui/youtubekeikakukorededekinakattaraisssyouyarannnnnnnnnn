@@ -1,42 +1,29 @@
 from http.server import BaseHTTPRequestHandler
 import json
 import urllib.request
-import traceback
+import time
 
 class handler(BaseHTTPRequestHandler):
-    def fetch_related_ids(self, video_id):
-        """1本だけリクエストを送る（最小負荷）"""
-        target_instance = 'https://invidious.nerdvpn.de'
-        url = f'{target_instance}/api/v1/videos/{video_id}'
-        
+    def test_instance(self, instance_url, video_id):
+        """特定のインスタンスで通信が通るかテストする"""
+        url = f'{instance_url}/api/v1/videos/{video_id}'
         try:
-            # ブラウザのふりを強化
             headers = {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Accept': 'application/json',
-                'Accept-Language': 'ja,en-US;q=0.9,en;q=0.8'
+                'Accept': 'application/json'
             }
             req = urllib.request.Request(url, headers=headers)
-            
-            with urllib.request.urlopen(req, timeout=5) as response:
-                status = response.getcode()
-                if status != 200:
-                    return {"error": f"HTTP {status}", "id": video_id}
-                
-                data = json.loads(response.read().decode())
-                related = data.get('relatedVideos') or data.get('recommendedVideos') or []
-                
-                # 1本のリクエストから多めに（10件くらい）IDを抜く
-                video_ids = [v['videoId'] for v in related[:10] if 'videoId' in v]
-                
-                if not video_ids:
-                    return {"error": "JSON_EMPTY", "id": video_id}
-                
-                return {"ids": video_ids}
-        except urllib.error.HTTPError as e:
-            return {"error": f"HTTP {e.code}", "id": video_id}
+            # タイムアウトは短めに設定して次々回す
+            with urllib.request.urlopen(req, timeout=2) as response:
+                if response.getcode() == 200:
+                    data = json.loads(response.read().decode())
+                    related = data.get('relatedVideos') or data.get('recommendedVideos') or []
+                    ids = [v['videoId'] for v in related[:5] if 'videoId' in v]
+                    return ids if ids else None
         except Exception as e:
-            return {"error": str(e)[:30], "id": video_id}
+            # 403, 401, タイムアウト等はすべて無視して次へ
+            return None
+        return None
 
     def do_POST(self):
         content_length = int(self.headers['Content-Length'])
@@ -44,32 +31,55 @@ class handler(BaseHTTPRequestHandler):
         data = json.loads(post_data)
         
         history = data.get('history', [])
+        # テストに使う動画ID（最新の履歴から1つ）
+        test_video_id = history[0].get('id') if history else "dQw4w9WgXcQ"
         
-        recommended_ids = []
-        explanation = ""
+        # inv.json.txt にあったリスト（一部抜粋して順番に試す）
+        instances = [
+            "https://invidious.nerdvpn.de",
+            "https://yewtu.be",
+            "https://invidious.f5.si",
+            "https://vid.puffyan.us",
+            "https://inv.vern.cc",
+            "https://invid-api.poketube.fun",
+            "https://invidious.nikkosphere.com",
+            "https://iv.duti.dev",
+            "https://invidious.lunar.icu",
+            "https://inv.bp.projectsegfau.lt",
+            "https://invidious.perennialte.ch",
+            "https://iv.nboeck.de",
+            "https://invidious.tiekoetter.com",
+            "https://invidious.flokinet.to",
+            "https://inv.tux.pizza"
+        ]
 
-        # 【変更点】最新の1件だけを対象にする
-        if history:
-            target_item = history[0] # 一番最近見た動画
-            v_id = target_item.get('id')
-            title = target_item.get('title', '不明')
+        success_ids = []
+        winning_url = ""
+
+        # インスタンスを順番に叩く
+        for url in instances:
+            # 念のためURL末尾の / を消す
+            url = url.rstrip('/')
+            result = self.test_instance(url, test_video_id)
             
-            res = self.fetch_related_ids(v_id)
+            if result:
+                success_ids = result
+                winning_url = url
+                break # 1つでも成功したら即終了
             
-            if "ids" in res:
-                recommended_ids = res["ids"]
-                explanation = f"✅ 最新の履歴「{title[:15]}...」の関連動画を表示中"
-            else:
-                # 失敗時のログ表示
-                recommended_ids = ["dQw4w9WgXcQ"] # バックアップ
-                explanation = f"❌ 1件リクエストで失敗: {res.get('error')} (ID: {v_id})"
+            # 相手に負荷をかけすぎないよう、わずかに待機
+            time.sleep(0.1)
+
+        # レスポンス
+        if success_ids:
+            explanation = f"✨ 成功! インスタンス: {winning_url}"
         else:
-            recommended_ids = ["dQw4w9WgXcQ"]
-            explanation = "履歴がないため取得できません。"
+            explanation = "❌ 全滅しました。どのインスタンスからも拒否されています。"
+            success_ids = ["dQw4w9WgXcQ"] # バックアップ
 
         res_body = {
             "type": "id_list",
-            "ids": recommended_ids[:20],
+            "ids": success_ids[:20],
             "explanation": explanation
         }
 
