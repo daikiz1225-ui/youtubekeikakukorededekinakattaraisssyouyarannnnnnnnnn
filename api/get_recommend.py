@@ -15,43 +15,44 @@ class handler(BaseHTTPRequestHandler):
         recommended_ids = []
 
         if len(history) > 0:
-            # 直近10件を対象にする
             target_history = history[:10]
             
-            # 各動画の関連動画を取得する関数
-            def fetch_related(item):
-                v_id = item.get('videoId')
+            def fetch_related_ids(item):
+                v_id = item.get('id') or item.get('videoId')
                 if not v_id:
                     return []
                 try:
                     url = f"{target_instance}/api/v1/videos/{v_id}"
-                    # 1.5秒でタイムアウト設定
-                    with urllib.request.urlopen(url, timeout=1.5) as response:
+                    
+                    # 【強化1】ブラウザからのアクセスだと思わせる（弾かれ対策）
+                    req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+                    
+                    # 【強化2】タイムアウトを4秒に伸ばして、しっかり待つ
+                    with urllib.request.urlopen(req, timeout=4.0) as response:
                         res_data = json.loads(response.read().decode())
                         related = res_data.get('relatedVideos', [])
-                        # 上位2件のIDを抽出
                         return [v.get('videoId') for v in related[:2] if v.get('videoId')]
-                except:
+                except Exception as e:
+                    # エラーが起きても止まらずに空リストを返す
                     return []
 
-            # ThreadPoolExecutorを使って並列（同時）にAPIを叩く
             with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
-                results = list(executor.map(fetch_related, target_history))
+                results = list(executor.map(fetch_related_ids, target_history))
             
-            # リストを平坦化して重複を削除
-            flat_list = [v_id for sublist in results for v_id in sublist]
-            recommended_ids = list(dict.fromkeys(flat_list)) # 順番を維持したまま重複削除
+            seen = set()
+            for sublist in results:
+                for v_id in sublist:
+                    if v_id not in seen:
+                        recommended_ids.append(v_id)
+                        seen.add(v_id)
 
-        # レスポンス送信
         self.send_response(200)
         self.send_header('Content-type', 'application/json')
         self.send_header('Access-Control-Allow-Origin', '*')
         self.end_headers()
         
-        # app.jsが期待する形式（IDの配列）を返す
         self.wfile.write(json.dumps(recommended_ids).encode())
 
-    # OPTIONSメソッド（CORS対応）も追加しておくと安心
     def do_OPTIONS(self):
         self.send_response(200)
         self.send_header('Access-Control-Allow-Origin', '*')
