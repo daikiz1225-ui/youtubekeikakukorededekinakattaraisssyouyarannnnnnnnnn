@@ -1,48 +1,69 @@
-const express = require('express');
-const fetch = require('node-fetch');
-const app = express();
+// api/kanrenn.js - 成功するまで巡回し、動画IDの配列のみを返す
+export const config = { runtime: 'edge' };
 
-// 優先インスタンスとバックアップリスト
-const INSTANCES = [
-    "https://inv.thepixora.com",
-    "https://invidious.nerdvpn.de",
-    "https://yewtu.be",
-    "https://invidious.f5.si",
-    "https://vid.puffyan.us",
-    "https://inv.vern.cc",
-    "https://invidious.io.lol"
-];
+export default async function handler(req) {
+    const { searchParams } = new URL(req.url);
+    const vId = searchParams.get('vId');
 
-app.get('/api/kanrenn', async (req, res) => {
-    const vId = req.query.vId;
-    if (!vId) return res.status(400).json([]);
+    if (!vId) {
+        return new Response(JSON.stringify([]), { status: 400 });
+    }
 
-    // 成功するまで各インスタンスを試行
-    for (const baseUrl of INSTANCES) {
+    // 巡回する全インスタンス
+    const INSTANCES = [
+        'https://inv.thepixora.com',
+        'https://invidious.nerdvpn.de',
+        'https://yewtu.be',
+        'https://invidious.f5.si',
+        'https://vid.puffyan.us',
+        'https://inv.vern.cc',
+        'https://invidious.io.lol',
+        'https://iv.melmac.space',
+        'https://invid-api.poketube.fun',
+        'https://invidious.nikkosphere.com',
+        'https://lekker.gay',
+        'https://iv.duti.dev',
+        'https://invidious.lunar.icu',
+        'https://invidious.kavin.rocks',
+        'https://inv.bp.projectsegfau.lt',
+        'https://invidious.private.coffee',
+        'https://invidious.drgns.space',
+        'https://invidious.slipfox.xyz',
+        'https://inv.odyssey346.dev',
+        'https://iv.nboeck.de',
+        'https://invidious.tiekoetter.com',
+        'https://invidious.lunivers.trade'
+    ];
+
+    for (const base of INSTANCES) {
         try {
             const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 3000); // 3秒で次へ
+            const timeoutId = setTimeout(() => controller.abort(), 2000); // 2秒で次へ
 
-            const response = await fetch(`${baseUrl}/api/v1/videos/${vId}`, {
+            const res = await fetch(`${base}/api/v1/videos/${vId}`, {
                 signal: controller.signal
             });
-            clearTimeout(timeout);
 
-            if (response.ok) {
-                const data = await response.json();
-                if (data.relatedVideos) {
-                    console.log(`Success with: ${baseUrl}`);
-                    return res.json(data.relatedVideos);
-                }
+            if (!res.ok) throw new Error();
+
+            const data = await res.json();
+            clearTimeout(timeoutId);
+
+            if (data && data.relatedVideos) {
+                // 動画IDだけの配列を作成
+                const idList = data.relatedVideos
+                    .filter(v => v.videoId) // IDがあるものだけ
+                    .map(v => v.videoId);
+
+                return new Response(JSON.stringify(idList), {
+                    status: 200,
+                    headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+                });
             }
-        } catch (e) {
-            console.error(`Failed instance: ${baseUrl}`);
-            continue; // 次のインスタンスへ
+        } catch (err) {
+            continue; // 失敗したら即座に次のインスタンスへ
         }
     }
 
-    // 全滅した場合
-    res.status(500).json([]);
-});
-
-app.listen(3000, () => console.log('Backend proxy running on port 3000'));
+    return new Response(JSON.stringify([]), { status: 500 });
+}
