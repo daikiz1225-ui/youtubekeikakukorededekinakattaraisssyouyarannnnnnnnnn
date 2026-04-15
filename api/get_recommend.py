@@ -1,7 +1,7 @@
 from http.server import BaseHTTPRequestHandler
 import json
-import re
-from collections import Counter
+import urllib.request
+import concurrent.futures
 
 class handler(BaseHTTPRequestHandler):
     def do_POST(self):
@@ -10,53 +10,37 @@ class handler(BaseHTTPRequestHandler):
         data = json.loads(post_data)
         
         history = data.get('history', [])
-        recommend_query = "YouTube おすすめ"
-        explanation = "視聴履歴から今のトレンドを解析中..."
+        target_instance = 'https://inv.thepixora.com'
+        
+        recommended_ids = []
 
         if len(history) > 0:
-            all_text = ""
-            hashtags = []
+            # 直近10件を対象にする
+            target_history = history[:10]
             
-            # 直近5件のタイトルと説明文をスキャン
-            for item in history[:15]:
-                title = item.get('title', '')
-                desc = item.get('description', '') # app.jsで送っていれば取得可能
-                combined = f"{title} {desc}"
-                all_text += " " + combined
-                
-                # 1. ハッシュタグを抽出（これが一番「ハマってるもの」を表しやすい）
-                tags = re.findall(r'#(\w+)', combined)
-                hashtags.extend(tags)
+            # 各動画の関連動画を取得する関数
+            def fetch_related(item):
+                v_id = item.get('videoId')
+                if not v_id:
+                    return []
+                try:
+                    url = f"{target_instance}/api/v1/videos/{v_id}"
+                    # 1.5秒でタイムアウト設定
+                    with urllib.request.urlopen(url, timeout=1.5) as response:
+                        res_data = json.loads(response.read().decode())
+                        related = res_data.get('relatedVideos', [])
+                        # 上位2件のIDを抽出
+                        return [v.get('videoId') for v in related[:2] if v.get('videoId')]
+                except:
+                    return []
 
-            # 2. ハッシュタグがあれば、その中で最も多いものを採用
-            if hashtags:
-                most_common_tag = Counter(hashtags).most_common(1)[0][0]
-                recommend_query = most_common_tag
-                explanation = f"ハッシュタグ #{most_common_tag} からおすすめを生成"
+            # ThreadPoolExecutorを使って並列（同時）にAPIを叩く
+            with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+                results = list(executor.map(fetch_related, target_history))
             
-            else:
-                # 3. ハッシュタグがない場合：タイトルから固有名詞っぽ単語を抽出
-                # 【 】や [ ] の中身はジャンル名（例：ポケポケ、スプラ）が多いので優先
-                brackets = re.findall(r'[【「\[](.*?)[】」\]]', all_text)
-                
-                # 掃除：よくあるノイズ単語を除外
-                noise = r'(実況|配信|動画|公式|最新|攻略|対戦|まとめ|LIVE|shorts)'
-                clean_brackets = [re.sub(noise, '', b).strip() for b in brackets if len(re.sub(noise, '', b).strip()) >= 2]
-                
-                if clean_brackets:
-                    # カッコ内の単語で一番多いものを採用
-                    best_word = Counter(clean_brackets).most_common(1)[0][0]
-                    recommend_query = best_word
-                    explanation = f"よく見ている「{best_word}」関連のおすすめ"
-                else:
-                    # 4. 最終手段：単純な単語の出現頻度
-                    words = re.findall(r'[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF]{2,}', all_text)
-                    # ノイズ削除
-                    filtered_words = [w for w in words if not re.match(noise, w)]
-                    if filtered_words:
-                        best_word = Counter(filtered_words).most_common(1)[0][0]
-                        recommend_query = best_word
-                        explanation = f"最近の関心事「{best_word}」から検索"
+            # リストを平坦化して重複を削除
+            flat_list = [v_id for sublist in results for v_id in sublist]
+            recommended_ids = list(dict.fromkeys(flat_list)) # 順番を維持したまま重複削除
 
         # レスポンス送信
         self.send_response(200)
@@ -64,5 +48,13 @@ class handler(BaseHTTPRequestHandler):
         self.send_header('Access-Control-Allow-Origin', '*')
         self.end_headers()
         
-        res_data = {"query": recommend_query, "explanation": explanation}
-        self.wfile.write(json.dumps(res_data).encode())
+        # app.jsが期待する形式（IDの配列）を返す
+        self.wfile.write(json.dumps(recommended_ids).encode())
+
+    # OPTIONSメソッド（CORS対応）も追加しておくと安心
+    def do_OPTIONS(self):
+        self.send_response(200)
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'POST, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        self.end_headers()
