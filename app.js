@@ -660,7 +660,7 @@ const Actions = {
     },
 
     changeSpeed(rate) {
-        const player = document.getElementById('yt-player');
+        const player = document.getElementById('yt-player') || document.getElementById('hls-player');
         if (!player) return;
         if (player.tagName === 'IFRAME') {
             player.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'setPlaybackRate', args: [rate] }), '*');
@@ -715,6 +715,39 @@ const Actions = {
         } catch (e) { document.getElementById('comment-list').innerHTML = "コメント取得失敗"; }
     },
 
+    initHlsPlayer(vId, videoElement) {
+        Actions.showStatusNotification("Piped サーバーを検索中...");
+        fetch(`/api/m3u8?id=${vId}`)
+            .then(res => {
+                if (!res.ok) throw new Error("サーバーが見つかりません");
+                return res.json();
+            })
+            .then(data => {
+                if (!data.url) throw new Error("m3u8 URLが取得できませんでした");
+                let serverHost = data.server;
+                try { serverHost = new URL(data.server).hostname; } catch(e) {}
+                Actions.showStatusNotification(`Piped再生中 (${serverHost})`);
+                
+                if (Hls.isSupported()) {
+                    const hls = new Hls();
+                    hls.loadSource(data.url);
+                    hls.attachMedia(videoElement);
+                    hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                        videoElement.play();
+                    });
+                } else if (videoElement.canPlayType('application/vnd.apple.mpegurl')) {
+                    videoElement.src = data.url;
+                    videoElement.addEventListener('loadedmetadata', function() {
+                        videoElement.play();
+                    });
+                }
+            })
+            .catch(e => {
+                console.error(e);
+                Actions.showStatusNotification("Piped再生エラー。他のモードを試してください。");
+            });
+    },
+
     async play(video, skipPush = false) {
         const vId = YT.getVideoId(video);
         if (!skipPush) window.history.pushState(null, '', '?v=' + vId);
@@ -730,7 +763,9 @@ const Actions = {
         const cp = document.getElementById('comment-panel'); if (cp) cp.remove();
 
         const renderPlayerContent = () => {
-            if (this.playbackMode === "streaming") {
+            if (this.playbackMode === "piped") {
+                return `<video id="hls-player" controls autoplay playsinline style="width:100%; height:100%; background:#000;"></video>`;
+            } else if (this.playbackMode === "streaming") {
                 return `<video id="yt-player" src="${window.location.origin}/api/streaming?id=${vId}" controls autoplay playsinline style="width:100%; height:100%; background:#000;" onerror="setTimeout(() => { this.src=this.src; }, 3000); console.log('Retrying streaming source...')"></video>`;
             } else {
                 return `<iframe id="yt-player" src="${YT.getEmbedUrl(vId, isShorts)}" style="width:100%; height:100%; border:none;" allowfullscreen allow="autoplay"></iframe>`;
@@ -775,6 +810,7 @@ const Actions = {
                                 <select id="mode-select" class="btn" style="background:#333; color:#fff; border:none;" onchange="Actions.playbackMode=this.value; localStorage.setItem('yt_playback_mode', this.value); Actions.play(Actions.currentList[Actions.currentIndex] || Actions.relatedList[Actions.currentIndex], true)">
                                     <option value="edu" ${this.playbackMode==='edu'?'selected':''}>Education</option>
                                     <option value="streaming" ${this.playbackMode==='streaming'?'selected':''}>ストリーミング</option>
+                                    <option value="piped" ${this.playbackMode==='piped'?'selected':''}>m3u8</option>
                                 </select>
                             </div>
                         </div>
@@ -806,6 +842,21 @@ const Actions = {
         }
 
         this.Maps(playHtml);
+
+        // --- HLS(m3u8) 再生の初期化 ---
+        if (this.playbackMode === "piped") {
+            const video = document.getElementById('hls-player');
+            if (video) {
+                if (typeof Hls === 'undefined') {
+                    const script = document.createElement('script');
+                    script.src = "https://cdn.jsdelivr.net/npm/hls.js@latest";
+                    script.onload = () => this.initHlsPlayer(vId, video);
+                    document.head.appendChild(script);
+                } else {
+                    this.initHlsPlayer(vId, video);
+                }
+            }
+        }
 
         const sideBox = document.getElementById('side-content-box');
         if (sideBox) {
@@ -839,7 +890,7 @@ const Actions = {
 
         if (this.resumeTimer) clearInterval(this.resumeTimer);
         this.resumeTimer = setInterval(() => {
-            const player = document.getElementById('yt-player');
+            const player = document.getElementById('yt-player') || document.getElementById('hls-player');
             if (player) {
                 if (player.tagName === 'IFRAME') {
                     player.contentWindow.postMessage(JSON.stringify({ event: 'listening' }), '*');
