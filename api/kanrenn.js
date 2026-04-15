@@ -1,3 +1,4 @@
+// api/kanrenn.js - 成功するまで無限にサーバーを巡回し、動画IDを抜き出す
 export const config = { runtime: 'edge' };
 
 export default async function handler(req) {
@@ -13,28 +14,33 @@ export default async function handler(req) {
         'https://inv.n66.be',
         'https://yewtu.be',
         'https://invidious.nerdvpn.de',
-        'https://invidious.f5.si'
+        'https://invidious.f5.si',
+        'https://inv.tux.pizza',
+        'https://iv.melmac.space',
+        'https://invidious.lunar.icu'
     ];
 
-    // 無限ループ開始
+    // 成功するまで終わらない無限ループ
     while (true) {
         for (const base of INSTANCES) {
             try {
                 const controller = new AbortController();
-                // 1.5秒で見切りをつけて次へ（回転を速くする）
+                // 1.5秒でタイムアウトさせて次へ
                 const timeoutId = setTimeout(() => controller.abort(), 1500);
 
-                const res = await fetch(`${base}/api/v1/videos/${vId}?region=JP`, {
+                // region=JPを外して、とにかくレスポンス率を優先
+                const res = await fetch(`${base}/api/v1/videos/${vId}`, {
                     signal: controller.signal,
                     headers: { 'User-Agent': 'Mozilla/5.0' }
                 });
 
-                if (!res.ok) throw new Error("Next server");
+                if (!res.ok) throw new Error("Next");
 
                 const data = await res.json();
                 clearTimeout(timeoutId);
 
-                if (data?.relatedVideos?.length > 0) {
+                // 関連動画が存在するか確認
+                if (data && data.relatedVideos && data.relatedVideos.length > 0) {
                     const idList = data.relatedVideos
                         .filter(v => v.videoId)
                         .map(v => v.videoId);
@@ -48,14 +54,11 @@ export default async function handler(req) {
                     });
                 }
             } catch (err) {
-                // 失敗しても何もしない。ただ次のインスタンスへ進むだけ
+                // 失敗したら即座に次のサーバーへ
                 continue; 
             }
         }
-        
-        // --- リストを1周しても見つからなかった場合 ---
-        // サーバーを叩きすぎてブロックされないよう、1周ごとに1秒だけ待機して再開
+        // リスト1周して全滅した場合、1秒だけ待って最初からやり直し
         await new Promise(resolve => setTimeout(resolve, 1000));
-        console.log("Restarting loop for ID:", vId);
     }
 }
