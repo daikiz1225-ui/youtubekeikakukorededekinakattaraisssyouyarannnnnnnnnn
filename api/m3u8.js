@@ -1,6 +1,5 @@
 /**
- * api/m3u8.js
- * Piped API群を駆使して動画のストリーミングURL(.m3u8)を取得するプロキシ
+ * api/m3u8.js - デバッグ強化版
  */
 
 export default async function handler(req, res) {
@@ -10,7 +9,6 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: "Video ID is required" });
     }
 
-    // ユーザーから提供されたPipedインスタンスリスト
     const PIPED_SERVERS = [
         'https://pipedapi.kavin.rocks',
         'https://api-piped.mha.fi',
@@ -42,15 +40,15 @@ export default async function handler(req, res) {
         'https://pipedapi.astreon.xyz'
     ];
 
-    // インスタンスの順番をランダムに入れ替える（特定のサーバーに負荷を集中させないため）
     const shuffledServers = PIPED_SERVERS.sort(() => Math.random() - 0.5);
+    
+    let lastError = null;
+    let lastFailedServer = null;
 
-    // 生きているサーバーが見つかるまで試行
     for (const server of shuffledServers) {
         try {
-            // タイムアウトを3秒に設定（遅いサーバーはすぐ見切る）
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 3000);
+            const timeoutId = setTimeout(() => controller.abort(), 4000); // 4秒に少し延長
 
             const response = await fetch(`${server}/streams/${id}`, {
                 signal: controller.signal,
@@ -61,26 +59,42 @@ export default async function handler(req, res) {
 
             clearTimeout(timeoutId);
 
-            if (!response.ok) continue;
+            if (!response.ok) {
+                // HTTPエラー（403, 429, 500等）の内容を記録
+                const errorText = await response.text().catch(() => "No error body");
+                lastError = `HTTP ${response.status}: ${errorText.substring(0, 100)}`;
+                lastFailedServer = server;
+                console.warn(`[Piped Error] ${server} returned ${lastError}`);
+                continue;
+            }
 
             const data = await response.json();
 
-            // .m3u8 (HLS) があるか確認
             if (data && data.hls) {
                 return res.status(200).json({
                     url: data.hls,
-                    server: server, // どのサーバーから取れたかデバッグ用に返す
+                    server: server,
                     title: data.title
                 });
+            } else {
+                lastError = "HLS URL not found in response";
+                lastFailedServer = server;
             }
         } catch (error) {
-            console.error(`Failed to fetch from ${server}:`, error.message);
-            continue; // 次のサーバーへ
+            lastError = error.name === 'AbortError' ? "Timeout" : error.message;
+            lastFailedServer = server;
+            console.error(`[Piped Fetch Failed] ${server}: ${lastError}`);
+            continue;
         }
     }
 
-    // すべてのサーバーが失敗した場合
+    // すべて失敗した場合、最後に起きたエラーを詳細に返す
     return res.status(503).json({
-        error: "All Piped instances failed or video is unavailable."
+        error: "All Piped instances failed.",
+        debug: {
+            last_failed_server: lastFailedServer,
+            reason: lastError,
+            video_id: id
+        }
     });
 }
