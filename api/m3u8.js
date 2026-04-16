@@ -1,12 +1,13 @@
 /**
- * api/m3u8.js - デバッグ強化版
+ * api/m3u8.js
+ * フロントをいじらずに、画面にエラー内容を無理やり出すバージョン
  */
 
 export default async function handler(req, res) {
     const { id } = req.query;
 
     if (!id) {
-        return res.status(400).json({ error: "Video ID is required" });
+        return res.status(200).json({ url: "", success: false, error: "IDがありません" });
     }
 
     const PIPED_SERVERS = [
@@ -41,14 +42,12 @@ export default async function handler(req, res) {
     ];
 
     const shuffledServers = PIPED_SERVERS.sort(() => Math.random() - 0.5);
-    
-    let lastError = null;
-    let lastFailedServer = null;
+    let errorSummary = [];
 
     for (const server of shuffledServers) {
         try {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 4000); // 4秒に少し延長
+            const timeoutId = setTimeout(() => controller.abort(), 3000); 
 
             const response = await fetch(`${server}/streams/${id}`, {
                 signal: controller.signal,
@@ -60,41 +59,34 @@ export default async function handler(req, res) {
             clearTimeout(timeoutId);
 
             if (!response.ok) {
-                // HTTPエラー（403, 429, 500等）の内容を記録
-                const errorText = await response.text().catch(() => "No error body");
-                lastError = `HTTP ${response.status}: ${errorText.substring(0, 100)}`;
-                lastFailedServer = server;
-                console.warn(`[Piped Error] ${server} returned ${lastError}`);
+                errorSummary.push(`${new URL(server).hostname}(${response.status})`);
                 continue;
             }
 
             const data = await response.json();
-
             if (data && data.hls) {
+                // 成功時は普通に返す
                 return res.status(200).json({
                     url: data.hls,
                     server: server,
-                    title: data.title
+                    success: true
                 });
-            } else {
-                lastError = "HLS URL not found in response";
-                lastFailedServer = server;
             }
-        } catch (error) {
-            lastError = error.name === 'AbortError' ? "Timeout" : error.message;
-            lastFailedServer = server;
-            console.error(`[Piped Fetch Failed] ${server}: ${lastError}`);
+        } catch (e) {
+            errorSummary.push(`${new URL(server).hostname}(Timeout)`);
             continue;
         }
     }
 
-    // すべて失敗した場合、最後に起きたエラーを詳細に返す
-    return res.status(503).json({
-        error: "All Piped instances failed.",
-        debug: {
-            last_failed_server: lastFailedServer,
-            reason: lastError,
-            video_id: id
-        }
+    // --- ここがミソ ---
+    // すべて失敗した場合、本来「url」が入る場所に、エラーの履歴を詰め込んで「200 OK」で返します。
+    // フロントの initHlsPlayer 内の Actions.showStatusNotification(data.url) 等が
+    // この長い文字列を表示してくれるはずです。
+    const finalErrorMessage = `全滅:${errorSummary.slice(-3).join(", ")}`;
+    
+    return res.status(200).json({
+        success: false,
+        url: finalErrorMessage, // URLフィールドにエラーを偽装して入れる
+        error: finalErrorMessage
     });
 }
