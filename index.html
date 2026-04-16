@@ -6,21 +6,21 @@
 
     <script>
         (function() {
-            // あなたのGASのURL（これと一致しない限り入れない）
+            // あなたの新しいGASのURL
             const allowedSource = "https://script.google.com/macros/s/AKfycbyEv1oeL2PiwwEOd-XRFtk5yWR8-kKj2w5XgruSffZza5fpDdYczGE0oxduZ33GDg3G/exec";
             
             const referrer = document.referrer;
-            const isFromGas = referrer.startsWith(allowedSource);
+            // メモリに許可証があるか、またはリファラが指定のGASと一致するか
             const isSessionValid = sessionStorage.getItem('gate_passed') === 'true';
+            const isFromAllowedGas = referrer.startsWith(allowedSource);
 
-            if (isFromGas) {
-                // 指定のGASから来た場合のみ、メモリに許可証を発行
+            if (isFromAllowedGas) {
+                // GASから来た場合のみ、このタブに「許可証」を発行
                 sessionStorage.setItem('gate_passed', 'true');
             } else if (!isSessionValid) {
-                // GASからでもなく、許可証も持っていない（履歴・直打ち）なら追放
+                // 許可証がなく、GAS経由でもない（履歴・直打ち）ならGoogleへ飛ばす
                 window.location.replace("https://www.google.com");
             }
-            // 許可証があれば、サイト内移動でリファラが変わっても閲覧継続可能
         })();
     </script>
 
