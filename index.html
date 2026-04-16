@@ -6,23 +6,16 @@
 
     <script>
         (function() {
-            // クッキーから指定の値を読み取る関数
-            const getCookie = (name) => {
-                const value = "; " + document.cookie;
-                const parts = value.split("; " + name + "=");
-                if (parts.length === 2) return parts.pop().split(";").shift();
-            };
+            // 1. タブの名前（鍵）を確認
+            const gateKey = "secret_gate_2026";
+            const isAuthorized = sessionStorage.getItem('access_granted') === 'true';
 
-            const token = getCookie("access_token");
-            const isAuthorized = sessionStorage.getItem('site_verified') === 'true';
-
-            if (token === "valid_user") {
-                // 正規のGASから来た証拠（クッキー）を確認
-                sessionStorage.setItem('site_verified', 'true');
-                // 使い終わったクッキーは即座に削除（悪用防止）
-                document.cookie = "access_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+            if (window.name === gateKey) {
+                // 正解！メモリに保存して、タブの名前は念のため消しておく（証拠隠滅）
+                sessionStorage.setItem('access_granted', 'true');
+                window.name = ""; 
             } else if (!isAuthorized) {
-                // クッキーもなく、合格記録もないなら追放
+                // 鍵がない（履歴・直打ち・別タブ）ならGoogleへ
                 window.location.replace("https://www.google.com");
             }
         })();
