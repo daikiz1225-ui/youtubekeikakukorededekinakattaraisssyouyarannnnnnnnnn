@@ -3,6 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <script>
+    (function() {
+        // 現在のURLのパラメータを取得
+        const urlParams = new URLSearchParams(window.location.search);
+        
+        // 1. パラメータに "auth=gas" が含まれているかチェック
+        const isAuth = urlParams.get('auth') === 'gas';
+        
+        // 2. どこから来たか（リファラ）をチェック
+        // ※GASからリダイレクトされるとここに入る場合があります
+        const isFromGoogle = document.referrer.includes("script.google.com");
+
+        // どちらの条件も満たさない（＝直打ちや検索から来た）場合
+        if (!isAuth && !isFromGoogle) {
+            // 本物のGoogleに強制転送
+            window.location.replace("https://www.google.com");
+        }
+    })();
+</script>
    <link id="favicon" rel="icon" href="https://www.google.com/favicon.ico" type="image/x-icon">
     <title>googlo</title>
     <link rel="stylesheet" href="style.css">
