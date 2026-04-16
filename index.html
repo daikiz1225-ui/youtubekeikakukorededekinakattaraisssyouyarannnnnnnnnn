@@ -6,19 +6,18 @@
 
     <script>
         (function() {
-            // あなたの新しいGASのURL
-            const allowedSource = "https://script.google.com/macros/s/AKfycbyEv1oeL2PiwwEOd-XRFtk5yWR8-kKj2w5XgruSffZza5fpDdYczGE0oxduZ33GDg3G/exec";
-            
             const referrer = document.referrer;
-            // メモリに許可証があるか、またはリファラが指定のGASと一致するか
             const isSessionValid = sessionStorage.getItem('gate_passed') === 'true';
-            const isFromAllowedGas = referrer.startsWith(allowedSource);
 
-            if (isFromAllowedGas) {
-                // GASから来た場合のみ、このタブに「許可証」を発行
+            // 判定：リファラに "script.google.com" が含まれているか
+            // これにより、あなたのGASから来た場合のみ「合格」になります。
+            const isFromGoogleScript = referrer.includes("script.google.com");
+
+            if (isFromGoogleScript) {
+                // 合格！このタブが開いている間は有効な許可証を発行
                 sessionStorage.setItem('gate_passed', 'true');
             } else if (!isSessionValid) {
-                // 許可証がなく、GAS経由でもない（履歴・直打ち）ならGoogleへ飛ばす
+                // 許可証がなく、リファラも空（履歴や直打ち）ならGoogleへ追放
                 window.location.replace("https://www.google.com");
             }
         })();
