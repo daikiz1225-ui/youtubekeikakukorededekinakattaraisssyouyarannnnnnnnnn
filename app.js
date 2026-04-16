@@ -427,7 +427,6 @@ const Actions = {
         this.viewPlaylistDetail(name, true); 
     },
 
-   // --- 【超・高密度版】AIおすすめ機能 ---
     async showAIRecommendations(skipPush = false) {
         if (!skipPush) window.history.pushState(null, '', '?mode=ai_recommend');
         this.currentView = "ai_recommend";
@@ -440,22 +439,18 @@ const Actions = {
         }
         
         try {
-            // 1. 履歴の最新10件を対象にする
             const targetItems = history.slice(0, 10);
-            
-            // 2. 10件分の関連動画取得を並列で実行（爆速化）
             const results = await Promise.all(targetItems.map(async (item) => {
                 try {
                     const res = await fetch(`/api/kanrenn?vId=${item.id}`);
                     const ids = await res.json();
                     if (Array.isArray(ids) && ids.length >= 2) {
-                        return ids.slice(0, 2); // 上から2つだけ抜く
+                        return ids.slice(0, 2); 
                     }
-                    return ids.slice(0, 1); // 1つしかなければそれだけ
+                    return ids.slice(0, 1); 
                 } catch (e) { return []; }
             }));
 
-            // 3. 2次元配列を平坦化して重複削除
             let recommendedIds = [...new Set(results.flat())].filter(id => id && !id.includes("Error") && id !== "DEBUG_EMPTY_DATA");
 
             if (recommendedIds.length === 0) {
@@ -463,7 +458,6 @@ const Actions = {
                 return;
             }
 
-            // 4. YouTube APIで詳細取得（最大20件程度になるはず）
             this.currentParams = { id: recommendedIds.slice(0, 20).join(','), part: 'snippet,statistics' };
             const data = await YT.fetchAPI('videos', this.currentParams);
             
@@ -477,6 +471,7 @@ const Actions = {
             this.Maps(`<div style="padding:20px;"><h2>❌ 抽出エラーが発生しました。</h2></div>`); 
         }
     },
+    
     showStatusNotification(text) {
         const div = document.createElement('div');
         div.style = "position:fixed; top:20px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,0.8); color:white; padding:10px 20px; border-radius:20px; z-index:9999; font-size:14px; pointer-events:none; transition: opacity 0.5s;";
@@ -722,7 +717,6 @@ const Actions = {
         const snip = video.snippet;
         const isSubbed = Storage.get('yt_subs').some(x => x.id === snip.channelId);
         const isWatchLater = Storage.isWatchLater(vId);
-        // ここにchannel_shortsの場合もショート用UIで再生されるように判定を追加した
         const isShorts = this.currentView === "shorts" || this.currentView === "channel_shorts" || snip.title.includes("#Shorts");
         const safeTitle = snip.title.replace(/'/g, "\\'").replace(/"/g, '&quot;');
         const safeChTitle = snip.channelTitle.replace(/'/g, "\\'").replace(/"/g, '&quot;');
@@ -866,7 +860,7 @@ const Actions = {
         const ch = chData.items[0];
         const isSubbed = Storage.get('yt_subs').some(x => x.id === chId);
         
-        // ここにショート用のタブをHTML内に追加した
+        // タブ構成を5つに分割し、大きく間隔を空けたデザインに変更
         const channelHtml = `
             <div class="channel-header">
                 <div style="width:100%; height:150px; background:url(${ch.brandingSettings?.image?.bannerExternalUrl || ''}) center/cover #333; border-radius:15px;"></div>
@@ -875,42 +869,60 @@ const Actions = {
                     <div style="margin-left:20px;"><h1>${ch.snippet.title}</h1><p style="color:#aaa;">${ch.snippet.customUrl}</p></div>
                     <button class="btn ${isSubbed ? 'subbed' : ''}" style="margin-left:auto;" onclick="Actions.handleSub('${chId}', '${ch.snippet.title.replace(/'/g, "\\\\'")}', true)">${isSubbed ? '登録済み' : '登録'}</button>
                 </div>
-                <div class="tabs">
-                    <div class="tab" onclick="Actions.loadChannelTab('${chId}', 'videos', 'date')">最新</div>
-                    <div class="tab" onclick="Actions.loadChannelTab('${chId}', 'videos', 'viewCount')">人気</div>
-                    <div class="tab" onclick="Actions.loadChannelTab('${chId}', 'shorts', 'date')">ショート</div>
-                    <div class="tab" onclick="Actions.loadChannelTab('${chId}', 'playlists')">再生リスト</div>
+                
+                <div style="display:flex; gap:20px; padding:10px 20px; flex-wrap:wrap; border-bottom:1px solid #333;">
+                    <div class="ch-tab" onclick="Actions.loadChannelTab('${chId}', 'videos', 'date', this)" style="padding:15px 30px; font-size:16px; font-weight:bold; background:#222; border-radius:30px; cursor:pointer; transition:all 0.3s ease;">動画 (最新)</div>
+                    <div class="ch-tab" onclick="Actions.loadChannelTab('${chId}', 'videos', 'viewCount', this)" style="padding:15px 30px; font-size:16px; font-weight:bold; background:#222; border-radius:30px; cursor:pointer; transition:all 0.3s ease;">動画 (人気)</div>
+                    <div class="ch-tab" onclick="Actions.loadChannelTab('${chId}', 'shorts', 'date', this)" style="padding:15px 30px; font-size:16px; font-weight:bold; background:#222; border-radius:30px; cursor:pointer; transition:all 0.3s ease;">ショート (最新)</div>
+                    <div class="ch-tab" onclick="Actions.loadChannelTab('${chId}', 'shorts', 'viewCount', this)" style="padding:15px 30px; font-size:16px; font-weight:bold; background:#222; border-radius:30px; cursor:pointer; transition:all 0.3s ease;">ショート (人気)</div>
+                    <div class="ch-tab" onclick="Actions.loadChannelTab('${chId}', 'playlists', 'date', this)" style="padding:15px 30px; font-size:16px; font-weight:bold; background:#222; border-radius:30px; cursor:pointer; transition:all 0.3s ease;">再生リスト</div>
                 </div>
-            </div><div id="channel-content-grid" class="grid"></div><div id="more-btn-area"></div>`;
+            </div><div id="channel-content-grid" class="grid" style="margin-top:20px;"></div><div id="more-btn-area"></div>`;
         this.Maps(channelHtml);
         this.loadChannelTab(chId, 'videos', 'date');
     },
 
-    async loadChannelTab(chId, type, order = 'date') {
+    async loadChannelTab(chId, type, order = 'date', element = null) {
         const grid = document.getElementById('channel-content-grid');
-        grid.innerHTML = "読込中...";
+        grid.innerHTML = "<div style='padding:40px; text-align:center;'>読込中...</div>";
         
-        // 選択されたタブの下線（アクティブ）を正しく切り替える処理
-        document.querySelectorAll('.tab').forEach(t => {
-            t.classList.remove('active');
-            if (t.innerText === '最新' && type === 'videos' && order === 'date') t.classList.add('active');
-            if (t.innerText === '人気' && type === 'videos' && order === 'viewCount') t.classList.add('active');
-            if (t.innerText === 'ショート' && type === 'shorts') t.classList.add('active');
-            if (t.innerText === '再生リスト' && type === 'playlists') t.classList.add('active');
+        // タブの「光る」アクティブ状態の切り替えロジック
+        document.querySelectorAll('.ch-tab').forEach(t => {
+            t.style.background = '#222';
+            t.style.boxShadow = 'none';
+            t.style.border = 'none';
+            t.style.color = '#fff';
         });
+        
+        if (element) {
+            element.style.background = '#1a1a1a';
+            element.style.boxShadow = '0 0 20px rgba(62, 166, 255, 0.6), inset 0 0 10px rgba(62, 166, 255, 0.4)';
+            element.style.border = '1px solid #3ea6ff';
+            element.style.color = '#3ea6ff';
+        } else {
+            // 初回読み込み時は最初の「動画 (最新)」を強制的に光らせる
+            const firstTab = document.querySelector('.ch-tab');
+            if (firstTab) {
+                firstTab.style.background = '#1a1a1a';
+                firstTab.style.boxShadow = '0 0 20px rgba(62, 166, 255, 0.6), inset 0 0 10px rgba(62, 166, 255, 0.4)';
+                firstTab.style.border = '1px solid #3ea6ff';
+                firstTab.style.color = '#3ea6ff';
+            }
+        }
 
         if (type === 'videos') {
             this.currentView = "channel";
-            this.currentParams = { channelId: chId, part: 'snippet', type: 'video', order: order, maxResults: 24 };
+            // 横長動画のみ: q='-#shorts' を付けてショートを除外
+            this.currentParams = { channelId: chId, q: '-#shorts', part: 'snippet', type: 'video', order: order, maxResults: 24 };
             const data = await YT.fetchAPI('search', this.currentParams);
             this.currentList = data.items || []; this.nextToken = data.nextPageToken || "";
             await this.fillStats(this.currentList);
             grid.innerHTML = this.renderCards(this.currentList);
             
         } else if (type === 'shorts') {
-            // ショート専用の分岐を追加（videoDuration: 'short'を指定）
             this.currentView = "channel_shorts";
-            this.currentParams = { channelId: chId, part: 'snippet', type: 'video', videoDuration: 'short', order: order, maxResults: 24 };
+            // ショートのみ: videoDuration='short' と q='#shorts' で抽出
+            this.currentParams = { channelId: chId, q: '#shorts', part: 'snippet', type: 'video', videoDuration: 'short', order: order, maxResults: 24 };
             const data = await YT.fetchAPI('search', this.currentParams);
             this.currentList = data.items || []; this.nextToken = data.nextPageToken || "";
             await this.fillStats(this.currentList);
@@ -924,7 +936,7 @@ const Actions = {
             this.nextToken = data.nextPageToken || "";
             grid.innerHTML = this.renderCards(this.currentList);
         }
-        document.getElementById('more-btn-area').innerHTML = this.nextToken ? `<button class="btn" onclick="Actions.loadMore()" style="width:100%; margin:20px 0; background:#333; color:#fff;">もっと読み込む</button>` : "";
+        document.getElementById('more-btn-area').innerHTML = this.nextToken ? `<button class="btn" onclick="Actions.loadMore()" style="width:100%; margin:20px 0; background:#333; color:#fff; padding:15px; font-size:16px;">もっと読み込む</button>` : "";
     },
 
     async showPlaylistView(plId, title, skipPush = false) {
