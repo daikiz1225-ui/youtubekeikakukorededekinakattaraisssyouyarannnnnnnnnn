@@ -21,7 +21,7 @@ function formatViews(views) {
 }
 
 const YT = {
-    keys: ["AIzaSyBfCvyZ_J9mJiMFNYB6WfcuLyvf9zDdcUU", "AIzaSyCgVn-JWHKT_z6EC73Z6Vlex0F_d-BP_fY", "AIzaSyBbqPhAbqoWDOurTt7hejQmwc6dAoZ5Iy0", "AIzaSyAWk9mmie23-khi8-nipv1jHJND__UtEWA", "AIzaSyBL38iyqeiaKHoKqhloSnhG590DfJ35vCE","AIzaSyDU4jrOT0o2Jd4zDwZyU5OOBsKt1P3RJNs","AIzaSyB2L_plk45E1wihBUB4VJ516pIfqcBc2Yw","AIzaSyDcYrvxFDKcXNqI65Aihrqk0uK2Ebj7KVo","AIzaSyAmfASO-61oyXFOfzJCR9e3oGbnKenBZb","AIzaSyCU7xnDWAFbXt1ze0_DBaWDKt7NDT1XP7","AIzaSyBAuXbk8AocoPImN0gL14f87J62IJsoea4","AIzaSyB13z_kssSC_JKmO9oAKb0OHR2dQHd2ptw","AIzaSyDTN6IrgVl3KU7zsAFwF00dzUvwRUXCW9w","AIzaSyA9TvW4DMYbDyZg1NrhzXOsJTc2L9L_jcI","AIzaSyA9mcZEtfjfcroZuMjIxzvdklBmMnqIZfU","AIzaSyBN1HHKaTf1LPc0RaHQlBKOxd0hrRjoRBw","AIzaSyAhpuyU1zwEfOhX_6GGYxOMMSKjmEzCtGU","AIzaSyBIEOiVBH2Ie_HeRk32XDjaAdroDZPJrYs","AIzaSyCxrx3veof89ZNA3-usEWBjgcHze5-WiEI","AIzaSyAA7IsnGA1X2GTv-cvZVeyiTIvFwRR7wT0"],
+    keys: ["AIzaSyBfCvyZ_J9mJiMFNYB6WfcuLyvf9zDdcUU", "AIzaSyCgVn-JWHKT_z6EC73Z6Vlex0F_d-BP_fY", "AIzaSyBbqPhAbqoWDOurTt7hejQmwc6dAoZ5Iy0", "AIzaSyAWk9mmie23-khi8-nipv1jHJND__UtEWA", "AIzaSyBL38iyqeiaKHoKqhloSnhG590DfJ35vCE","AIzaSyDU4jrOT0o2Jd4zDwZyU5OOBsKt1P3RJNs","AIzaSyB2L_plk45E1wihBUB4VJ516pIfqcBc2Yw","AIzaSyDcYrvxFDKcXNqI65Aihrqk0uK2Ebj7KVo","AIzaSyAmfASO-61oyXFOfzJCR9e3oGbnKenBZb","AIzaSyCU7xnDWAFbXt1ze0_DBaWDKt7NDT1XP7"],
     currentEduKey: "",
 
     getVideoId(item) {
@@ -660,7 +660,7 @@ const Actions = {
     },
 
     changeSpeed(rate) {
-        const player = document.getElementById('yt-player') || document.getElementById('hls-player');
+        const player = document.getElementById('yt-player');
         if (!player) return;
         if (player.tagName === 'IFRAME') {
             player.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'setPlaybackRate', args: [rate] }), '*');
@@ -715,39 +715,6 @@ const Actions = {
         } catch (e) { document.getElementById('comment-list').innerHTML = "コメント取得失敗"; }
     },
 
-    initHlsPlayer(vId, videoElement) {
-        Actions.showStatusNotification("Piped サーバーを検索中...");
-        fetch(`/api/m3u8?id=${vId}`)
-            .then(res => {
-                if (!res.ok) throw new Error("サーバーが見つかりません");
-                return res.json();
-            })
-            .then(data => {
-                if (!data.url) throw new Error("m3u8 URLが取得できませんでした");
-                let serverHost = data.server;
-                try { serverHost = new URL(data.server).hostname; } catch(e) {}
-                Actions.showStatusNotification(`Piped再生中 (${serverHost})`);
-                
-                if (Hls.isSupported()) {
-                    const hls = new Hls();
-                    hls.loadSource(data.url);
-                    hls.attachMedia(videoElement);
-                    hls.on(Hls.Events.MANIFEST_PARSED, function() {
-                        videoElement.play();
-                    });
-                } else if (videoElement.canPlayType('application/vnd.apple.mpegurl')) {
-                    videoElement.src = data.url;
-                    videoElement.addEventListener('loadedmetadata', function() {
-                        videoElement.play();
-                    });
-                }
-            })
-            .catch(e => {
-                console.error(e);
-                Actions.showStatusNotification("Piped再生エラー。他のモードを試してください。");
-            });
-    },
-
     async play(video, skipPush = false) {
         const vId = YT.getVideoId(video);
         if (!skipPush) window.history.pushState(null, '', '?v=' + vId);
@@ -755,7 +722,8 @@ const Actions = {
         const snip = video.snippet;
         const isSubbed = Storage.get('yt_subs').some(x => x.id === snip.channelId);
         const isWatchLater = Storage.isWatchLater(vId);
-        const isShorts = this.currentView === "shorts" || snip.title.includes("#Shorts");
+        // ここにchannel_shortsの場合もショート用UIで再生されるように判定を追加した
+        const isShorts = this.currentView === "shorts" || this.currentView === "channel_shorts" || snip.title.includes("#Shorts");
         const safeTitle = snip.title.replace(/'/g, "\\'").replace(/"/g, '&quot;');
         const safeChTitle = snip.channelTitle.replace(/'/g, "\\'").replace(/"/g, '&quot;');
         const thumbUrl = `/api/thumb?id=${vId}`;
@@ -763,9 +731,7 @@ const Actions = {
         const cp = document.getElementById('comment-panel'); if (cp) cp.remove();
 
         const renderPlayerContent = () => {
-            if (this.playbackMode === "piped") {
-                return `<video id="hls-player" controls autoplay playsinline style="width:100%; height:100%; background:#000;"></video>`;
-            } else if (this.playbackMode === "streaming") {
+            if (this.playbackMode === "streaming") {
                 return `<video id="yt-player" src="${window.location.origin}/api/streaming?id=${vId}" controls autoplay playsinline style="width:100%; height:100%; background:#000;" onerror="setTimeout(() => { this.src=this.src; }, 3000); console.log('Retrying streaming source...')"></video>`;
             } else {
                 return `<iframe id="yt-player" src="${YT.getEmbedUrl(vId, isShorts)}" style="width:100%; height:100%; border:none;" allowfullscreen allow="autoplay"></iframe>`;
@@ -810,7 +776,6 @@ const Actions = {
                                 <select id="mode-select" class="btn" style="background:#333; color:#fff; border:none;" onchange="Actions.playbackMode=this.value; localStorage.setItem('yt_playback_mode', this.value); Actions.play(Actions.currentList[Actions.currentIndex] || Actions.relatedList[Actions.currentIndex], true)">
                                     <option value="edu" ${this.playbackMode==='edu'?'selected':''}>Education</option>
                                     <option value="streaming" ${this.playbackMode==='streaming'?'selected':''}>ストリーミング</option>
-                                    <option value="piped" ${this.playbackMode==='piped'?'selected':''}>Piped (m3u8)</option>
                                 </select>
                             </div>
                         </div>
@@ -842,21 +807,6 @@ const Actions = {
         }
 
         this.Maps(playHtml);
-
-        // --- HLS(m3u8) 再生の初期化 ---
-        if (this.playbackMode === "piped") {
-            const video = document.getElementById('hls-player');
-            if (video) {
-                if (typeof Hls === 'undefined') {
-                    const script = document.createElement('script');
-                    script.src = "https://cdn.jsdelivr.net/npm/hls.js@latest";
-                    script.onload = () => this.initHlsPlayer(vId, video);
-                    document.head.appendChild(script);
-                } else {
-                    this.initHlsPlayer(vId, video);
-                }
-            }
-        }
 
         const sideBox = document.getElementById('side-content-box');
         if (sideBox) {
@@ -890,7 +840,7 @@ const Actions = {
 
         if (this.resumeTimer) clearInterval(this.resumeTimer);
         this.resumeTimer = setInterval(() => {
-            const player = document.getElementById('yt-player') || document.getElementById('hls-player');
+            const player = document.getElementById('yt-player');
             if (player) {
                 if (player.tagName === 'IFRAME') {
                     player.contentWindow.postMessage(JSON.stringify({ event: 'listening' }), '*');
@@ -915,6 +865,8 @@ const Actions = {
         const chData = await YT.fetchAPI('channels', { id: chId, part: 'snippet,brandingSettings' });
         const ch = chData.items[0];
         const isSubbed = Storage.get('yt_subs').some(x => x.id === chId);
+        
+        // ここにショート用のタブをHTML内に追加した
         const channelHtml = `
             <div class="channel-header">
                 <div style="width:100%; height:150px; background:url(${ch.brandingSettings?.image?.bannerExternalUrl || ''}) center/cover #333; border-radius:15px;"></div>
@@ -923,7 +875,12 @@ const Actions = {
                     <div style="margin-left:20px;"><h1>${ch.snippet.title}</h1><p style="color:#aaa;">${ch.snippet.customUrl}</p></div>
                     <button class="btn ${isSubbed ? 'subbed' : ''}" style="margin-left:auto;" onclick="Actions.handleSub('${chId}', '${ch.snippet.title.replace(/'/g, "\\\\'")}', true)">${isSubbed ? '登録済み' : '登録'}</button>
                 </div>
-                <div class="tabs"><div class="tab active" onclick="Actions.loadChannelTab('${chId}', 'videos', 'date')">最新</div><div class="tab" onclick="Actions.loadChannelTab('${chId}', 'videos', 'viewCount')">人気</div><div class="tab" onclick="Actions.loadChannelTab('${chId}', 'playlists')">再生リスト</div></div>
+                <div class="tabs">
+                    <div class="tab" onclick="Actions.loadChannelTab('${chId}', 'videos', 'date')">最新</div>
+                    <div class="tab" onclick="Actions.loadChannelTab('${chId}', 'videos', 'viewCount')">人気</div>
+                    <div class="tab" onclick="Actions.loadChannelTab('${chId}', 'shorts', 'date')">ショート</div>
+                    <div class="tab" onclick="Actions.loadChannelTab('${chId}', 'playlists')">再生リスト</div>
+                </div>
             </div><div id="channel-content-grid" class="grid"></div><div id="more-btn-area"></div>`;
         this.Maps(channelHtml);
         this.loadChannelTab(chId, 'videos', 'date');
@@ -932,7 +889,16 @@ const Actions = {
     async loadChannelTab(chId, type, order = 'date') {
         const grid = document.getElementById('channel-content-grid');
         grid.innerHTML = "読込中...";
-        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        
+        // 選択されたタブの下線（アクティブ）を正しく切り替える処理
+        document.querySelectorAll('.tab').forEach(t => {
+            t.classList.remove('active');
+            if (t.innerText === '最新' && type === 'videos' && order === 'date') t.classList.add('active');
+            if (t.innerText === '人気' && type === 'videos' && order === 'viewCount') t.classList.add('active');
+            if (t.innerText === 'ショート' && type === 'shorts') t.classList.add('active');
+            if (t.innerText === '再生リスト' && type === 'playlists') t.classList.add('active');
+        });
+
         if (type === 'videos') {
             this.currentView = "channel";
             this.currentParams = { channelId: chId, part: 'snippet', type: 'video', order: order, maxResults: 24 };
@@ -940,6 +906,16 @@ const Actions = {
             this.currentList = data.items || []; this.nextToken = data.nextPageToken || "";
             await this.fillStats(this.currentList);
             grid.innerHTML = this.renderCards(this.currentList);
+            
+        } else if (type === 'shorts') {
+            // ショート専用の分岐を追加（videoDuration: 'short'を指定）
+            this.currentView = "channel_shorts";
+            this.currentParams = { channelId: chId, part: 'snippet', type: 'video', videoDuration: 'short', order: order, maxResults: 24 };
+            const data = await YT.fetchAPI('search', this.currentParams);
+            this.currentList = data.items || []; this.nextToken = data.nextPageToken || "";
+            await this.fillStats(this.currentList);
+            grid.innerHTML = this.renderCards(this.currentList);
+            
         } else if (type === 'playlists') {
             this.currentView = "channel_playlists";
             this.currentParams = { channelId: chId, part: 'snippet', maxResults: 24 };
@@ -948,7 +924,7 @@ const Actions = {
             this.nextToken = data.nextPageToken || "";
             grid.innerHTML = this.renderCards(this.currentList);
         }
-        document.getElementById('more-btn-area').innerHTML = this.nextToken ? `<button class="btn" onclick="Actions.loadMore()" style="width:100%; margin:20px 0;">もっと読む</button>` : "";
+        document.getElementById('more-btn-area').innerHTML = this.nextToken ? `<button class="btn" onclick="Actions.loadMore()" style="width:100%; margin:20px 0; background:#333; color:#fff;">もっと読み込む</button>` : "";
     },
 
     async showPlaylistView(plId, title, skipPush = false) {
