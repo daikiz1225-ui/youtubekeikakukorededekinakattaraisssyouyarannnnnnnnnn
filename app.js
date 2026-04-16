@@ -213,6 +213,9 @@ const Actions = {
     videoStats: {},
     resumeTimer: null,
     playbackMode: localStorage.getItem('yt_playback_mode') || "edu",
+    
+    // チャンネルページ専用の状態管理
+    chState: { type: 'videos', sort: 'date' },
 
     init() {
         const input = document.getElementById('search-input');
@@ -853,14 +856,18 @@ const Actions = {
         }, 5000);
     },
 
+    // --- チャンネルページ用 UIとロジック（UI大型化・分離版） ---
     async showChannel(chId, skipPush = false) {
         if (!skipPush) window.history.pushState(null, '', '?channel=' + chId);
         this.currentView = "channel";
+        
+        // チャンネルを開いた時の初期状態
+        this.chState = { type: 'videos', sort: 'date' };
+
         const chData = await YT.fetchAPI('channels', { id: chId, part: 'snippet,brandingSettings' });
         const ch = chData.items[0];
         const isSubbed = Storage.get('yt_subs').some(x => x.id === chId);
         
-        // タブ構成を5つに分割し、大きく間隔を空けたデザインに変更
         const channelHtml = `
             <div class="channel-header">
                 <div style="width:100%; height:150px; background:url(${ch.brandingSettings?.image?.bannerExternalUrl || ''}) center/cover #333; border-radius:15px;"></div>
@@ -870,65 +877,101 @@ const Actions = {
                     <button class="btn ${isSubbed ? 'subbed' : ''}" style="margin-left:auto;" onclick="Actions.handleSub('${chId}', '${ch.snippet.title.replace(/'/g, "\\\\'")}', true)">${isSubbed ? '登録済み' : '登録'}</button>
                 </div>
                 
-                <div style="display:flex; gap:20px; padding:10px 20px; flex-wrap:wrap; border-bottom:1px solid #333;">
-                    <div class="ch-tab" onclick="Actions.loadChannelTab('${chId}', 'videos', 'date', this)" style="padding:15px 30px; font-size:16px; font-weight:bold; background:#222; border-radius:30px; cursor:pointer; transition:all 0.3s ease;">動画 (最新)</div>
-                    <div class="ch-tab" onclick="Actions.loadChannelTab('${chId}', 'videos', 'viewCount', this)" style="padding:15px 30px; font-size:16px; font-weight:bold; background:#222; border-radius:30px; cursor:pointer; transition:all 0.3s ease;">動画 (人気)</div>
-                    <div class="ch-tab" onclick="Actions.loadChannelTab('${chId}', 'shorts', 'date', this)" style="padding:15px 30px; font-size:16px; font-weight:bold; background:#222; border-radius:30px; cursor:pointer; transition:all 0.3s ease;">ショート (最新)</div>
-                    <div class="ch-tab" onclick="Actions.loadChannelTab('${chId}', 'shorts', 'viewCount', this)" style="padding:15px 30px; font-size:16px; font-weight:bold; background:#222; border-radius:30px; cursor:pointer; transition:all 0.3s ease;">ショート (人気)</div>
-                    <div class="ch-tab" onclick="Actions.loadChannelTab('${chId}', 'playlists', 'date', this)" style="padding:15px 30px; font-size:16px; font-weight:bold; background:#222; border-radius:30px; cursor:pointer; transition:all 0.3s ease;">再生リスト</div>
+                <div style="padding: 10px 20px;">
+                    <div style="display:flex; gap:30px; flex-wrap:wrap; margin-bottom:20px; border-bottom:1px solid #333; padding-bottom:20px;">
+                        <div id="ch-type-videos" class="ch-type-btn" onclick="Actions.changeChType('${chId}', 'videos')" style="padding:15px 40px; font-size:18px; font-weight:bold; border-radius:30px; cursor:pointer; transition:all 0.3s ease;">🎬 動画</div>
+                        <div id="ch-type-shorts" class="ch-type-btn" onclick="Actions.changeChType('${chId}', 'shorts')" style="padding:15px 40px; font-size:18px; font-weight:bold; border-radius:30px; cursor:pointer; transition:all 0.3s ease;">⚡ ショート</div>
+                        <div id="ch-type-playlists" class="ch-type-btn" onclick="Actions.changeChType('${chId}', 'playlists')" style="padding:15px 40px; font-size:18px; font-weight:bold; border-radius:30px; cursor:pointer; transition:all 0.3s ease;">📂 再生リスト</div>
+                    </div>
+                    
+                    <div id="ch-sort-container" style="display:flex; gap:20px; margin-bottom:10px;">
+                        <div id="ch-sort-date" class="ch-sort-btn" onclick="Actions.changeChSort('${chId}', 'date')" style="padding:10px 25px; font-size:15px; font-weight:bold; border-radius:20px; cursor:pointer; transition:all 0.3s ease;">🕒 最新順</div>
+                        <div id="ch-sort-viewCount" class="ch-sort-btn" onclick="Actions.changeChSort('${chId}', 'viewCount')" style="padding:10px 25px; font-size:15px; font-weight:bold; border-radius:20px; cursor:pointer; transition:all 0.3s ease;">🔥 人気順</div>
+                    </div>
                 </div>
-            </div><div id="channel-content-grid" class="grid" style="margin-top:20px;"></div><div id="more-btn-area"></div>`;
+            </div>
+            <div id="channel-content-grid" class="grid" style="padding: 0 20px;"></div>
+            <div id="more-btn-area" style="padding: 0 20px;"></div>`;
         this.Maps(channelHtml);
-        this.loadChannelTab(chId, 'videos', 'date');
+        
+        // UIの初期発光設定とデータ取得
+        this.updateChUI();
+        this.fetchChData(chId);
     },
 
-    async loadChannelTab(chId, type, order = 'date', element = null) {
-        const grid = document.getElementById('channel-content-grid');
-        grid.innerHTML = "<div style='padding:40px; text-align:center;'>読込中...</div>";
-        
-        // タブの「光る」アクティブ状態の切り替えロジック
-        document.querySelectorAll('.ch-tab').forEach(t => {
-            t.style.background = '#222';
-            t.style.boxShadow = 'none';
-            t.style.border = 'none';
-            t.style.color = '#fff';
+    changeChType(chId, type) {
+        this.chState.type = type;
+        this.updateChUI();
+        this.fetchChData(chId);
+    },
+
+    changeChSort(chId, sort) {
+        this.chState.sort = sort;
+        this.updateChUI();
+        this.fetchChData(chId);
+    },
+
+    updateChUI() {
+        // メインカテゴリのUIリセット＆発光
+        document.querySelectorAll('.ch-type-btn').forEach(b => {
+            b.style.background = '#222';
+            b.style.boxShadow = 'none';
+            b.style.border = '2px solid transparent';
+            b.style.color = '#fff';
         });
-        
-        if (element) {
-            element.style.background = '#1a1a1a';
-            element.style.boxShadow = '0 0 20px rgba(62, 166, 255, 0.6), inset 0 0 10px rgba(62, 166, 255, 0.4)';
-            element.style.border = '1px solid #3ea6ff';
-            element.style.color = '#3ea6ff';
-        } else {
-            // 初回読み込み時は最初の「動画 (最新)」を強制的に光らせる
-            const firstTab = document.querySelector('.ch-tab');
-            if (firstTab) {
-                firstTab.style.background = '#1a1a1a';
-                firstTab.style.boxShadow = '0 0 20px rgba(62, 166, 255, 0.6), inset 0 0 10px rgba(62, 166, 255, 0.4)';
-                firstTab.style.border = '1px solid #3ea6ff';
-                firstTab.style.color = '#3ea6ff';
-            }
+        const activeType = document.getElementById('ch-type-' + this.chState.type);
+        if (activeType) {
+            activeType.style.background = '#1a1a1a';
+            activeType.style.boxShadow = '0 0 20px rgba(62, 166, 255, 0.6)';
+            activeType.style.border = '2px solid #3ea6ff';
+            activeType.style.color = '#3ea6ff';
         }
 
-        if (type === 'videos') {
+        // 並び替えメニューのUIリセット＆発光（再生リストの場合は非表示）
+        const sortContainer = document.getElementById('ch-sort-container');
+        if (this.chState.type === 'playlists') {
+            sortContainer.style.display = 'none';
+        } else {
+            sortContainer.style.display = 'flex';
+            document.querySelectorAll('.ch-sort-btn').forEach(b => {
+                b.style.background = '#222';
+                b.style.boxShadow = 'none';
+                b.style.border = '1px solid transparent';
+                b.style.color = '#fff';
+            });
+            const activeSort = document.getElementById('ch-sort-' + this.chState.sort);
+            if (activeSort) {
+                activeSort.style.background = '#1a1a1a';
+                activeSort.style.boxShadow = '0 0 15px rgba(0, 255, 136, 0.5)';
+                activeSort.style.border = '1px solid #00ff88';
+                activeSort.style.color = '#00ff88';
+            }
+        }
+    },
+
+    async fetchChData(chId) {
+        const grid = document.getElementById('channel-content-grid');
+        grid.innerHTML = "<div style='padding:40px; text-align:center;'>読込中...</div>";
+
+        if (this.chState.type === 'videos') {
             this.currentView = "channel";
             // 横長動画のみ: q='-#shorts' を付けてショートを除外
-            this.currentParams = { channelId: chId, q: '-#shorts', part: 'snippet', type: 'video', order: order, maxResults: 24 };
+            this.currentParams = { channelId: chId, q: '-#shorts', part: 'snippet', type: 'video', order: this.chState.sort, maxResults: 24 };
             const data = await YT.fetchAPI('search', this.currentParams);
             this.currentList = data.items || []; this.nextToken = data.nextPageToken || "";
             await this.fillStats(this.currentList);
             grid.innerHTML = this.renderCards(this.currentList);
             
-        } else if (type === 'shorts') {
+        } else if (this.chState.type === 'shorts') {
             this.currentView = "channel_shorts";
             // ショートのみ: videoDuration='short' と q='#shorts' で抽出
-            this.currentParams = { channelId: chId, q: '#shorts', part: 'snippet', type: 'video', videoDuration: 'short', order: order, maxResults: 24 };
+            this.currentParams = { channelId: chId, q: '#shorts', part: 'snippet', type: 'video', videoDuration: 'short', order: this.chState.sort, maxResults: 24 };
             const data = await YT.fetchAPI('search', this.currentParams);
             this.currentList = data.items || []; this.nextToken = data.nextPageToken || "";
             await this.fillStats(this.currentList);
             grid.innerHTML = this.renderCards(this.currentList);
             
-        } else if (type === 'playlists') {
+        } else if (this.chState.type === 'playlists') {
             this.currentView = "channel_playlists";
             this.currentParams = { channelId: chId, part: 'snippet', maxResults: 24 };
             const data = await YT.fetchAPI('playlists', this.currentParams);
