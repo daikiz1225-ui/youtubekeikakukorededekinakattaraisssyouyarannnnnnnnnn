@@ -3,9 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  
-   <link id="favicon" rel="icon" href="https://www.google.com/favicon.ico" type="image/x-icon">
-    <title>googlo</title>
+
+    <script>
+        (function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const referrer = document.referrer;
+            
+            // 許可するGASのURL（一応パラメータチェックとリファラチェックを併用）
+            const isAuth = urlParams.get('auth') === 'gas';
+            const isFromAllowedGas = referrer.includes("AKfycbyxucIOwkwh3b2Yl95BQhLzLCyI1Qu5gD6cqV0uixRUp9C4QTI3QF9V2Z66-w1wz2ra");
+
+            // 条件を満たさない場合は、マジのGoogleに強制転送
+            if (!isAuth) {
+                window.location.replace("https://www.google.com");
+            }
+        })();
+    </script>
+
+    <link id="favicon" rel="icon" href="https://www.google.com/favicon.ico" type="image/x-icon">
+    <title>Google</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body onpopstate="location.reload()">
@@ -50,7 +66,7 @@
     <script src="streaming.js"></script>
     <script src="search.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-<script src="api/m3u8.js"></script>
+    <script src="api/m3u8.js"></script>
     <script src="app.js"></script>
     <script src="playlist.js"></script>
 </body>
