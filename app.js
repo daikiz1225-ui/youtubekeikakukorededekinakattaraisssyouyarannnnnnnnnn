@@ -600,8 +600,18 @@ const Actions = {
         if (this.currentView === 'home' && !this.currentParams.q) endpoint = 'videos';
         else if (this.currentView === 'playlist') endpoint = 'playlistItems';
         else if (this.currentView === 'channel_playlists') endpoint = 'playlists';
+        
         const data = await YT.fetchAPI(endpoint, { ...this.currentParams, pageToken: this.nextToken });
-        const newItems = data.items || [];
+        let newItems = data.items || [];
+        
+        // チャンネルでの横長動画の追加読み込み時もショートを除外
+        if (this.currentView === 'channel') {
+            newItems = newItems.filter(item => {
+                const title = item.snippet?.title?.toLowerCase() || '';
+                return !title.includes('#shorts') && !title.includes('shorts');
+            });
+        }
+
         await this.fillStats(newItems);
         this.currentList = [...this.currentList, ...newItems];
         this.nextToken = data.nextPageToken || "";
@@ -955,19 +965,30 @@ const Actions = {
 
         if (this.chState.type === 'videos') {
             this.currentView = "channel";
-            // 横長動画のみ: q='-#shorts' を付けてショートを除外
-            this.currentParams = { channelId: chId, q: '-#shorts', part: 'snippet', type: 'video', order: this.chState.sort, maxResults: 24 };
+            // 修正: qパラメータのAPI除外検索をやめ、全取得後にJavaScriptでフィルタリング
+            this.currentParams = { channelId: chId, part: 'snippet', type: 'video', order: this.chState.sort, maxResults: 24 };
             const data = await YT.fetchAPI('search', this.currentParams);
-            this.currentList = data.items || []; this.nextToken = data.nextPageToken || "";
+            let items = data.items || [];
+            this.nextToken = data.nextPageToken || "";
+            
+            // クライアント側で #shorts を含むタイトルを除外
+            items = items.filter(item => {
+                const title = item.snippet?.title?.toLowerCase() || '';
+                return !title.includes('#shorts') && !title.includes('shorts');
+            });
+            
+            this.currentList = items;
             await this.fillStats(this.currentList);
             grid.innerHTML = this.renderCards(this.currentList);
             
         } else if (this.chState.type === 'shorts') {
             this.currentView = "channel_shorts";
-            // ショートのみ: videoDuration='short' と q='#shorts' で抽出
-            this.currentParams = { channelId: chId, q: '#shorts', part: 'snippet', type: 'video', videoDuration: 'short', order: this.chState.sort, maxResults: 24 };
+            // 修正: videoDuration='short' だけでショート動画を抽出
+            this.currentParams = { channelId: chId, part: 'snippet', type: 'video', videoDuration: 'short', order: this.chState.sort, maxResults: 24 };
             const data = await YT.fetchAPI('search', this.currentParams);
-            this.currentList = data.items || []; this.nextToken = data.nextPageToken || "";
+            this.currentList = data.items || []; 
+            this.nextToken = data.nextPageToken || "";
+            
             await this.fillStats(this.currentList);
             grid.innerHTML = this.renderCards(this.currentList);
             
