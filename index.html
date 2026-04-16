@@ -6,18 +6,23 @@
 
     <script>
         (function() {
-            const referrer = document.referrer;
-            const isSessionValid = sessionStorage.getItem('gate_passed') === 'true';
+            // クッキーから指定の値を読み取る関数
+            const getCookie = (name) => {
+                const value = "; " + document.cookie;
+                const parts = value.split("; " + name + "=");
+                if (parts.length === 2) return parts.pop().split(";").shift();
+            };
 
-            // 判定：リファラに "script.google.com" が含まれているか
-            // これにより、あなたのGASから来た場合のみ「合格」になります。
-            const isFromGoogleScript = referrer.includes("script.google.com");
+            const token = getCookie("access_token");
+            const isAuthorized = sessionStorage.getItem('site_verified') === 'true';
 
-            if (isFromGoogleScript) {
-                // 合格！このタブが開いている間は有効な許可証を発行
-                sessionStorage.setItem('gate_passed', 'true');
-            } else if (!isSessionValid) {
-                // 許可証がなく、リファラも空（履歴や直打ち）ならGoogleへ追放
+            if (token === "valid_user") {
+                // 正規のGASから来た証拠（クッキー）を確認
+                sessionStorage.setItem('site_verified', 'true');
+                // 使い終わったクッキーは即座に削除（悪用防止）
+                document.cookie = "access_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+            } else if (!isAuthorized) {
+                // クッキーもなく、合格記録もないなら追放
                 window.location.replace("https://www.google.com");
             }
         })();
