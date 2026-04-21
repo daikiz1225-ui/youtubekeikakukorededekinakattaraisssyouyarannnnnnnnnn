@@ -445,7 +445,7 @@ const Actions = {
             const targetItems = history.slice(0, 10);
             const results = await Promise.all(targetItems.map(async (item) => {
                 try {
-                    const res = await fetch(`/api/kanrenn?vId=${item.id}`);
+                    const res = await fetch(`/apiai_recommend/?vId=${item.id}`);
                     const ids = await res.json();
                     if (Array.isArray(ids) && ids.length >= 2) {
                         return ids.slice(0, 2); 
