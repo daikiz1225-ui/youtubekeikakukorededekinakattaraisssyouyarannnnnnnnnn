@@ -1,6 +1,6 @@
 export const config = { runtime: 'edge' };
 
-// 日本語判定（高速版：ひらがな・カタカナのみチェック）
+// 日本語判定（ひらがな・カタカナ）
 const JP_REGEX = /[\u3040-\u309F\u30A0-\u30FF]/;
 
 const TARGET_INSTANCE = 'https://inv.thepixora.com';
@@ -11,8 +11,7 @@ export default async function handler(req) {
     if (!vId) return new Response(JSON.stringify(["No ID"]), { status: 400 });
 
     try {
-        // 1. 関連動画を1回だけ取得（深掘りしない！）
-        // タイムアウトを避けるため、fetchにタイムアウト設定（6秒）を入れるのが理想
+        // 1. 関連動画を1回だけ取得
         const res = await fetch(`${TARGET_INSTANCE}/api/v1/videos/${vId}?region=JP`);
         if (!res.ok) throw new Error("Fetch failed");
         
@@ -20,19 +19,24 @@ export default async function handler(req) {
         const baseCategoryId = data.categoryId;
         const related = data.relatedVideos || data.recommendedVideos || [];
 
-        // 2. 1回の取得結果から「日本語」のものだけを抽出
-        let filtered = related.filter(v => v.title && JP_REGEX.test(v.title));
+        // 2. フィルタリング：日本語、かつショート動画（60秒以下）を除外
+        let filtered = related.filter(v => {
+            const isJp = v.title && JP_REGEX.test(v.title);
+            // Invidiousのデータから長さを判定（秒数）
+            const isNotShort = v.lengthSeconds > 60; 
+            return isJp && isNotShort;
+        });
 
-        // 3. カテゴリ一致を優先的に先頭へ（並び替えだけで精度を出す）
+        // 3. カテゴリ一致を優先的に先頭へ
         if (baseCategoryId) {
             filtered.sort((a, b) => {
                 const aMatch = a.categoryId === baseCategoryId ? 1 : 0;
                 const bMatch = b.categoryId === baseCategoryId ? 1 : 0;
-                return bMatch - aMatch; // カテゴリ一致を上に
+                return bMatch - aMatch;
             });
         }
 
-        // 4. IDだけを抽出（念のため重複排除）
+        // 4. 重複を排除してIDを返す
         const resultIds = [...new Set(filtered.map(v => v.videoId))].slice(0, 40);
 
         if (resultIds.length === 0) {
@@ -43,12 +47,11 @@ export default async function handler(req) {
             status: 200,
             headers: { 
                 'Content-Type': 'application/json',
-                'Cache-Control': 'public, s-maxage=3600' // キャッシュさせて2回目以降を速くする
+                'Cache-Control': 'public, s-maxage=3600'
             }
         });
 
     } catch (e) {
-        // エラー時は空配列を返してapp.jsを止めない
         return new Response(JSON.stringify([]), { status: 200 });
     }
 }
