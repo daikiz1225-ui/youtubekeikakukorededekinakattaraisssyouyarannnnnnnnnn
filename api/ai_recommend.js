@@ -5,27 +5,47 @@ function isJapanese(text) {
     return /[\u3040-\u309F\u30A0-\u30FF]/.test(text);
 }
 
+// 再生数を数値に変換する関数（KやM表記にも対応）
+function parseViews(val) {
+    if (typeof val === 'number') return val;
+    if (!val) return 0;
+    let s = val.toString().toLowerCase().replace(/,/g, '').replace(/views/g, '').trim();
+    if (s.includes('k')) return parseFloat(s) * 1000;
+    if (s.includes('m')) return parseFloat(s) * 1000000;
+    return parseInt(s, 10) || 0;
+}
+
 const TARGET_INSTANCE = 'https://inv.thepixora.com';
 
-// フィルタ付き取得関数（カテゴリ指定対応）
-async function fetchWithFilter(vId, targetCategoryId = null) {
+// フィルタ＆スコア付け取得関数
+async function fetchWithFilterAndScore(vId, targetCategoryId = null) {
     try {
         const res = await fetch(`${TARGET_INSTANCE}/api/v1/videos/${vId}?region=JP`);
         if (!res.ok) return { videos: [], categoryId: null };
         
         const data = await res.json();
-        const currentCategory = data.categoryId; // この動画自体のカテゴリ
+        const currentCategory = data.categoryId;
         const related = data.relatedVideos || data.recommendedVideos || [];
 
-        // フィルタリング
-        const filtered = related.filter(v => {
-            const jpOk = isJapanese(v.title);
-            // カテゴリ指定がある場合は一致をチェック、なければ日本語のみ
-            const categoryOk = targetCategoryId ? v.categoryId === targetCategoryId : true;
-            return jpOk && categoryOk;
-        });
+        let scoredVideos = [];
+        for (const v of related) {
+            if (!isJapanese(v.title)) continue; // 日本語以外は除外
+            
+            const views = parseViews(v.viewCount || v.viewCountText || "0");
+            if (views < 5000) continue; // 5000回未満のノイズ動画は除外
 
-        return { videos: filtered, categoryId: currentCategory };
+            let score = 0;
+            // カテゴリ一致ボーナス
+            if (targetCategoryId && v.categoryId === targetCategoryId) score += 50;
+            
+            // 人気度（再生数）ボーナス
+            if (views >= 1000000) score += 30; // 100万回超え
+            else if (views >= 100000) score += 10; // 10万回超え
+
+            scoredVideos.push({ id: v.videoId, score: score });
+        }
+
+        return { videos: scoredVideos, categoryId: currentCategory };
     } catch (e) {
         return { videos: [], categoryId: null };
     }
@@ -42,43 +62,41 @@ export default async function handler(req) {
         checkedIds.add(vId);
 
         // 1. まず元動画の情報とカテゴリを取得
-        const firstStep = await fetchWithFilter(vId);
+        const firstStep = await fetchWithFilterAndScore(vId);
         const baseCategoryId = firstStep.categoryId;
         
         firstStep.videos.forEach(v => {
-            if (!checkedIds.has(v.videoId)) {
+            if (!checkedIds.has(v.id)) {
                 finalVideos.push(v);
-                checkedIds.add(v.videoId);
+                checkedIds.add(v.id);
             }
         });
 
-        // 2. 20件に満たない場合の深掘り（カテゴリを維持して掘る）
+        // 2. 20件に満たない場合の深掘り
         if (finalVideos.length < 20 && finalVideos.length > 0) {
-            const seeds = finalVideos.slice(0, 5);
-            const deepDives = await Promise.all(seeds.map(v => fetchWithFilter(v.videoId, baseCategoryId)));
+            // スコアが高い（カテゴリ一致＆高再生数）上位5件からさらに掘る
+            const seeds = finalVideos.sort((a, b) => b.score - a.score).slice(0, 5);
+            const deepDives = await Promise.all(seeds.map(v => fetchWithFilterAndScore(v.id, baseCategoryId)));
             
             deepDives.forEach(result => {
                 result.videos.forEach(v => {
-                    if (!checkedIds.has(v.videoId)) {
+                    if (!checkedIds.has(v.id)) {
                         finalVideos.push(v);
-                        checkedIds.add(v.videoId);
+                        checkedIds.add(v.id);
                     }
                 });
             });
         }
 
-        // 3. まだ20件に満たない場合は、カテゴリ縛りを解いて「日本語のみ」で補充
-        if (finalVideos.length < 20) {
-            const extra = await fetchWithFilter(vId); // カテゴリ指定なし
-            extra.videos.forEach(v => {
-                if (!checkedIds.has(v.videoId)) {
-                    finalVideos.push(v);
-                    checkedIds.add(v.videoId);
-                }
-            });
+        // 3. 最終的なリストをスコア（おすすめ度）順に並び替え
+        finalVideos.sort((a, b) => b.score - a.score);
+
+        const resultIds = finalVideos.map(v => v.id);
+
+        if (resultIds.length === 0) {
+            return new Response(JSON.stringify(["DEBUG_EMPTY_DATA"]), { status: 200 });
         }
 
-        const resultIds = finalVideos.map(v => v.videoId);
         return new Response(JSON.stringify(resultIds), {
             status: 200,
             headers: { 'Content-Type': 'application/json' }
