@@ -12,7 +12,7 @@
     <header class="header">
         <div style="display: flex; align-items: center; gap: 15px;">
             <div id="back-btn" onclick="Actions.goBack()" style="cursor: pointer; font-size: 20px; padding: 5px; display: none;">🔄</div>
-            <div class="logo" onclick="handleLogoClick()" style="cursor: pointer; -webkit-tap-highlight-color: transparent;">
+            <div class="logo" onclick="handleLogoAction()" style="cursor: pointer; -webkit-tap-highlight-color: transparent;">
                 <video id="logoVideo" muted playsinline style="width: 200px; height: auto; mix-blend-mode: screen; vertical-align: middle;">
                     <source src="YouTube.mp4" type="video/mp4">
                 </video>
@@ -58,23 +58,22 @@
     <script src="backup.js"></script>
 
     <script>
-        const videoElement = document.getElementById('logoVideo');
+        const v = document.getElementById('logoVideo');
 
-        // ページ読み込み時に光らせる
-        window.addEventListener('load', () => {
-            if (videoElement) {
-                videoElement.play().catch(e => console.log("Init play prevented"));
+        // 1. 入った時に1回だけ再生（重複を防ぐためJSからのみ実行）
+        window.addEventListener('DOMContentLoaded', () => {
+            if (v) {
+                v.play().catch(err => console.log("Init play failed"));
             }
         });
 
-        // クリック時に光らせてからホームへ戻る
-        function handleLogoClick() {
-            if (videoElement) {
-                videoElement.currentTime = 0; // 頭出し
-                videoElement.play();          // 再生
+        // 2. クリック時に「再生」と「ホーム移動」を同時に行う
+        function handleLogoAction() {
+            if (v) {
+                v.currentTime = 0;
+                v.play();
             }
-            
-            // 既存のActions.goHomeを実行してホーム画面へ
+            // もともとのホーム移動処理を即座に実行
             if (window.Actions && typeof Actions.goHome === 'function') {
                 Actions.goHome();
             }
