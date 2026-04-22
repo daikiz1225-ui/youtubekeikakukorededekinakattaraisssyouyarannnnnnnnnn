@@ -14,7 +14,17 @@ const SearchHandler = {
         "AIzaSyB2L_plk45E1wihBUB4VJ516pIfqcBc2Yw",
         "AIzaSyDcYrvxFDKcXNqI65Aihrqk0uK2Ebj7KVo",
         "AIzaSyAmfASO-61oyXFOfzJCR9e3oGbnKenBZb",
-        "AIzaSyCU7xnDWAFbXt1ze0_DBaWDKt7NDT1XP7" // あなたが提示したキー
+        "AIzaSyCU7xnDWAFbXt1ze0_DBaWDKt7NDT1XP7",
+        "AIzaSyBAuXbk8AocoPImN0gL14f87J62IJsoea4",
+        "AIzaSyB13z_kssSC_JKmO9oAKb0OHR2dQHd2ptw",
+        "AIzaSyDTN6IrgVl3KU7zsAFwF00dzUvwRUXCW9w",
+        "AIzaSyA9TvW4DMYbDyZg1NrhzXOsJTc2L9L_jcI",
+        "AIzaSyA9mcZEtfjfcroZuMjIxzvdklBmMnqIZfU",
+        "AIzaSyBN1HHKaTf1LPc0RaHQlBKOxd0hrRjoRBw",
+        "AIzaSyAhpuyU1zwEfOhX_6GGYxOMMSKjmEzCtGU",
+        "AIzaSyBIEOiVBH2Ie_HeRk32XDjaAdroDZPJrYs",
+        "AIzaSyCxrx3veof89ZNA3-usEWBjgcHze5-WiEI",
+        "AIzaSyAA7IsnGA1X2GTv-cvZVeyiTIvFwRR7wT0"
     ],
 
     // APIキャッシュ（同じ検索を短時間に繰り返さないため）
