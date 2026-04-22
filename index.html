@@ -58,13 +58,20 @@
     <script src="backup.js"></script>
 
     <script>
+        // ページ読み込み完了時に1回光らせる
+        window.addEventListener('load', () => {
+            const v = document.getElementById('logoVideo');
+            if (v) v.play();
+        });
+
+        // クリック時に光らせてからホームへ移動
         function playLogoAndGoHome() {
             const v = document.getElementById('logoVideo');
             if (v) {
                 v.currentTime = 0; // 最初に戻す
-                v.play();          // 光らせる
+                v.play();          // 再生
             }
-            // ホームへ戻る処理（既存のActions.goHomeを呼び出し）
+            // ホームへ戻る処理（既存のActions.goHome）
             if (window.Actions && Actions.goHome) {
                 Actions.goHome();
             }
