@@ -13,11 +13,11 @@
         <div style="display: flex; align-items: center; gap: 15px;">
             <div id="back-btn" onclick="Actions.goBack()" style="cursor: pointer; font-size: 20px; padding: 5px; display: none;">🔄</div>
             
-            <div id="mainLogoBtn" class="logo" style="cursor: pointer; -webkit-tap-highlight-color: transparent;">
-                <video id="logoVideo" muted playsinline style="width: 200px; height: auto; mix-blend-mode: screen; vertical-align: middle;">
+            <a href="index.html" class="logo" style="display: inline-block; -webkit-tap-highlight-color: transparent; text-decoration: none;">
+                <video autoplay muted playsinline style="width: 200px; height: auto; mix-blend-mode: screen; vertical-align: middle;">
                     <source src="YouTube.mp4" type="video/mp4">
                 </video>
-            </div>
+            </a>
         </div>
         <div class="search-bar">
             <input type="text" id="search-input" placeholder="検索">
@@ -58,30 +58,5 @@
     <script src="playlist.js"></script>
     <script src="backup.js"></script>
 
-    <script>
-        (function() {
-            const logoBtn = document.getElementById('mainLogoBtn');
-            const video = document.getElementById('logoVideo');
-
-            if (!logoBtn || !video) return;
-
-            // 1. ページ読み込み時に1回だけ光らせる
-            video.addEventListener('canplaythrough', () => {
-                video.play().catch(() => {});
-            }, { once: true });
-
-            // 2. クリック時の処理
-            logoBtn.addEventListener('click', function(e) {
-                // 動画を再生
-                video.currentTime = 0;
-                video.play();
-
-                // 確実にホームへ戻る（Actions.goHomeが存在する場合）
-                if (window.Actions && typeof Actions.goHome === 'function') {
-                    Actions.goHome();
-                }
-            });
-        })();
-    </script>
 </body>
 </html>
