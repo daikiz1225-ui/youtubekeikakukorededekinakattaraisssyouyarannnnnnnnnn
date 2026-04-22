@@ -7,15 +7,44 @@
    <link id="favicon" rel="icon" href="https://www.google.com/favicon.ico" type="image/x-icon">
     <title>GoogIe</title>
     <link rel="stylesheet" href="style.css">
+    <style>
+        /* ロゴを重ねるための設定 */
+        .logo-wrapper {
+            position: relative;
+            width: 200px;
+            height: auto;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+        }
+        .logo-img {
+            width: 200px;
+            height: auto;
+            vertical-align: middle;
+        }
+        .logo-video {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            mix-blend-mode: screen;
+            pointer-events: none; /* 動画越しにクリックできるようにする */
+        }
+    </style>
 </head>
 <body onpopstate="location.reload()">
     <header class="header">
         <div style="display: flex; align-items: center; gap: 15px;">
             <div id="back-btn" onclick="Actions.goBack()" style="cursor: pointer; font-size: 20px; padding: 5px; display: none;">🔄</div>
-            <div class="logo" onclick="Actions.goHome()" style="cursor: pointer;">
-                <video autoplay muted playsinline poster="YouTube2.png" style="width: 200px; height: auto; mix-blend-mode: screen; vertical-align: middle;">
-                    <source src="YouTube.mp4" type="video/mp4">
-                </video>
+            
+            <div class="logo" onclick="Actions.goHome()" style="position: relative;">
+                <div class="logo-wrapper">
+                    <img src="YouTube.png" alt="YouTube Logo" class="logo-img">
+                    <video id="neonVideo" autoplay muted playsinline class="logo-video">
+                        <source src="YouTube.mp4" type="video/mp4">
+                    </video>
+                </div>
             </div>
         </div>
         <div class="search-bar">
@@ -56,5 +85,15 @@
     <script src="app.js"></script>
     <script src="playlist.js"></script>
     <script src="backup.js"></script>
+
+    <script>
+        // 動画が終了したら動画自体を非表示にする処理
+        const v = document.getElementById('neonVideo');
+        if (v) {
+            v.onended = function() {
+                v.style.display = 'none';
+            };
+        }
+    </script>
 </body>
 </html>
