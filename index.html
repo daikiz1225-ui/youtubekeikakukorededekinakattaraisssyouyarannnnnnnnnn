@@ -12,10 +12,10 @@
     <header class="header">
         <div style="display: flex; align-items: center; gap: 15px;">
             <div id="back-btn" onclick="Actions.goBack()" style="cursor: pointer; font-size: 20px; padding: 5px; display: none;">🔄</div>
-            <div class="logo" onclick="Actions.goHome()">
-                <video autoplay loop muted playsinline style="width: 200px; height: auto; mix-blend-mode: screen; vertical-align: middle;">
-    <source src="YouTube.mp4" type="video/mp4">
-</video>
+            <div class="logo" onclick="playLogoAndGoHome()" style="-webkit-tap-highlight-color: transparent;">
+                <video id="logoVideo" muted playsinline style="width: 200px; height: auto; mix-blend-mode: screen; vertical-align: middle;">
+                    <source src="YouTube.mp4" type="video/mp4">
+                </video>
             </div>
         </div>
         <div class="search-bar">
@@ -52,9 +52,23 @@
     <script src="streaming.js"></script>
     <script src="search.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-<script src="api/m3u8.js"></script>
+    <script src="api/m3u8.js"></script>
     <script src="app.js"></script>
     <script src="playlist.js"></script>
     <script src="backup.js"></script>
+
+    <script>
+        function playLogoAndGoHome() {
+            const v = document.getElementById('logoVideo');
+            if (v) {
+                v.currentTime = 0; // 最初に戻す
+                v.play();          // 光らせる
+            }
+            // ホームへ戻る処理（既存のActions.goHomeを呼び出し）
+            if (window.Actions && Actions.goHome) {
+                Actions.goHome();
+            }
+        }
+    </script>
 </body>
 </html>
