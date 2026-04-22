@@ -12,7 +12,8 @@
     <header class="header">
         <div style="display: flex; align-items: center; gap: 15px;">
             <div id="back-btn" onclick="Actions.goBack()" style="cursor: pointer; font-size: 20px; padding: 5px; display: none;">🔄</div>
-            <div class="logo" onclick="handleLogoAction()" style="cursor: pointer; -webkit-tap-highlight-color: transparent;">
+            
+            <div id="mainLogoBtn" class="logo" style="cursor: pointer; -webkit-tap-highlight-color: transparent;">
                 <video id="logoVideo" muted playsinline style="width: 200px; height: auto; mix-blend-mode: screen; vertical-align: middle;">
                     <source src="YouTube.mp4" type="video/mp4">
                 </video>
@@ -58,26 +59,29 @@
     <script src="backup.js"></script>
 
     <script>
-        const v = document.getElementById('logoVideo');
+        (function() {
+            const logoBtn = document.getElementById('mainLogoBtn');
+            const video = document.getElementById('logoVideo');
 
-        // 1. 入った時に1回だけ再生（重複を防ぐためJSからのみ実行）
-        window.addEventListener('DOMContentLoaded', () => {
-            if (v) {
-                v.play().catch(err => console.log("Init play failed"));
-            }
-        });
+            if (!logoBtn || !video) return;
 
-        // 2. クリック時に「再生」と「ホーム移動」を同時に行う
-        function handleLogoAction() {
-            if (v) {
-                v.currentTime = 0;
-                v.play();
-            }
-            // もともとのホーム移動処理を即座に実行
-            if (window.Actions && typeof Actions.goHome === 'function') {
-                Actions.goHome();
-            }
-        }
+            // 1. ページ読み込み時に1回だけ光らせる
+            video.addEventListener('canplaythrough', () => {
+                video.play().catch(() => {});
+            }, { once: true });
+
+            // 2. クリック時の処理
+            logoBtn.addEventListener('click', function(e) {
+                // 動画を再生
+                video.currentTime = 0;
+                video.play();
+
+                // 確実にホームへ戻る（Actions.goHomeが存在する場合）
+                if (window.Actions && typeof Actions.goHome === 'function') {
+                    Actions.goHome();
+                }
+            });
+        })();
     </script>
 </body>
 </html>
