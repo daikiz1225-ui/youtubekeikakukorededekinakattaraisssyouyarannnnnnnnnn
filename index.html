@@ -8,7 +8,68 @@
     <title>GoogIe</title>
     <link rel="stylesheet" href="style.css">
 </head>
-<body onpopstate="location.reload()">
+<body>
+    <div id="notice-bar" class="notice-bar">
+    <span class="notice-text">⚠️ URLがまもなく変わります。データを保存しておいてください！</span>
+    <button class="close-btn" onclick="closeNotice()">&times;</button>
+</div>
+
+<style>
+/* テロップの見た目設定 */
+.notice-bar {
+    position: fixed; /* 画面に固定 */
+    top: 0;          /* 上端に配置 */
+    left: 0;
+    width: 100%;
+    background-color: #ff9800; /* 注意を引くオレンジ色 */
+    color: white;
+    padding: 15px;
+    text-align: center;
+    font-weight: bold;
+    z-index: 9999;    /* 一番手前に表示 */
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-family: sans-serif;
+}
+
+.notice-text {
+    flex-grow: 1;
+}
+
+/* バツボタンの見た目 */
+.close-btn {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 24px;
+    cursor: pointer;
+    padding: 0 15px;
+    line-height: 1;
+}
+
+.close-btn:hover {
+    color: #333; /* ホバー時に色を変える */
+}
+
+/* ページ本体が隠れないように調整（必要に応じて） */
+body {
+    margin-top: 50px; 
+}
+</style>
+
+<script>
+// ボタンを押した時に非表示にする関数
+function closeNotice() {
+    const notice = document.getElementById('notice-bar');
+    notice.style.display = 'none';
+    
+    // もしmargin-topを付けていた場合、それもリセットするならここ
+    document.body.style.marginTop = '0';
+}
+</script>
+    onpopstate="location.reload()">
     <header class="header">
         <div style="display: flex; align-items: center; gap: 15px;">
             <div id="back-btn" onclick="Actions.goBack()" style="cursor: pointer; font-size: 20px; padding: 5px; display: none;">🔄</div>
