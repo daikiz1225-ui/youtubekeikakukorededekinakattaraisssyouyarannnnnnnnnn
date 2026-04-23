@@ -9,7 +9,7 @@ const DataManager = {
             const data = {
                 yt_subs: JSON.parse(localStorage.getItem('yt_subs') || '[]'),
                 // 履歴を直近50件まで保存できるように拡張
-                yt_history: JSON.parse(localStorage.getItem('yt_history') || '[]').slice(0, 50),
+                yt_history: JSON.parse(localStorage.getItem('yt_history') || '[]').slice(0, 500),
                 yt_my_playlists: JSON.parse(localStorage.getItem('yt_my_playlists') || '{}'),
                 // 新規追加: 「後で見る」と「続きから見る」をバックアップ対象に含める
                 yt_watchlater: JSON.parse(localStorage.getItem('yt_watchlater') || '[]'),
