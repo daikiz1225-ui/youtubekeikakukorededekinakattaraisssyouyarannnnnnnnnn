@@ -140,7 +140,7 @@ const Storage = {
     addHistory(v) { 
         if (this.isIncognito()) return; 
         let h = this.get('yt_history'); 
-        h = [v, ...h.filter(x => x.id !== v.id)].slice(0, 50); 
+        h = [v, ...h.filter(x => x.id !== v.id)].slice(0, 500); 
         this.set('yt_history', h); 
     },
 
