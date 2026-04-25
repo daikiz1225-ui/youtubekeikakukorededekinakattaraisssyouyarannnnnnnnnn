@@ -1,24 +1,45 @@
 export const config = { runtime: 'edge' };
 
-// 日本語（ひらがな・カタカナ）が含まれているか判定する関数
 function isJapanese(text) {
     return /[\u3040-\u309F\u30A0-\u30FF]/.test(text);
 }
 
-const TARGET_INSTANCE = 'https://inv.thepixora.com';
+// streaming.js と同じ10個のインスタンス
+const APIS = [
+    'https://invidious.f5.si',
+    'https://yewtu.be',
+    'https://iv.nboeck.de',
+    'https://invidious.perennialte.ch',
+    'https://invidious.nerdvpn.de',
+    'https://inv.tux.pizza',
+    'https://iv.melmac.space',
+    'https://iv.ggtyler.dev',
+    'https://invidious.privacyredirect.com',
+    'https://invidious.tiekoetter.com'
+];
 
-async function fetchRelatedWithFilter(vId) {
-    try {
-        const res = await fetch(`${TARGET_INSTANCE}/api/v1/videos/${vId}?region=JP`);
-        if (!res.ok) return [];
-        const data = await res.json();
-        
-        const related = data.relatedVideos || data.recommendedVideos || [];
-        // 日本語が含まれる動画のみを抽出
-        return related.filter(v => isJapanese(v.title));
-    } catch (e) {
-        return [];
+async function fetchRelatedWithFallback(vId) {
+    for (const base of APIS) {
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 2500);
+
+            const res = await fetch(`${base}/api/v1/videos/${vId}?region=JP`, { signal: controller.signal });
+            if (!res.ok) continue; // ダメなら次のインスタンスへ
+            
+            const data = await res.json();
+            clearTimeout(timeoutId);
+            
+            const related = data.relatedVideos || data.recommendedVideos || [];
+            // 日本語が含まれる動画のみを抽出
+            const filtered = related.filter(v => isJapanese(v.title));
+            
+            if (filtered.length > 0) return filtered; // 見つかれば即座に返す
+        } catch (e) {
+            continue; // エラーなら次のインスタンスへ
+        }
     }
+    return [];
 }
 
 export default async function handler(req) {
@@ -28,35 +49,7 @@ export default async function handler(req) {
     if (!vId) return new Response(JSON.stringify(["No ID"]), { status: 400 });
 
     try {
-        let finalJapaneseVideos = [];
-        let checkedIds = new Set();
-        checkedIds.add(vId);
-
-        // 1回目の取得
-        let firstBatch = await fetchRelatedWithFilter(vId);
-        firstBatch.forEach(v => {
-            if (!checkedIds.has(v.videoId)) {
-                finalJapaneseVideos.push(v);
-                checkedIds.add(v.videoId);
-            }
-        });
-
-        // --- 深掘りロジック ---
-        // 日本語動画が10件未満なら、見つかった日本語動画からさらに関連を探す
-        if (finalJapaneseVideos.length < 10 && finalJapaneseVideos.length > 0) {
-            // 見つかった日本語動画のうち、上位3件を元にさらに掘る
-            const seeds = finalJapaneseVideos.slice(0, 3);
-            const deepDives = await Promise.all(seeds.map(v => fetchRelatedWithFilter(v.videoId)));
-            
-            deepDives.flat().forEach(v => {
-                if (!checkedIds.has(v.videoId)) {
-                    finalJapaneseVideos.push(v);
-                    checkedIds.add(v.videoId);
-                }
-            });
-        }
-
-        // IDだけの配列にして返す
+        let finalJapaneseVideos = await fetchRelatedWithFallback(vId);
         const resultIds = finalJapaneseVideos.map(v => v.videoId);
 
         if (resultIds.length === 0) {
@@ -65,13 +58,9 @@ export default async function handler(req) {
 
         return new Response(JSON.stringify(resultIds), {
             status: 200,
-            headers: {
-                'Content-Type': 'application/json',
-                'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=1800'
-            }
+            headers: { 'Content-Type': 'application/json' }
         });
-
     } catch (e) {
-        return new Response(JSON.stringify(["Fetch Error"]), { status: 200 });
+        return new Response(JSON.stringify(["ERROR"]), { status: 500 });
     }
 }
