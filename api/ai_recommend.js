@@ -3,16 +3,7 @@ export const config = { runtime: 'edge' };
 const JP_REGEX = /[\u3040-\u309F\u30A0-\u30FF]/;
 
 const APIS = [
-    'https://invidious.f5.si',
-    'https://yewtu.be',
-    'https://iv.nboeck.de',
-    'https://invidious.perennialte.ch',
-    'https://invidious.nerdvpn.de',
-    'https://inv.tux.pizza',
-    'https://iv.melmac.space',
-    'https://iv.ggtyler.dev',
-    'https://invidious.privacyredirect.com',
-    'https://invidious.tiekoetter.com'
+    'ht'
 ];
 
 export default async function handler(req) {
