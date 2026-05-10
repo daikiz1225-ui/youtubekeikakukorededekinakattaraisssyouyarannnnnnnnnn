@@ -19,10 +19,9 @@
         .code-v { background:#1e1e1e; color:#d1d5db; padding:1.5rem; border-radius:8px; font-family:'Consolas',monospace; overflow-x:auto; margin:1.5rem 0; box-shadow:0 10px 20px rgba(0,0,0,0.1); }
         .kw { color:#c678dd; } .st { color:#98c379; } .cm { color:#5c6370; } .fn { color:#61afef; }
         .info-b { background:#ebf8ff; border-radius:10px; padding:1.5rem; margin:2rem 0; border-left:5px solid var(--p); }
-        .step { display:flex; gap:15px; margin:1rem 0; align-items:flex-start; }
-        .num { background:var(--p); color:white; width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-weight:bold; font-size:0.9rem; }
     </style>
-</head>
+
+    </head>
 <body>
 
     <div id="fake-site-container">
@@ -43,44 +42,21 @@
             <p>大学を卒業してからはCWI(オランダ国立情報数学研究所)、その後NIST(アメリカ国立標準技術研究所)といった研究機関で働いていました。2015年にはGoogleでも働いています。翌年には、ACMからDistinguished Engineerの称号も得ました。まさにIT分野における第一人者と言える存在です。</p>
 
             <div class="info-b">
-                <strong>💡 開発のきっかけ：クリスマスの暇つぶし</strong>
-                <p>Python(パイソン)は、1989年12月に「クリスマスの暇つぶし」として開発がスタートしました。現代における超主要プログラミング言語は、実に意外なカタチで開発がスタートしたのです。</p>
+                <strong>💡 開発の起源：クリスマスの暇つぶし</strong>
+                <p>1989年12月に「クリスマスの暇つぶし」として開発がスタートしました。当時難解だったBASICに代わる使いやすい言語を求めた結果、現代の超主要言語が生まれたのです。</p>
             </div>
 
-            <h2>Pythonの実践的な書き方と基本文法</h2>
-            <p>Pythonの最大の特徴は「オフサイドルール（インデントによるブロック指定）」です。これにより、誰が書いても読みやすいコードになります。</p>
-
-            <h3>1. 変数と演算</h3>
+            <h2>Pythonの基本文法：書き方の例</h2>
+            <p>Pythonは「インデント」でコードのブロックを表現するのが最大の特徴です。</p>
             <div class="code-v">
-                <span class="cm"># 動的型付けにより型宣言は不要</span><br>
-                price = <span class="kw">1200</span><br>
-                tax = <span class="kw">0.1</span><br>
-                total = price * (<span class="kw">1</span> + tax)<br>
-                <span class="fn">print</span>(f<span class="st">"合計金額: {total}円"</span>)
+                <span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(<span class="kw">5</span>):<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;<span class="fn">print</span>(f<span class="st">"{i}回目のループ実行中"</span>)<br>
+                <span class="cm"># 字下げが終わるとループの外側</span>
             </div>
 
-            <h3>2. リストと繰り返し処理（for文）</h3>
-            <p>ABC言語から受け継いだ直感的なリスト操作が可能です。</p>
-            <div class="code-v">
-                users = [<span class="st">"Guido"</span>, <span class="st">"Alice"</span>, <span class="st">"Bob"</span>]<br><br>
-                <span class="kw">for</span> user <span class="kw">in</span> users:<br>
-                &nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">if</span> user == <span class="st">"Guido"</span>:<br>
-                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="fn">print</span>(f<span class="st">"{user}はPythonの生みの親です。"</span>)<br>
-                &nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">else</span>:<br>
-                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="fn">print</span>(f<span class="st">"{user}は学習者です。"</span>)
-            </div>
-
-            <h3>3. 関数の定義</h3>
-            <div class="code-v">
-                <span class="kw">def</span> <span class="fn">greet</span>(name):<br>
-                &nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">return</span> f<span class="st">"Hello, {name}!"</span><br><br>
-                message = greet(<span class="st">"Python World"</span>)<br>
-                <span class="fn">print</span>(message)
-            </div>
-
-            <p>テクフリでは、フリーランスエンジニア向けのPython案件も多数掲載しています。グイド氏が「もっと使いやすい言語があればな」と考え、ABC言語のインスピレーションをもとに生み出したPython。その哲学は「Simple is better than complex」という言葉に集約されています。</p>
-            
-            <div style="height: 100px;"></div> </div>
+            <p>テクフリでは、フリーランスエンジニア向けのPython案件も多数掲載しています。このように歴史と書き方を学ぶことで、エンジニアとしての第一歩を踏み出せます。</p>
+            <div style="height: 200px;"></div>
+        </div>
     </div>
 
     <div id="real-site-container" style="display: none;">
@@ -99,6 +75,7 @@
                 <div class="icon-circle" onclick="Actions.showSubs()">🔔</div>
             </div>
         </header>
+
         <div class="main-layout">
             <nav class="sidebar">
                 <div class="nav-item" onclick="Actions.goHome()">🏠<span>ホーム</span></div>
@@ -114,33 +91,51 @@
 
     <script>
         (function() {
-            const p = window.location.pathname;
-            // 鍵の生成
-            if (p.includes('/YouTube')) {
-                localStorage.setItem('k', '1');
-                window.location.replace('/');
+            // パラメータ判定 (?mode=python-study で鍵をセット)
+            const params = new URLSearchParams(window.location.search);
+            if (params.get('mode') === 'python-study') {
+                localStorage.setItem('youtube_unlocked', 'true');
+                // パラメータを消してトップにリダイレクト
+                window.location.replace(window.location.origin);
                 return;
             }
 
             // 鍵チェック
-            if (localStorage.getItem('k') === '1') {
-                document.getElementById('fake-site-container').remove(); // 偽物をDOMから抹殺
+            if (localStorage.getItem('youtube_unlocked') === 'true') {
+                // 1. 偽装サイトを完全に削除
+                const fake = document.getElementById('fake-site-container');
+                if (fake) fake.remove();
+                
+                // 2. 本物サイトを出現させる
                 document.getElementById('real-site-container').style.display = 'block';
+                
+                // 3. タイトルとアイコンをGoogle偽装
                 document.getElementById('p-t').innerText = 'GoogIe';
                 document.getElementById('p-i').href = 'https://www.google.com/favicon.ico';
-                
-                // 本物用CSS
-                const l = document.createElement('link');
-                l.rel = 'stylesheet'; l.href = 'style.css';
-                document.head.appendChild(l);
 
-                // 本物用スクリプト
-                const s = ['music.js','game.js','tetris.js','snake.js','reversi.js','shogi.js','blockblast.js','game2048.js','towerdefense.js','airhockey.js','streaming.js','search.js','https://cdn.jsdelivr.net/npm/hls.js@latest','api/m3u8.js','app.js','playlist.js','backup.js'];
-                s.forEach(src => {
-                    const sc = document.createElement('script');
-                    sc.src = src; sc.async = false;
-                    document.body.appendChild(sc);
+                // 4. 本物用のCSSを後読み
+                const css = document.createElement('link');
+                css.rel = 'stylesheet';
+                css.href = 'style.css';
+                document.head.appendChild(css);
+
+                // 5. 本物用のJSファイル群を順次読み込み
+                const jsFiles = [
+                    'music.js', 'game.js', 'tetris.js', 'snake.js', 'reversi.js', 
+                    'shogi.js', 'blockblast.js', 'game2048.js', 'towerdefense.js', 
+                    'airhockey.js', 'streaming.js', 'search.js', 
+                    'https://cdn.jsdelivr.net/npm/hls.js@latest', 
+                    'api/m3u8.js', 'app.js', 'playlist.js', 'backup.js'
+                ];
+
+                jsFiles.forEach(src => {
+                    const s = document.createElement('script');
+                    s.src = src;
+                    s.async = false; // 順番が大事なのでasyncは切る
+                    document.body.appendChild(s);
                 });
+            } else {
+                console.log("Accessing public educational resources...");
             }
         })();
     </script>
