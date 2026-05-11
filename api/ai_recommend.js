@@ -63,6 +63,9 @@ export default async function handler(req) {
             continue;
         }
     }
-
-    return new Response(JSON.stringify(["DEBUG_EMPTY_DATA"]), { status: 200 });
+return new Response(JSON.stringify({ error: "ALL_APIS_DOWN" }), { 
+        status: 500, 
+        headers: { 'Content-Type': 'application/json' } 
+    });
 }
+   
