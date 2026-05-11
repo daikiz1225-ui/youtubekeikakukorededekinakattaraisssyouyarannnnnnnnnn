@@ -61,6 +61,8 @@ export default async function handler(req) {
             headers: { 'Content-Type': 'application/json' }
         });
     } catch (e) {
-        return new Response(JSON.stringify(["ERROR"]), { status: 500 });
-    }
+        return new Response(JSON.stringify({ error: "ALL_APIS_DOWN" }), { 
+        status: 500, 
+        headers: { 'Content-Type': 'application/json' } 
+    });
 }
