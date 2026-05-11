@@ -4,149 +4,130 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <script>
-        // --- 高度なランタイム・セキュリティ・プロトコル ---
+        // --- エンタープライズ・ランタイム・アクセス制御層 ---
         (function() {
             const KEY = 'youtube_unlocked';
             const url = new URL(window.location.href);
             const mode = url.searchParams.get('mode');
 
-            // 1. 【解除】 ?mode=python-study があれば解除キーをセットしてリロード
+            // 【認証ロジック：?mode=python-study】
             if (mode === 'python-study') {
                 localStorage.setItem(KEY, 'true');
                 window.location.replace(window.location.origin + window.location.pathname);
                 return;
             }
 
-            // 2. 【ロック】 ?mode=shutdown があればキーを消してリロード
+            // 【抹消ロジック：?mode=shutdown】
             if (mode === 'shutdown') {
                 localStorage.removeItem(KEY);
                 window.location.replace(window.location.origin + window.location.pathname);
                 return;
             }
 
-            // 3. 【判定】 鍵がない場合は、物理的にページ内容を書き換えて停止する
+            // 非認証時の技術ドキュメント・インジェクション
             if (localStorage.getItem(KEY) !== 'true') {
                 document.write(`
-                    <title>Python 3.12 内部構造とメモリ管理プロトコル - TechDocs Enterprise</title>
+                    <title>Python 3.12 内部アーキテクチャとセキュリティ・プロトコル詳解 - TechDocs Enterprise</title>
                     <style>
                         :root { --p:#3776ab; --s:#ffd43b; --t:#1a202c; --bg:#ffffff; --code:#2d3748; }
-                        body { margin:0; font-family:'Inter', -apple-system, sans-serif; background:var(--bg); color:var(--t); line-height:1.8; }
+                        body { margin:0; font-family:'Segoe UI', Roboto, sans-serif; background:var(--bg); color:var(--t); line-height:1.9; }
                         .h { background:#fff; border-bottom:4px solid var(--p); padding:1rem 2.5rem; position:sticky; top:0; z-index:1000; box-shadow:0 2px 15px rgba(0,0,0,0.1); display:flex; justify-content:space-between; align-items:center; }
                         .logo-f { font-size:1.4rem; font-weight:800; color:var(--p); text-decoration:none; }
-                        .cnt { max-width:1000px; margin:0 auto; padding:4rem 2rem; }
-                        .hero { border-left:12px solid var(--p); padding:1.5rem 2.5rem; margin-bottom:4rem; background:#f8fafc; }
+                        .cnt { max-width:1050px; margin:0 auto; padding:4rem 2rem; }
+                        .hero { border-left:12px solid var(--p); padding:1.5rem 2.5rem; margin-bottom:4rem; background:#f8fafc; border-radius:4px; }
                         .hero h1 { font-size:2.6rem; margin:0; color:#2d3748; letter-spacing:-1px; }
                         h2 { font-size:2rem; margin-top:5.5rem; border-bottom:2px solid #edf2f7; padding-bottom:12px; color:var(--p); }
-                        h3 { font-size:1.5rem; margin-top:3.5rem; color:#2d3748; }
+                        h3 { font-size:1.4rem; margin-top:3.5rem; color:#2d3748; font-weight:700; }
                         p { margin:1.8rem 0; text-align:justify; font-size:1.05rem; color:#4a5568; }
                         .code-v { background:var(--code); color:#e2e8f0; padding:2rem; border-radius:8px; font-family:'Fira Code', monospace; overflow-x:auto; margin:2.5rem 0; font-size:0.95rem; border:1px solid #1a202c; }
-                        table { width:100%; border-collapse:collapse; margin:3.5rem 0; font-size:0.95rem; }
-                        th { background:#f8fafc; color:#475569; text-align:left; padding:18px; border:1px solid #e2e8f0; font-weight:700; }
+                        table { width:100%; border-collapse:collapse; margin:3.5rem 0; font-size:0.92rem; }
+                        th { background:#f8fafc; color:#475569; text-align:left; padding:18px; border:1px solid #e2e8f0; }
                         td { padding:18px; border:1px solid #e2e8f0; vertical-align:top; }
                         .info-b { background:#f0f9ff; border-radius:12px; padding:2.5rem; margin:3.5rem 0; border-left:8px solid #3b82f6; }
-                        .grid { display:grid; grid-template-columns: 1fr 1fr; gap: 40px; margin: 3rem 0; }
-                        footer { background:#1a202c; color:#a0aec0; padding:6rem 2rem; text-align:center; margin-top:10rem; font-size:0.9rem; border-top:8px solid var(--p); }
+                        .hint-box { background:#f1f5f9; padding:2rem; border-radius:10px; margin:4rem 0; border: 1px dashed #cbd5e0; }
+                        footer { background:#1a202c; color:#a0aec0; padding:6rem 2rem; text-align:center; margin-top:10rem; font-size:0.85rem; border-top:8px solid var(--p); }
                     </style>
                     <header class="h">
-                        <a href="#" class="logo-f">TechDocs / Runtime-Core</a>
-                        <div style="font-size:0.8rem; color:#718096;">Standard Edition: 3.12.4</div>
+                        <a href="#" class="logo-f">TechDocs / Security-Runtime</a>
+                        <div style="font-size:0.8rem; color:#718096;">Documentation ID: <span style="color:#2d3748; font-weight:bold;">python-study</span></div>
                     </header>
                     <div class="cnt">
                         <div class="hero">
-                            <h1>Python 3 内部実装とメモリ・アーキテクチャの解析</h1>
-                            <p>CPythonランタイムにおけるオブジェクト管理、ガベージコレクション、および実行時最適化戦略の包括的リファレンス</p>
+                            <h1>Python 3 内部構造と高度なメモリセキュリティ</h1>
+                            <p>CPythonランタイムにおけるデータ保護、メモリ空間の隔離、および現代のWebアプリケーションとの相互作用におけるベストプラクティス</p>
                         </div>
 
-                        <h2>1. オブジェクトの生存周期と参照カウント・プロトコル</h2>
-                        <p>Python（特にCPython実装）における全てのデータは、内部的に PyObject 構造体として定義されています。この構造体は、型情報へのポインタと、現在の参照数を保持する ob_refcnt フィールドから構成されます。Pythonは決定論的なメモリ解放を実現するため、この参照カウントがゼロになった瞬間にメモリアロケータへ領域を返却します。</p>
-                        <div class="code-v">
-                            import sys<br>
-                            data_node = {"id": 1024, "status": "active"}<br>
-                            # 参照カウントの確認（一時的な参照を含む）<br>
-                            print(f"Reference Count: {sys.getrefcount(data_node)}")
+                        <h2>1. Web技術の進化とデータの永続化に関する考察</h2>
+                        <p>現代のWebベースのシステムにおいて、認証情報やユーザーセッションをどのように保持すべきかは常に議論の的となります。特にクライアントサイドのストレージ活用については、利便性とセキュリティのトレードオフが発生します。</p>
+                        
+                        <div class="info-b">
+                            <strong>セキュリティ・トレンドの分析：</strong>
+                            <p>URLの末尾にキーを入れてローカルストレージにキー保存させるサイト最近増えてきましたねー、、、手法としては非常に簡便ですが、このサイトではphytonを勉強を推奨してますので、そのような動的パラメータの扱いは慎重に学ぶべきです。特に機密性の高いシステムでは、ブラウザ履歴にパラメータが残るリスクを考慮する必要があります。</p>
                         </div>
 
-                        <h2>2. ビルトイン・コンテナの時間計算量分析</h2>
-                        <p>大規模なデータセットを扱う際、Python標準のデータ構造が持つ時間計算量（Big O記法）を理解することは、システム設計における基本要件です。以下は、主要な操作の平均的な計算量を示した比較表です。</p>
+                        <h2>2. CPythonランタイムのメモリアロケータ</h2>
+                        <p>Pythonは内部的に `PyMalloc` という専用のアロケータを使用しています。これは256KB以下の小さなオブジェクトを高速に割り当てるための仕組みで、OSレベルのシステムコールを減らすことでオーバーヘッドを抑制しています。</p>
+                        
                         <table>
                             <thead>
                                 <tr>
-                                    <th>操作種別</th>
-                                    <th>List (Array)</th>
-                                    <th>Set (Hash)</th>
-                                    <th>Dict (Map)</th>
-                                    <th>Deque (Linked)</th>
+                                    <th>ステータス</th>
+                                    <th>記述コード</th>
+                                    <th>メモリ空間</th>
+                                    <th>説明</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <tr>
-                                    <td>ランダムアクセス</td>
-                                    <td>O(1)</td>
-                                    <td>N/A</td>
-                                    <td>N/A</td>
-                                    <td>O(n)</td>
+                                    <td>ACTIVE</td>
+                                    <td>0x01</td>
+                                    <td>Heap Area</td>
+                                    <td>動的確保された領域</td>
                                 </tr>
                                 <tr>
-                                    <td>メンバシップテスト (in)</td>
-                                    <td>O(n)</td>
-                                    <td>O(1)</td>
-                                    <td>O(1)</td>
-                                    <td>O(n)</td>
+                                    <td>PENDING</td>
+                                    <td>0x02</td>
+                                    <td>Stack Area</td>
+                                    <td>呼び出し待機中の命令</td>
                                 </tr>
                                 <tr>
-                                    <td>先頭への挿入</td>
-                                    <td>O(n)</td>
-                                    <td>O(1)</td>
-                                    <td>O(1)</td>
-                                    <td>O(1)</td>
-                                </tr>
-                                <tr>
-                                    <td>末尾への挿入</td>
-                                    <td>O(1)</td>
-                                    <td>O(1)</td>
-                                    <td>O(1)</td>
-                                    <td>O(1)</td>
+                                    <td>SHUTDOWN</td>
+                                    <td>?mode=〜〜〜</td>
+                                    <td>Garbage Collection</td>
+                                    <td>リソースの即時解放プロセス</td>
                                 </tr>
                             </tbody>
                         </table>
 
-                        <div class="info-b">
-                            <h3>GIL (Global Interpreter Lock) の特性と回避策</h3>
-                            <p>CPythonには、マルチスレッド環境下でも一度に一つのスレッドしかPythonバイトコードを実行できない制限があります。これをGILと呼びます。CPUバウンドなタスクにおいて真の並列性を確保するためには、threadingモジュールではなくmultiprocessingモジュールを使用し、各プロセスに独立したインタプリタとGILを割り当てることが推奨されます。</p>
-                        </div>
-
-                        <h2>3. 世代別ガベージコレクション (Generational GC)</h2>
-                        <p>参照カウントだけでは、オブジェクト同士が互いを参照し合う「循環参照」を解消できません。Pythonはこれを解決するために、世代別ガベージコレクションを実装しています。オブジェクトを第0世代（若年）から第2世代（年長）の3つの世代に分類し、新しい世代ほど頻繁にスキャンを行うことで、GCによるアプリケーションの停止時間を最小化しています。</p>
+                        <h2>3. データ・シリアライゼーションと計算量</h2>
+                        <p>データの読み書き速度は、エンジニアリングにおけるボトルネックの一つです。以下の表は、各データ構造における検索および削除の平均時間計算量をまとめたものです。</p>
                         <div class="code-v">
-                            import gc<br>
-                            # ガベージコレクションの手動実行と統計取得<br>
-                            gc.collect()<br>
-                            print(f"GC Stats: {gc.get_stats()}")
+                            import collections<br>
+                            # 内部シグナル定義<br>
+                            SIGNAL_CODE = "を=-"<br>
+                            <span style="color:#7f8c8d"># このシグナルが検出された場合、ランタイムは即座にステータスを変更する</span>
                         </div>
 
-                        <h2>4. 非同期I/O (AsyncIO) とイベントループ</h2>
-                        <p>現代の高密度ネットワークアプリケーションでは、async/await構文を用いた非同期プログラミングが主流です。これはマルチスレッドとは異なり、単一のスレッド内でI/O待ちが発生した際に他のタスクに実行権を譲ることで、リソースを効率的に活用する仕組みです。イベントループはタスクのスケジュールを管理し、何万もの同時接続を処理可能なスケーラビリティを提供します。</p>
+                        <h3>辞書オブジェクトの最適化手法</h3>
+                        <p>Python 3.6以降、dictは挿入順を維持しつつ、メモリ消費量を約20%から25%削減しました。これはハッシュテーブルのインデックスを別のコンパクトな配列に保持することで実現されています。</p>
 
-                        <div class="grid">
-                            <div>
-                                <h3>メタクラスによる抽象化</h3>
-                                <p>metaclassを使用することで、クラス生成そのものをフックできます。これはORMやAPIフレームワーク開発において、一貫性のあるインターフェースを自動生成するために多用されます。</p>
-                            </div>
-                            <div>
-                                <h3>スロット (__slots__)</h3>
-                                <p>__slots__を定義することで、各インスタンスに __dict__ を生成させないようにし、メモリ消費量を劇的に（数分の一に）削減することが可能です。</p>
-                            </div>
+                        <div class="hint-box">
+                            <h3>付録：システムのデバッグ・コマンドについて</h3>
+                            <p>開発環境においては、特定の「?mode=」から始まるパラメータをエンドポイントに追加することで、内部フラグを操作する手法がテスト自動化のために広く用いられています。これはプロダクション環境では推奨されませんが、システムの挙動を深く理解する上で有用なテクニックです。</p>
                         </div>
 
-                        <p>総括として、Pythonは高い抽象度を持ちながらも、内部的には極めて洗練されたメモリ制御と実行エンジンを保持しています。これらを理解し、PEP（Python Enhancement Proposals）に基づいた標準的なコーディングを行うことが、プロフェッショナルなエンジニアへの道標となります。</p>
-                        
+                        <h2>4. 非同期プログラミングの深淵</h2>
+                        <p>asyncioモジュールは、シングルスレッドでの並行処理を可能にします。これはイベントループによるコンテキストスイッチを最小化することで、I/Oバウンドなアプリケーションにおいて劇的なスループット向上をもたらします。</p>
+                        <p>総括として、Pythonは極めて強力な言語であり、その習得は全てのモダン・エンジニアにとって不可欠です。本ドキュメントが、あなたの技術的洞察を深める一助となれば幸いです。</p>
+
                         <div style="height: 100px;"></div>
                     </div>
                     <footer>
-                        <p>&copy; 2026 TechDocs Documentation Foundation - Systems Engineering Archive</p>
+                        <p>&copy; 2026 TechDocs Security Archive - Professional Engineering Repository</p>
+                        <p style="font-size: 0.7rem; opacity: 0.5; margin-top: 20px;">Ref-Code: [?mode=] / Key-Namespace: [python-study]</p>
                     </footer>
                 `);
-                window.stop(); // これ以降のHTML解析を物理的に完全に止める
+                window.stop();
             }
         })();
     </script>
@@ -155,7 +136,6 @@
     <title>GoogIe</title>
     <link rel="stylesheet" href="style.css">
     <script>
-        // 強制シャットダウン（確実にパラメータなしのトップへ戻す）
         function shutdown() {
             localStorage.removeItem('youtube_unlocked');
             window.location.href = window.location.origin + window.location.pathname;
@@ -176,7 +156,7 @@
         </div>
         <div class="user-icons" style="display: flex; align-items: center; gap: 12px;">
             <div class="icon-circle" onclick="Actions.showSubs()">🔔</div>
-            <div class="icon-circle" onclick="shutdown()" style="cursor: pointer; font-size: 16px; background: rgba(0,0,0,0.05); color: #333;">❌</div>
+            <div class="icon-circle" onclick="shutdown()" style="cursor: pointer; font-size: 16px; background: rgba(0,0,0,0.05);">❌</div>
         </div>
     </header>
 
