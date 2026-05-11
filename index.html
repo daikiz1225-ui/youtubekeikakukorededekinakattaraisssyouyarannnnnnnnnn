@@ -3,141 +3,112 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title id="p-t">Python 3 基礎から応用まで完全ガイド - PyMaster</title>
-    <link id="p-i" rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐍</text></svg>">
-    
-    <style id="f-s">
-        :root { --p:#3776ab; --s:#ffd43b; --t:#2d3748; --bg:#f7fafc; }
-        body { margin:0; font-family:'Segoe UI',Meiryo,sans-serif; background:white; color:var(--t); line-height:1.7; }
-        #f-c { display:block; }
-        .h { background:#fff; border-bottom:3px solid var(--p); padding:1rem 2rem; position:sticky; top:0; z-index:1000; box-shadow:0 2px 4px rgba(0,0,0,0.05); }
-        .logo-f { font-size:1.5rem; font-weight:800; color:var(--p); letter-spacing:-1px; }
-        .cnt { max-width:850px; margin:2rem auto; padding:0 1.5rem; }
-        .hero { background:linear-gradient(135deg, var(--p), #234d70); color:white; padding:3rem 2rem; border-radius:15px; margin-bottom:2.5rem; }
-        h1 { font-size:2.2rem; margin-top:0; }
-        h2 { border-left:5px solid var(--p); padding-left:15px; margin-top:3rem; color:#1a202c; }
-        .code-v { background:#1e1e1e; color:#d1d5db; padding:1.5rem; border-radius:8px; font-family:'Consolas',monospace; overflow-x:auto; margin:1.5rem 0; box-shadow:0 10px 20px rgba(0,0,0,0.1); }
-        .kw { color:#c678dd; } .st { color:#98c379; } .cm { color:#5c6370; } .fn { color:#61afef; }
-        .info-b { background:#ebf8ff; border-radius:10px; padding:1.5rem; margin:2rem 0; border-left:5px solid var(--p); }
-    </style>
-
-    </head>
-<body>
-
-    <div id="fake-site-container">
-        <header class="h"><div class="logo-f">PythonMastery.io</div></header>
-        <div class="cnt">
-            <div class="hero">
-                <h1>Pythonプログラミングの世界へ</h1>
-                <p>初心者からプロフェッショナルまで、現代のIT開発に不可欠なPythonのすべてを学びましょう。</p>
-            </div>
-
-            <p>さて、皆さんはPython（パイソン）というプログラミング言語をご存知でしょうか。プログラミング経験がない方にとっては、馴染みのない名前かもしれません。ただ一方で海外に目を向けると、非常に多くのエンジニアたちに利用されている汎用プログラミング言語です。</p>
-            
-            <p>世界最大のIT企業Googleは、Python(パイソン)を自社の三大プログラミング言語として捉えています。その他、MicrosoftやFacebookなどの一流IT企業も、Python(パイソン)を導入しています。今回は、そんなPython(パイソン)の歴史について見ていきましょう。</p>
-
-            <h2>Pythonの誕生とグイド氏の軌跡</h2>
-            <p>Python(パイソン)が誕生したのは1990年。グイド・ヴァンロッサム(Guido van Rossum)という人物によって生み出されました。彼の出身地はオランダです。同国のアムステルダム大学で、数学と計算機科学の修士号を取得しました。</p>
-            
-            <p>大学を卒業してからはCWI(オランダ国立情報数学研究所)、その後NIST(アメリカ国立標準技術研究所)といった研究機関で働いていました。2015年にはGoogleでも働いています。翌年には、ACMからDistinguished Engineerの称号も得ました。まさにIT分野における第一人者と言える存在です。</p>
-
-            <div class="info-b">
-                <strong>💡 開発の起源：クリスマスの暇つぶし</strong>
-                <p>1989年12月に「クリスマスの暇つぶし」として開発がスタートしました。当時難解だったBASICに代わる使いやすい言語を求めた結果、現代の超主要言語が生まれたのです。</p>
-            </div>
-
-            <h2>Pythonの基本文法：書き方の例</h2>
-            <p>Pythonは「インデント」でコードのブロックを表現するのが最大の特徴です。</p>
-            <div class="code-v">
-                <span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(<span class="kw">5</span>):<br>
-                &nbsp;&nbsp;&nbsp;&nbsp;<span class="fn">print</span>(f<span class="st">"{i}回目のループ実行中"</span>)<br>
-                <span class="cm"># 字下げが終わるとループの外側</span>
-            </div>
-
-            <p>テクフリでは、フリーランスエンジニア向けのPython案件も多数掲載しています。このように歴史と書き方を学ぶことで、エンジニアとしての第一歩を踏み出せます。</p>
-            <div style="height: 200px;"></div>
-        </div>
-    </div>
-
-    <div id="real-site-container" style="display: none;">
-        <header class="header">
-            <div style="display: flex; align-items: center; gap: 15px;">
-                <div id="back-btn" onclick="Actions.goBack()" style="cursor: pointer; font-size: 20px; padding: 5px; display: none;">🔄</div>
-                <div class="logo" onclick="Actions.goHome()">
-                    <span class="logo-red">▶</span> Premium
-                </div>
-            </div>
-            <div class="search-bar">
-                <input type="text" id="search-input" placeholder="検索">
-                <button id="search-btn">🔍</button>
-            </div>
-            <div class="user-icons">
-                <div class="icon-circle" onclick="Actions.showSubs()">🔔</div>
-            </div>
-        </header>
-
-        <div class="main-layout">
-            <nav class="sidebar">
-                <div class="nav-item" onclick="Actions.goHome()">🏠<span>ホーム</span></div>
-                <div class="nav-item" onclick="Actions.showShorts()">⚡<span>ショート</span></div>
-                <div class="nav-item" onclick="Actions.showLiveHub()" style="color: #ff4e45; font-weight: bold;">🔴<span>Live</span></div>
-                <div class="nav-item" onclick="Actions.showSubs()">👥<span>登録済み</span></div>
-                <hr>
-                <div class="nav-item" onclick="Actions.showHistory()">🕒<span>履歴</span></div>
-            </nav>
-            <main class="content" id="view-container"></main>
-        </div>
-    </div>
-
     <script>
+        // --- 認証・カモフラージュ制御ロジック ---
         (function() {
-            // パラメータ判定 (?mode=python-study で鍵をセット)
             const params = new URLSearchParams(window.location.search);
+            // 解除キーワードチェック
             if (params.get('mode') === 'python-study') {
                 localStorage.setItem('youtube_unlocked', 'true');
-                // パラメータを消してトップにリダイレクト
-                window.location.replace(window.location.origin);
+                window.location.replace(window.location.origin + window.location.pathname);
                 return;
             }
 
-            // 鍵チェック
-            if (localStorage.getItem('youtube_unlocked') === 'true') {
-                // 1. 偽装サイトを完全に削除
-                const fake = document.getElementById('fake-site-container');
-                if (fake) fake.remove();
-                
-                // 2. 本物サイトを出現させる
-                document.getElementById('real-site-container').style.display = 'block';
-                
-                // 3. タイトルとアイコンをGoogle偽装
-                document.getElementById('p-t').innerText = 'GoogIe';
-                document.getElementById('p-i').href = 'https://www.google.com/favicon.ico';
-
-                // 4. 本物用のCSSを後読み
-                const css = document.createElement('link');
-                css.rel = 'stylesheet';
-                css.href = 'style.css';
-                document.head.appendChild(css);
-
-                // 5. 本物用のJSファイル群を順次読み込み
-                const jsFiles = [
-                    'backup.js','music.js', 'game.js', 'tetris.js', 'snake.js', 'reversi.js', 
-                    'shogi.js', 'blockblast.js', 'game2048.js', 'towerdefense.js', 
-                    'airhockey.js', 'streaming.js', 'search.js', 
-                    'https://cdn.jsdelivr.net/npm/hls.js@latest', 
-                    'api/m3u8.js', 'app.js', 'playlist.js'
-                ];
-
-                jsFiles.forEach(src => {
-                    const s = document.createElement('script');
-                    s.src = src;
-                    s.async = false; // 順番が大事なのでasyncは切る
-                    document.body.appendChild(s);
-                });
-            } else {
-                console.log("Accessing public educational resources...");
+            // 鍵がない場合はPython解説サイトを「上書き」で出力して終了する
+            if (localStorage.getItem('youtube_unlocked') !== 'true') {
+                document.write(`
+                    <title>Python 3 基礎から応用まで完全ガイド - PyMaster</title>
+                    <style>
+                        :root { --p:#3776ab; --s:#ffd43b; --t:#2d3748; --bg:#f7fafc; }
+                        body { margin:0; font-family:'Segoe UI',Meiryo,sans-serif; background:white; color:var(--t); line-height:1.7; }
+                        .h { background:#fff; border-bottom:3px solid var(--p); padding:1rem 2rem; position:sticky; top:0; z-index:1000; box-shadow:0 2px 4px rgba(0,0,0,0.05); }
+                        .logo-f { font-size:1.5rem; font-weight:800; color:var(--p); letter-spacing:-1px; }
+                        .cnt { max-width:850px; margin:2rem auto; padding:0 1.5rem; }
+                        .hero { background:linear-gradient(135deg, var(--p), #234d70); color:white; padding:3rem 2rem; border-radius:15px; margin-bottom:2.5rem; }
+                        h1 { font-size:2.2rem; margin-top:0; }
+                        h2 { border-left:5px solid var(--p); padding-left:15px; margin-top:3rem; color:#1a202c; }
+                        .code-v { background:#1e1e1e; color:#d1d5db; padding:1.5rem; border-radius:8px; font-family:'Consolas',monospace; overflow-x:auto; margin:1.5rem 0; box-shadow:0 10px 20px rgba(0,0,0,0.1); }
+                        .kw { color:#c678dd; } .st { color:#98c379; } .fn { color:#61afef; }
+                        .info-b { background:#ebf8ff; border-radius:10px; padding:1.5rem; margin:2rem 0; border-left:5px solid var(--p); }
+                    </style>
+                    <header class="h"><div class="logo-f">PythonMastery.io</div></header>
+                    <div class="cnt">
+                        <div class="hero">
+                            <h1>Pythonプログラミングの世界へ</h1>
+                            <p>初心者からプロフェッショナルまで、現代のIT開発に不可欠なPythonのすべてを学びましょう。</p>
+                        </div>
+                        <p>さて、皆さんはPython（パイソン）というプログラミング言語をご存知でしょうか。プログラミング経験がない方にとっては、馴染みのない名前かもしれません。</p>
+                        <p>世界最大のIT企業Googleは、Python(パイソン)を自社の三大プログラミング言語として捉えています。今回は、そんなPython(パイソン)の歴史について見ていきましょう。</p>
+                        <h2>Pythonの誕生とグイド氏の軌跡</h2>
+                        <p>Python(パイソン)が誕生したのは1990年。グイド・ヴァンロッサム(Guido van Rossum)という人物によって生み出されました。</p>
+                        <div class="info-b">
+                            <strong>💡 開発の起源：クリスマスの暇つぶし</strong>
+                            <p>1989年12月に「クリスマスの暇つぶし」として開発がスタートしました。当時難解だったBASICに代わる使いやすい言語を求めた結果、現代の超主要言語が生まれたのです。</p>
+                        </div>
+                        <h2>Pythonの基本文法：書き方の例</h2>
+                        <div class="code-v">
+                            <span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(<span class="kw">5</span>):<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;<span class="fn">print</span>(f<span class="st">"{i}回目のループ実行中"</span>)
+                        </div>
+                        <div style="height: 200px;"></div>
+                    </div>
+                `);
+                // 以降のHTML（本物のサイト）を読み込ませないためにストップさせる
+                window.stop(); 
+                document.execCommand("Stop");
             }
         })();
     </script>
+
+    <link id="favicon" rel="icon" href="https://www.google.com/favicon.ico" type="image/x-icon">
+    <title>GoogIe</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body onpopstate="location.reload()">
+    <header class="header">
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <div id="back-btn" onclick="Actions.goBack()" style="cursor: pointer; font-size: 20px; padding: 5px; display: none;">🔄</div>
+            <div class="logo" onclick="Actions.goHome()">
+                <span class="logo-red">▶</span> Premium
+            </div>
+        </div>
+        <div class="search-bar">
+            <input type="text" id="search-input" placeholder="検索">
+            <button id="search-btn">🔍</button>
+        </div>
+        <div class="user-icons">
+            <div class="icon-circle" onclick="Actions.showSubs()">🔔</div>
+        </div>
+    </header>
+
+    <div class="main-layout">
+        <nav class="sidebar">
+            <div class="nav-item" onclick="Actions.goHome()">🏠<span>ホーム</span></div>
+            <div class="nav-item" onclick="Actions.showShorts()">⚡<span>ショート</span></div>
+            <div class="nav-item" onclick="Actions.showLiveHub()" style="color: #ff4e45; font-weight: bold;">🔴<span>Live</span></div>
+            <div class="nav-item" onclick="Actions.showSubs()">👥<span>登録済み</span></div>
+            <hr>
+            <div class="nav-item" onclick="Actions.showHistory()">🕒<span>履歴</span></div>
+        </nav>
+        <main class="content" id="view-container"></main>
+    </div>
+
+    <script src="music.js"></script>
+    <script src="game.js"></script>
+    <script src="tetris.js"></script>
+    <script src="snake.js"></script>
+    <script src="reversi.js"></script>
+    <script src="shogi.js"></script>
+    <script src="blockblast.js"></script>
+    <script src="game2048.js"></script>
+    <script src="towerdefense.js"></script>
+    <script src="airhockey.js"></script>
+    <script src="streaming.js"></script>
+    <script src="search.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <script src="api/m3u8.js"></script>
+    <script src="app.js"></script>
+    <script src="playlist.js"></script>
+    <script src="backup.js"></script>
 </body>
 </html>
