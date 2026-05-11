@@ -14,44 +14,205 @@
                 return;
             }
 
-            // 鍵がない場合はPython解説サイトを「上書き」で出力して終了する
+            // 鍵がない場合は、超詳細なPython解説サイトを出力して停止
             if (localStorage.getItem('youtube_unlocked') !== 'true') {
                 document.write(`
-                    <title>Python 3 基礎から応用まで完全ガイド - PyMaster</title>
+                    <title>Python 3 完全マスターガイド：基礎から応用、データサイエンスまで - PyLearning Pro</title>
                     <style>
-                        :root { --p:#3776ab; --s:#ffd43b; --t:#2d3748; --bg:#f7fafc; }
-                        body { margin:0; font-family:'Segoe UI',Meiryo,sans-serif; background:white; color:var(--t); line-height:1.7; }
-                        .h { background:#fff; border-bottom:3px solid var(--p); padding:1rem 2rem; position:sticky; top:0; z-index:1000; box-shadow:0 2px 4px rgba(0,0,0,0.05); }
-                        .logo-f { font-size:1.5rem; font-weight:800; color:var(--p); letter-spacing:-1px; }
-                        .cnt { max-width:850px; margin:2rem auto; padding:0 1.5rem; }
-                        .hero { background:linear-gradient(135deg, var(--p), #234d70); color:white; padding:3rem 2rem; border-radius:15px; margin-bottom:2.5rem; }
-                        h1 { font-size:2.2rem; margin-top:0; }
-                        h2 { border-left:5px solid var(--p); padding-left:15px; margin-top:3rem; color:#1a202c; }
-                        .code-v { background:#1e1e1e; color:#d1d5db; padding:1.5rem; border-radius:8px; font-family:'Consolas',monospace; overflow-x:auto; margin:1.5rem 0; box-shadow:0 10px 20px rgba(0,0,0,0.1); }
-                        .kw { color:#c678dd; } .st { color:#98c379; } .fn { color:#61afef; }
-                        .info-b { background:#ebf8ff; border-radius:10px; padding:1.5rem; margin:2rem 0; border-left:5px solid var(--p); }
+                        :root { --p:#3776ab; --s:#ffd43b; --t:#2d3748; --bg:#f7fafc; --link:#2b6cb0; }
+                        body { margin:0; font-family:'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif; background:#ffffff; color:var(--t); line-height:1.8; }
+                        .h { background:#fff; border-bottom:4px solid var(--p); padding:1rem 2rem; position:sticky; top:0; z-index:1000; box-shadow:0 2px 10px rgba(0,0,0,0.1); display:flex; justify-content:space-between; align-items:center; }
+                        .logo-f { font-size:1.6rem; font-weight:900; color:var(--p); text-decoration:none; }
+                        .nav-f { display:flex; gap:20px; font-size:0.9rem; font-weight:bold; color:#4a5568; }
+                        .cnt { max-width:900px; margin:0 auto; padding:3rem 1.5rem; }
+                        .hero { background:linear-gradient(135deg, #3776ab 0%, #234d70 100%); color:white; padding:4rem 2rem; border-radius:20px; margin-bottom:3rem; text-align:center; box-shadow:0 15px 30px rgba(55,118,171,0.2); }
+                        .hero h1 { font-size:2.8rem; margin:0 0 1rem 0; line-height:1.2; }
+                        .hero p { font-size:1.2rem; opacity:0.9; margin:0; }
+                        h2 { font-size:1.8rem; border-bottom:2px solid #e2e8f0; padding-bottom:0.5rem; margin-top:4rem; color:var(--p); position:relative; }
+                        h2::after { content:""; position:absolute; left:0; bottom:-2px; width:60px; height:2px; background:var(--p); }
+                        h3 { font-size:1.4rem; margin-top:2.5rem; color:#2d3748; display:flex; align-items:center; gap:10px; }
+                        p { margin:1.5rem 0; text-align:justify; }
+                        .code-v { background:#1a202c; color:#e2e8f0; padding:1.8rem; border-radius:12px; font-family:'Fira Code', 'Consolas', monospace; overflow-x:auto; margin:2rem 0; position:relative; border:1px solid #4a5568; }
+                        .code-v::before { content:"Python Code"; position:absolute; top:5px; right:15px; font-size:0.7rem; color:#718096; text-transform:uppercase; }
+                        .kw { color:#c678dd; font-weight:bold; } .st { color:#98c379; } .fn { color:#61afef; } .cm { color:#5c6370; font-style:italic; } .op { color:#d19a66; }
+                        table { width:100%; border-collapse:collapse; margin:2rem 0; font-size:0.95rem; }
+                        th { background:#edf2f7; color:#2d3748; text-align:left; padding:12px; border:1px solid #e2e8f0; }
+                        td { padding:12px; border:1px solid #e2e8f0; vertical-align:top; }
+                        tr:nth-child(even) { background:#f8fafc; }
+                        .info-b { background:#f0fff4; border-radius:12px; padding:2rem; margin:2.5rem 0; border-left:6px solid #48bb78; }
+                        .warning-b { background:#fff5f5; border-radius:12px; padding:2rem; margin:2.5rem 0; border-left:6px solid #f56565; }
+                        .index-box { background:#f7fafc; border:1px solid #e2e8f0; border-radius:10px; padding:1.5rem; margin-bottom:3rem; }
+                        .index-box b { display:block; margin-bottom:10px; }
+                        .index-box ul { list-style:none; padding:0; margin:0; }
+                        .index-box li { margin:5px 0; }
+                        .index-box a { color:var(--link); text-decoration:none; font-size:0.95rem; }
+                        footer { background:#2d3748; color:white; padding:4rem 2rem; text-align:center; margin-top:5rem; }
                     </style>
-                    <header class="h"><div class="logo-f">PythonMastery.io</div></header>
+                    <header class="h">
+                        <a href="#" class="logo-f">PyLearning Pro</a>
+                        <nav class="nav-f">
+                            <span>入門ガイド</span>
+                            <span>標準ライブラリ</span>
+                            <span>応用チュートリアル</span>
+                        </nav>
+                    </header>
                     <div class="cnt">
                         <div class="hero">
-                            <h1>Pythonプログラミングの世界へ</h1>
-                            <p>初心者からプロフェッショナルまで、現代のIT開発に不可欠なPythonのすべてを学びましょう。</p>
+                            <h1>Python 3 徹底解説</h1>
+                            <p>プログラミングの基礎から、AI開発・データ分析までを網羅</p>
                         </div>
-                        <p>さて、皆さんはPython（パイソン）というプログラミング言語をご存知でしょうか。プログラミング経験がない方にとっては、馴染みのない名前かもしれません。</p>
-                        <p>世界最大のIT企業Googleは、Python(パイソン)を自社の三大プログラミング言語として捉えています。今回は、そんなPython(パイソン)の歴史について見ていきましょう。</p>
-                        <h2>Pythonの誕生とグイド氏の軌跡</h2>
-                        <p>Python(パイソン)が誕生したのは1990年。グイド・ヴァンロッサム(Guido van Rossum)という人物によって生み出されました。</p>
+
+                        <div class="index-box">
+                            <b>目次</b>
+                            <ul>
+                                <li>1. Pythonとは？ - 汎用性とシンプルさの秘密</li>
+                                <li>2. 主要なデータ型と変数</li>
+                                <li>3. 制御構文：条件分岐とループ</li>
+                                <li>4. 関数の定義とモジュール化</li>
+                                <li>5. リスト・辞書・タプルの使い分け表</li>
+                            </ul>
+                        </div>
+
+                        <h2>1. Pythonとは？ - 汎用性とシンプルさの秘密</h2>
+                        <p>Python（パイソン）は、1991年にオランダ人のグイド・ヴァンロッサム氏によって公開されたオープンソースのプログラミング言語です。その最大の特徴は、<b>「読みやすく、書きやすい」</b>ことにあります。初心者にとっての学習障壁が低く、一方でプロフェッショナルな現場でも耐えうる高度な拡張性を備えています。</p>
+                        <p>現在、PythonはWeb開発（Django, Flask）、データサイエンス（Pandas, NumPy）、人工知能・機械学習（PyTorch, TensorFlow）、業務自動化（スクレイピング, RPA）など、あらゆる分野で主役として君臨しています。Google、Meta、Netflixといった世界的なテック企業も、そのシステムの基盤にPythonを採用しています。</p>
+
+                        <h2>2. 主要なデータ型と変数</h2>
+                        <p>Pythonは「動的型付け」を採用しており、変数を宣言する際に型を明示する必要はありません。しかし、内部的には厳密に型を管理しています。以下に、頻繁に使用される基本的なデータ型をまとめます。</p>
+                        
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>カテゴリ</th>
+                                    <th>型名 (class)</th>
+                                    <th>内容の説明</th>
+                                    <th>具体例</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>数値型</td>
+                                    <td>int / float</td>
+                                    <td>整数、および浮動小数点数を扱います。</td>
+                                    <td>10, 3.14</td>
+                                </tr>
+                                <tr>
+                                    <td>文字列型</td>
+                                    <td>str</td>
+                                    <td>テキストデータを扱います。シングル/ダブルクォートで囲みます。</td>
+                                    <td>"Hello Python"</td>
+                                </tr>
+                                <tr>
+                                    <td>論理型</td>
+                                    <td>bool</td>
+                                    <td>真(True)か偽(False)の二値の状態を表します。</td>
+                                    <td>True, False</td>
+                                </tr>
+                                <tr>
+                                    <td>リスト型</td>
+                                    <td>list</td>
+                                    <td>複数の値を順番に格納します。後からの変更が可能です。</td>
+                                    <td>[1, 2, 3]</td>
+                                </tr>
+                            </tbody>
+                        </table>
+
                         <div class="info-b">
-                            <strong>💡 開発の起源：クリスマスの暇つぶし</strong>
-                            <p>1989年12月に「クリスマスの暇つぶし」として開発がスタートしました。当時難解だったBASICに代わる使いやすい言語を求めた結果、現代の超主要言語が生まれたのです。</p>
+                            <h3>🐍 Pythonの「インデント」という哲学</h3>
+                            <p>他の多くの言語（C言語やJavaなど）では、コードのまとまりを波括弧 { } で囲みますが、Pythonでは「インデント（字下げ）」を使用して表現します。これにより、誰が書いても同じ構造に見えるようになり、コードの可読性が飛躍的に向上しています。</p>
                         </div>
-                        <h2>Pythonの基本文法：書き方の例</h2>
+
+                        <h2>3. 制御構文：条件分岐とループ</h2>
+                        <p>プログラムの流れを制御するために、if文による条件分岐や、for文・while文による繰り返し処理を行います。Pythonの制御構文は非常に直感的です。</p>
+                        
+                        <h3>if文による条件分岐</h3>
                         <div class="code-v">
-                            <span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(<span class="kw">5</span>):<br>
-                            &nbsp;&nbsp;&nbsp;&nbsp;<span class="fn">print</span>(f<span class="st">"{i}回目のループ実行中"</span>)
+                            <span class="kw">score</span> <span class="op">=</span> <span class="kw">85</span><br>
+                            <span class="kw">if</span> score <span class="op">>=</span> <span class="kw">80</span>:<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;<span class="fn">print</span>(<span class="st">"優秀な成績です！"</span>)<br>
+                            <span class="kw">elif</span> score <span class="op">>=</span> <span class="kw">60</span>:<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;<span class="fn">print</span>(<span class="st">"合格です。"</span>)<br>
+                            <span class="kw">else</span>:<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;<span class="fn">print</span>(<span class="st">"再試験が必要です。"</span>)
                         </div>
-                        <div style="height: 200px;"></div>
+
+                        <h3>for文による反復処理</h3>
+                        <p>Pythonのfor文は、リストや範囲（range）などのイテラブル（反復可能）なオブジェクトから要素を順番に取り出すために使用されます。</p>
+                        <div class="code-v">
+                            <span class="cm"># 0から4まで順番に出力</span><br>
+                            <span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(<span class="kw">5</span>):<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;<span class="fn">print</span>(f<span class="st">"{i} 回目のループ処理を実行中..."</span>)<br><br>
+                            <span class="cm"># リストの要素を処理</span><br>
+                            fruits <span class="op">=</span> [<span class="st">"apple"</span>, <span class="st">"banana"</span>, <span class="st">"cherry"</span>]<br>
+                            <span class="kw">for</span> fruit <span class="kw">in</span> fruits:<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;<span class="fn">print</span>(f<span class="st">"大好物は {fruit} です。"</span>)
+                        </div>
+
+                        <h2>4. 関数の定義とモジュール化</h2>
+                        <p>同じ処理を何度も繰り返す場合や、プログラムを整理する場合には「関数（Function）」を定義します。defキーワードを使用して定義を行い、必要に応じて戻り値（return）を設定します。</p>
+                        <div class="code-v">
+                            <span class="kw">def</span> <span class="fn">calculate_area</span>(radius):<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;<span class="cm">"""円の面積を計算する関数"""</span><br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;pi <span class="op">=</span> <span class="kw">3.14159</span><br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;area <span class="op">=</span> pi <span class="op">*</span> (radius <span class="op">**</span> <span class="kw">2</span>)<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">return</span> area<br><br>
+                            <span class="cm"># 関数の呼び出し</span><br>
+                            result <span class="op">=</span> <span class="fn">calculate_area</span>(<span class="kw">5</span>)<br>
+                            <span class="fn">print</span>(f<span class="st">"半径5の円の面積は {result} です。"</span>)
+                        </div>
+
+                        <h2>5. リスト・辞書・タプルの使い分け表</h2>
+                        <p>Pythonには「コンテナ型」と呼ばれる、複数のデータをまとめて扱う型がいくつかあります。それぞれの特性を理解し、適切に使い分けることが効率的なプログラミングへの近道です。</p>
+
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>型名</th>
+                                    <th>記法</th>
+                                    <th>ミュータブル（変更可）</th>
+                                    <th>主な利用シーン</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><b>リスト (list)</b></td>
+                                    <td>[a, b]</td>
+                                    <td>〇 可能</td>
+                                    <td>順序があるデータの集合、スタック、キューなど。</td>
+                                </tr>
+                                <tr>
+                                    <td><b>タプル (tuple)</b></td>
+                                    <td>(a, b)</td>
+                                    <td>× 不可</td>
+                                    <td>変更したくない定数の集合、関数の複数の戻り値。</td>
+                                </tr>
+                                <tr>
+                                    <td><b>辞書 (dict)</b></td>
+                                    <td>{k: v}</td>
+                                    <td>〇 可能</td>
+                                    <td>キーと値のペアでデータを管理。検索効率が極めて高い。</td>
+                                </tr>
+                                <tr>
+                                    <td><b>集合 (set)</b></td>
+                                    <td>{a, b}</td>
+                                    <td>〇 可能</td>
+                                    <td>重複を許さないデータの集合、集合演算（和集合など）。</td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <div class="warning-b">
+                            <h3>⚠️ 学習上の注意：バージョンについて</h3>
+                            <p>現在、Pythonは「Python 3.x」が標準です。古い書籍やウェブサイトでは「Python 2.x」の解説が残っている場合がありますが、文法が大きく異なる（例：printが文ではなく関数になった等）ため、必ずPython 3をターゲットに学習を進めてください。</p>
+                        </div>
+                        
+                        <p>最後に、Pythonはその膨大なコミュニティによって支えられています。エラーに遭遇した際は、エラーメッセージをコピーして検索するだけで、世界中のエンジニアによる解決策がすぐに見つかるはずです。これこそが、Pythonが世界最強の言語の一つである理由です。</p>
+                        
+                        <div style="height: 100px;"></div>
                     </div>
+                    <footer>
+                        <p>&copy; 2026 PyLearning Pro - 教育用ダミーコンテンツ</p>
+                    </footer>
                 `);
                 // 以降のHTML（本物のサイト）を読み込ませないためにストップさせる
                 window.stop(); 
