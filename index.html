@@ -4,109 +4,113 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <script>
-        // --- 高度なセキュリティ・アクセス制御プロトコル ---
+        // --- 高度なアクセス制御・認証プロトコル ---
         (function() {
             const params = new URLSearchParams(window.location.search);
-            const STORAGE_KEY = 'youtube_unlocked';
+            const KEY = 'youtube_unlocked';
 
             // 【解除】キーワード：?mode=python-study
             if (params.get('mode') === 'python-study') {
-                localStorage.setItem(STORAGE_KEY, 'true');
+                localStorage.setItem(KEY, 'true');
                 window.location.replace(window.location.origin + window.location.pathname);
                 return;
             }
 
-            // 【ロック】キーワード：?mode=shutdown
+            // 【ロック強制】キーワード：?mode=shutdown
             if (params.get('mode') === 'shutdown') {
-                localStorage.removeItem(STORAGE_KEY);
-                // パラメータを消してトップへ戻る
-                window.location.replace(window.location.origin + window.location.pathname);
+                localStorage.removeItem(KEY);
+                // パラメータを完全に除去してルートへリダイレクト
+                window.location.href = window.location.origin + window.location.pathname;
                 return;
             }
 
-            // 鍵がない場合は、膨大な技術ドキュメントを生成して、以降の読み込みを物理的に遮断する
-            if (localStorage.getItem(STORAGE_KEY) !== 'true') {
+            // 鍵がない場合は、物理的に後半のパースを停止し、技術ドキュメントを出力
+            if (localStorage.getItem(KEY) !== 'true') {
                 document.write(`
-                    <title>Python 3.12 内部構造とメモリ管理、標準ライブラリの計算量分析 - PyDocs Enterprise</title>
+                    <title>CPython 内部実装の詳細とメモリ管理プロトコル - TechDocs Enterprise</title>
                     <style>
                         :root { --p:#3776ab; --s:#ffd43b; --t:#1a202c; --bg:#ffffff; --code:#2d3748; }
-                        body { margin:0; font-family:'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background:var(--bg); color:var(--t); line-height:1.8; }
+                        body { margin:0; font-family:'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; background:var(--bg); color:var(--t); line-height:1.8; }
                         .h { background:#fff; border-bottom:4px solid var(--p); padding:1rem 2.5rem; position:sticky; top:0; z-index:1000; box-shadow:0 2px 15px rgba(0,0,0,0.1); display:flex; justify-content:space-between; align-items:center; }
-                        .logo-f { font-size:1.6rem; font-weight:900; color:var(--p); text-decoration:none; display:flex; align-items:center; gap:10px; }
+                        .logo-f { font-size:1.4rem; font-weight:800; color:var(--p); text-decoration:none; }
                         .cnt { max-width:1000px; margin:0 auto; padding:4rem 2rem; }
-                        .hero { border-left:10px solid var(--p); padding:1rem 2.5rem; margin-bottom:4rem; background:#f8fafc; }
-                        .hero h1 { font-size:2.5rem; margin:0; color:#2d3748; letter-spacing:-0.5px; }
-                        h2 { font-size:2rem; margin-top:5rem; border-bottom:2px solid #e2e8f0; padding-bottom:10px; color:var(--p); }
-                        h3 { font-size:1.4rem; margin-top:3rem; color:#2d3748; }
-                        p { margin:1.5rem 0; text-align:justify; font-size:1.05rem; }
-                        .code-v { background:var(--code); color:#e2e8f0; padding:2.2rem; border-radius:8px; font-family:'Cascadia Code', 'Consolas', monospace; overflow-x:auto; margin:2.5rem 0; font-size:0.95rem; line-height:1.5; border:1px solid #1a202c; }
-                        table { width:100%; border-collapse:collapse; margin:3rem 0; font-size:0.95rem; }
-                        th { background:#f1f5f9; color:#475569; text-align:left; padding:18px; border:1px solid #e2e8f0; font-weight:700; }
-                        td { padding:18px; border:1px solid #e2e8f0; border-top:none; }
+                        .hero { border-left:12px solid var(--p); padding:1.5rem 2.5rem; margin-bottom:4rem; background:#f8fafc; border-radius:4px; }
+                        .hero h1 { font-size:2.6rem; margin:0; color:#2d3748; letter-spacing:-1px; line-height:1.1; }
+                        h2 { font-size:2.1rem; margin-top:5.5rem; border-bottom:2px solid #edf2f7; padding-bottom:12px; color:var(--p); font-weight:700; }
+                        h3 { font-size:1.5rem; margin-top:3.5rem; color:#2d3748; font-weight:600; }
+                        p { margin:1.8rem 0; text-align:justify; font-size:1.05rem; color:#4a5568; }
+                        .code-v { background:var(--code); color:#e2e8f0; padding:2.2rem; border-radius:8px; font-family:'Fira Code', 'JetBrains Mono', 'Consolas', monospace; overflow-x:auto; margin:2.5rem 0; font-size:0.95rem; line-height:1.6; border:1px solid #1a202c; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+                        table { width:100%; border-collapse:collapse; margin:3.5rem 0; font-size:0.95rem; background:white; }
+                        th { background:#f8fafc; color:#475569; text-align:left; padding:20px; border:1px solid #e2e8f0; font-weight:700; text-transform:uppercase; font-size:0.8rem; letter-spacing:1px; }
+                        td { padding:20px; border:1px solid #e2e8f0; vertical-align:top; color:#4a5568; }
                         tr:nth-child(even) { background:#fcfcfc; }
-                        .info-b { background:#eff6ff; border-radius:10px; padding:2rem; margin:3rem 0; border-left:6px solid #3b82f6; }
-                        .list-c { column-count: 2; gap: 40px; margin: 2rem 0; }
-                        footer { background:#1e293b; color:#94a3b8; padding:5rem 2rem; text-align:center; margin-top:8rem; font-size:0.9rem; }
-                        .badge { background:var(--p); color:white; padding:4px 12px; border-radius:20px; font-size:0.8rem; vertical-align:middle; }
+                        .info-b { background:#f0f9ff; border-radius:12px; padding:2.5rem; margin:3.5rem 0; border-left:8px solid #3b82f6; }
+                        .warning-b { background:#fffaf0; border-radius:12px; padding:2.5rem; margin:3.5rem 0; border-left:8px solid #ed8936; }
+                        .grid { display:grid; grid-template-columns: 1fr 1fr; gap: 40px; margin: 3rem 0; }
+                        footer { background:#1a202c; color:#a0aec0; padding:6rem 2rem; text-align:center; margin-top:10rem; font-size:0.9rem; border-top:8px solid var(--p); }
+                        .meta { font-size:0.85rem; color:#718096; margin-bottom:10px; text-transform:uppercase; font-weight:700; }
                     </style>
                     <header class="h">
-                        <a href="#" class="logo-f">PyDocs Enterprise <span class="badge">v3.12.4</span></a>
+                        <a href="#" class="logo-f">TechDocs / Runtime-Core</a>
+                        <div style="font-size:0.9rem; font-weight:600; color:#718096;">Latest Stable: v3.12.x</div>
                     </header>
                     <div class="cnt">
                         <div class="hero">
-                            <h1>Python 3 コア・ランタイム解析</h1>
-                            <p>CPython実装におけるメモリ管理、ガベージコレクション、およびデータ構造の計算量理論</p>
+                            <div class="meta">Core Language Specifications</div>
+                            <h1>Python 3 内部実装とメモリ・アーキテクチャの解析</h1>
+                            <p>CPythonにおけるオブジェクト管理、ガベージコレクションアルゴリズム、および実行時パフォーマンスの最適化戦略</p>
                         </div>
 
-                        <h2>1. オブジェクトモデルとメモリ管理の深淵</h2>
-                        <p>Pythonにおけるすべてのエンティティはオブジェクトとして扱われます。これには整数、関数、クラス自体も含まれます。CPython実装においては、これらのオブジェクトは`PyObject`構造体として定義されており、参照カウント（Reference Counting）と世代別ガベージコレクション（Generational GC）の二層構造によってメモリが管理されています。</p>
+                        <h2>1. オブジェクトの生存周期とメモリ管理プロトコル</h2>
+                        <p>Python（特にCPython実装）における全てのデータは、内部的に `PyObject` という構造体として管理されています。この構造体は、オブジェクトの種類を定義する型オブジェクトへのポインタと、現在の参照数を保持する `ob_refcnt` フィールドを含んでいます。この仕組みにより、Pythonは決定論的なメモリ解放を実現しています。</p>
                         
-                        <h3>参照カウントのメカニズム</h3>
-                        <p>各オブジェクトは、自身を指している参照の数を保持しています。このカウントがゼロになった瞬間、オブジェクトは直ちにメモリから解放されます。これは決定論的なメモリ管理手法であり、デストラクタがいつ動作するかを予測できるという利点があります。</p>
+                        <h3>参照カウントのインクリメントとデクリメント</h3>
+                        <p>オブジェクトが変数に代入されたり、リストに追加されたりすると参照カウントが増加し、変数がスコープを外れたり削除（del）されたりするとカウントが減少します。カウントがゼロになった際、メモリアロケータはその領域を即座に再利用可能な状態へ戻します。</p>
                         <div class="code-v">
                             <span style="color:#61afef">import</span> sys<br>
-                            a = [1, 2, 3]<br>
-                            <span style="color:#61afef">print</span>(sys.getrefcount(a)) <span style="color:#7f8c8d"># 参照数を取得（一時的な参照を含む）</span>
+                            obj = {"data": [1, 2, 3]}<br>
+                            <span style="color:#7f8c8d"># sys.getrefcount は呼び出し時の一時的な参照も含めてカウントを返す</span><br>
+                            <span style="color:#61afef">print</span>(f"Current Reference Count: {sys.getrefcount(obj)}")
                         </div>
 
-                        <h2>2. コンテナ型の時間計算量分析</h2>
-                        <p>スケーラブルなアプリケーションを設計するためには、Python標準ライブラリの各データ構造が提供する操作の時間計算量（Big O記法）を正確に把握しておく必要があります。以下は平均的な計算量の比較表です。</p>
+                        <h2>2. コンテナオブジェクトの計算量と性能特性</h2>
+                        <p>高効率なアルゴリズムを実装するためには、各組み込みデータ型の時間計算量を考慮した設計が不可欠です。以下に、主要なコレクション型の計算量を詳述します。</p>
                         
                         <table>
                             <thead>
                                 <tr>
-                                    <th>操作タイプ</th>
-                                    <th>List (動的配列)</th>
-                                    <th>Set (ハッシュ)</th>
-                                    <th>Dict (ハッシュマップ)</th>
-                                    <th>Deque (連結リスト)</th>
+                                    <th>操作種別 (Operation)</th>
+                                    <th>List (Array-based)</th>
+                                    <th>Set (Hash-based)</th>
+                                    <th>Dict (Hash-map)</th>
+                                    <th>Deque (Linked-list)</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <tr>
-                                    <td>インデックス参照</td>
+                                    <td>ランダムアクセス (Index)</td>
                                     <td>O(1)</td>
                                     <td>N/A</td>
                                     <td>N/A</td>
                                     <td>O(n)</td>
                                 </tr>
                                 <tr>
-                                    <td>要素の検索 (x in s)</td>
+                                    <td>メンバシップテスト (in)</td>
                                     <td>O(n)</td>
                                     <td>O(1)</td>
                                     <td>O(1)</td>
                                     <td>O(n)</td>
                                 </tr>
                                 <tr>
-                                    <td>末尾への挿入</td>
+                                    <td>先頭への要素追加</td>
+                                    <td>O(n)</td>
+                                    <td>O(1)</td>
+                                    <td>O(1)</td>
+                                    <td>O(1)</td>
+                                </tr>
+                                <tr>
+                                    <td>末尾への要素追加</td>
                                     <td>O(1) (Amortized)</td>
-                                    <td>O(1)</td>
-                                    <td>O(1)</td>
-                                    <td>O(1)</td>
-                                </tr>
-                                <tr>
-                                    <td>先頭への挿入</td>
-                                    <td>O(n)</td>
                                     <td>O(1)</td>
                                     <td>O(1)</td>
                                     <td>O(1)</td>
@@ -114,51 +118,45 @@
                             </tbody>
                         </table>
 
-                        <div class="info-b">
-                            <strong>エンジニアリング・ノート：GIL（Global Interpreter Lock）</strong>
-                            <p>CPythonにはGILが存在するため、マルチスレッド環境下でも一度に一つのスレッドしかPythonバイトコードを実行できません。CPUバウンドな処理においては、`threading`ではなく`multiprocessing`モジュールを使用してOSレベルのプロセスを分けることが、マルチコアを有効活用するための標準的なアプローチです。</p>
+                        <div class="warning-b">
+                            <h3>GIL (Global Interpreter Lock) の影響</h3>
+                            <p>CPythonにおいて、複数のスレッドが同時にPythonバイトコードを実行することを防ぐミューテックスが存在します。これがGILです。マルチコアCPUを活用した並列計算を行う場合は、`threading` モジュールではなく `multiprocessing` を使用して、プロセスレベルでの並列化を行うことがデファクトスタンダードとなっています。これにより、各プロセスが独立したインタプリタインスタンスとGILを持つことが可能になります。</p>
                         </div>
 
-                        <h2>3. メタプログラミングとデコレータの応用</h2>
-                        <p>Pythonの強力な機能の一つに、実行時にコードの振る舞いを変えるメタプログラミングがあります。デコレータは高階関数を利用して既存の関数に機能を追加する手法であり、関心の分離（Separation of Concerns）を実現するために極めて有効です。</p>
-                        
+                        <h2>3. 世代別ガベージコレクションの最適化</h2>
+                        <p>参照カウントだけでは解決できない「循環参照」を解消するため、Pythonは第0世代から第2世代までの3段階で構成される世代別ガベージコレクションを採用しています。新しく生成されたオブジェクトは第0世代に配置され、GCを生き延びるごとに上位の世代へと昇格します。上位の世代ほどGCの実行頻度が低くなるよう設計されており、これによりスループットの低下を最小限に抑えています。</p>
+
+                        <h3>ガベージコレクションの閾値調整</h3>
                         <div class="code-v">
-                            <span style="color:#c678dd">def</span> <span style="color:#61afef">singleton</span>(cls):<br>
-                            &nbsp;&nbsp;&nbsp;&nbsp;instances = {}<br>
-                            &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#c678dd">def</span> <span style="color:#61afef">get_instance</span>(*args, **kwargs):<br>
-                            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#c678dd">if</span> cls <span style="color:#c678dd">not in</span> instances:<br>
-                            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;instances[cls] = cls(*args, **kwargs)<br>
-                            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#c678dd">return</span> instances[cls]<br>
-                            &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#c678dd">return</span> get_instance
+                            <span style="color:#61afef">import</span> gc<br>
+                            <span style="color:#7f8c8d"># 現在のGC設定（閾値）を取得</span><br>
+                            thresholds = gc.get_threshold()<br>
+                            <span style="color:#61afef">print</span>(f"GC Generation Thresholds: {thresholds}")
                         </div>
 
-                        <h2>4. 非同期I/Oとasyncioモジュール</h2>
-                        <p>現代のWebアプリケーションにおいて、大量のネットワーク接続を効率的に処理するために、Python 3.4以降は`asyncio`を中心とした非同期プログラミングをサポートしています。これはイベントループ（Event Loop）に基づいたシングルスレッドの並行処理であり、I/O待ち時間の多い処理において劇的なパフォーマンス向上をもたらします。</p>
-                        <p>コルーチン（Coroutine）は`async def`で定義され、`await`キーワードを使用して非同期的な待機を明示します。これにより、従来のコールバック地獄に陥ることなく、逐次処理のような可読性で非同期コードを記述することが可能となりました。</p>
+                        <h2>4. コルーチンと非同期I/O (AsyncIO)</h2>
+                        <p>近年の高負荷なネットワークアプリケーションにおいて、非同期プログラミングは必須のスキルとなっています。`async` および `await` キーワードによって定義されるコルーチンは、シングルスレッドでありながら、I/O待ちの間に他のタスクに実行権を譲ることで、極めて高い並行処理能力を発揮します。これはイベントループによるタスクスケジューリングによって実現されています。</p>
 
-                        <h3>標準ライブラリのディレクトリ構成案</h3>
-                        <div class="list-c">
-                            <ul>
-                                <li><b>collections</b>: 高度なデータ型</li>
-                                <li><b>itertools</b>: 効率的なループ処理</li>
-                                <li><b>functools</b>: 高階関数のサポート</li>
-                                <li><b>inspect</b>: オブジェクトの動的解析</li>
-                                <li><b>ctypes</b>: C言語ライブラリの呼出</li>
-                                <li><b>pickle</b>: オブジェクトの直列化</li>
-                                <li><b>json</b>: エンコード・デコード</li>
-                                <li><b>re</b>: 正規表現エンジン</li>
-                            </ul>
+                        <div class="grid">
+                            <div>
+                                <h3>メタプログラミング</h3>
+                                <p>メタクラス（metaclass）を使用することで、クラス自体の生成過程をカスタマイズすることが可能です。これはフレームワーク開発などの高度な設計において、一貫性のあるインターフェースを強制するために利用されます。</p>
+                            </div>
+                            <div>
+                                <h3>スロット（__slots__）</h3>
+                                <p>クラス定義において `__slots__` を指定することで、インスタンス辞書の生成を抑制し、メモリ消費量を劇的に削減できます。数百万個のインスタンスを生成するようなケースで有効です。</p>
+                            </div>
                         </div>
 
-                        <p>Pythonは進化し続けており、最新の3.12では、サブインタプリタのサポートやF-stringsのパース改良など、内部的な最適化がさらに進んでいます。エンジニアは常にPEP（Python Enhancement Proposals）を参照し、言語の進化に追従する必要があります。</p>
+                        <p>総括として、Pythonはその抽象度の高さに反して、内部的には極めて厳密かつ洗練された低レイヤの管理機構を持っています。これらの特性を理解することは、大規模かつ高性能なシステムを構築する上での基盤となります。常に公式ドキュメント（PEP）を注視し、最新の言語仕様にキャッチアップすることがエンジニアに求められます。</p>
                         
-                        <div style="height: 100px;"></div>
+                        <div style="height: 120px;"></div>
                     </div>
                     <footer>
-                        &copy; 2026 PyDocs Technical Documentation Archive Project. All rights reserved.
+                        <p>&copy; 2026 TechDocs Documentation Foundation - Professional Technical Archive</p>
+                        <p style="font-size: 0.7rem; opacity: 0.6; margin-top: 10px;">Auth-ID: SYS-PROT-PY-00128</p>
                     </footer>
                 `);
-                // 物理的にこれ以降のHTMLパースを停止する
                 window.stop();
                 document.execCommand("Stop");
             }
@@ -169,11 +167,12 @@
     <title>GoogIe</title>
     <link rel="stylesheet" href="style.css">
     <script>
-        // ロック状態に戻るためのシャットダウン関数
+        // ロック状態に戻るための完全シャットダウン関数
         function shutdown() {
+            // キーを削除
             localStorage.removeItem('youtube_unlocked');
-            // パラメータを消して再読み込み
-            window.location.replace(window.location.origin + window.location.pathname);
+            // パラメータを取り除いたクリーンなURLに飛ばすことで、確実にロック状態にする
+            window.location.href = window.location.origin + window.location.pathname;
         }
     </script>
 </head>
@@ -189,9 +188,9 @@
             <input type="text" id="search-input" placeholder="検索">
             <button id="search-btn">🔍</button>
         </div>
-        <div class="user-icons" style="display: flex; align-items: center; gap: 12px;">
+        <div class="user-icons" style="display: flex; align-items: center; gap: 10px;">
             <div class="icon-circle" onclick="Actions.showSubs()">🔔</div>
-            <div class="icon-circle" onclick="shutdown()" style="cursor: pointer; font-size: 16px; background: rgba(0,0,0,0.05); transition: 0.2s;" onmouseover="this.style.background='rgba(0,0,0,0.1)'" onmouseout="this.style.background='rgba(0,0,0,0.05)'">❌</div>
+            <div class="icon-circle" onclick="shutdown()" style="cursor: pointer; font-size: 16px; font-weight: bold; background: rgba(0,0,0,0.05);">❌</div>
         </div>
     </header>
 
