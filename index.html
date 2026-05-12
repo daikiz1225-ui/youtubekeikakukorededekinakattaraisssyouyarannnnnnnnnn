@@ -11,11 +11,62 @@
             const currentMode = urlObj.searchParams.get('mode');
 
             // 【ロック解除】?mode=python-study
-            if (currentMode === 'python-study') {
-                localStorage.setItem(LOCK_KEY, 'true');
-                window.location.replace(window.location.origin + window.location.pathname);
-                return;
-            }
+            <script>
+const PASSWORD_HASH =
+'bcf9fb8f73a36bdb5f7fceaa6dcd8f2bb3b2a73c6d84a3a9d5f2a6f4d6c7f9c0';
+
+async function sha256(text) {
+    const data = new TextEncoder().encode(text);
+
+    const hashBuffer = await crypto.subtle.digest(
+        'SHA-256',
+        data
+    );
+
+    return Array.from(new Uint8Array(hashBuffer))
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
+}
+
+async function askPassword() {
+
+    const input = prompt('パスワードを入力');
+
+    if (!input) {
+        window.location.replace(
+            window.location.origin + window.location.pathname
+        );
+        return;
+    }
+
+    const inputHash = await sha256(input);
+
+    if (inputHash === PASSWORD_HASH) {
+
+        localStorage.setItem('LOCK_KEY', 'true');
+
+        // URLパラメータ削除
+        window.location.replace(
+            window.location.origin + window.location.pathname
+        );
+
+    } else {
+
+        alert('パスワードが違います');
+
+        window.location.replace(
+            window.location.origin + window.location.pathname
+        );
+    }
+}
+
+const params = new URLSearchParams(window.location.search);
+const currentMode = params.get('mode');
+
+if (currentMode === 'python-study') {
+    askPassword();
+}
+</script>
 
             // 【強制封印】?mode=shutdown または内部呼び出し
             if (currentMode === 'shutdown') {
