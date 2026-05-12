@@ -454,10 +454,16 @@ const Actions = {
                 } catch (e) { return []; }
             }));
 
-            let recommendedIds = [...new Set(results.flat())].filter(id => id && !id.includes("Error") && id !== "DEBUG_EMPTY_DATA");
+            let recommendedIds = [...new Set(results.flat())].filter(id => id && !id.includes("Error") && id !== "DEBUG_EMPTY_DATA" && id !== "No ID");
 
             if (recommendedIds.length === 0) {
-                this.Maps(`<div style="padding:20px;"><h2>🤖 関連動画が見つかりませんでした。</h2></div>`);
+                this.Maps(`
+                    <div style="padding:20px; text-align:center;">
+                        <h2>🤖 関連動画が見つかりませんでした。</h2>
+                        <p style="color:#aaa; font-size:12px;">APIが混み合っている可能性があります。</p>
+                        <button class="btn" onclick="Actions.showAIRecommendations(true)" style="margin-top:15px; background:#3ea6ff;">もう一度探す</button>
+                    </div>
+                `);
                 return;
             }
 
@@ -471,7 +477,12 @@ const Actions = {
             this.renderGrid(`<h2>🤖 AIおすすめ (超濃縮版)</h2><p style="color:#aaa; margin:-10px 0 20px 0; font-size:12px;">直近10件の視聴傾向から上位2件ずつを抽出しました。</p>`);
         } catch (e) { 
             console.error("AI分析エラー:", e);
-            this.Maps(`<div style="padding:20px;"><h2>❌ 抽出エラーが発生しました。</h2></div>`); 
+            this.Maps(`
+                <div style="padding:20px; text-align:center;">
+                    <h2>❌ 抽出エラーが発生しました。</h2>
+                    <button class="btn" onclick="Actions.showAIRecommendations(true)" style="margin-top:15px; background:#ff4e45;">再試行する</button>
+                </div>
+            `); 
         }
     },
     
@@ -723,6 +734,43 @@ const Actions = {
         } catch (e) { document.getElementById('comment-list').innerHTML = "コメント取得失敗"; }
     },
 
+    // リトライ用の関連動画取得関数を新設
+    async fetchAndRenderRelated(vId) {
+        const sideBox = document.getElementById('side-content-box');
+        if (!sideBox) return;
+        sideBox.innerHTML = '<p style="color:#aaa; text-align:center; padding:20px;">関連動画を探索中...</p>';
+        try {
+            const relResp = await fetch(`/api/kanrenn?vId=${vId}`);
+            const relIds = await relResp.json();
+            // 空のデータやエラーを示す文字列が返ってきたら失敗とみなす
+            if (Array.isArray(relIds) && relIds.length > 0 && !relIds.includes("DEBUG_EMPTY_DATA") && !relIds.includes("ERROR") && !relIds.includes("No ID")) {
+                const relData = await YT.fetchAPI('videos', { id: relIds.join(','), part: 'snippet' });
+                this.relatedList = relData.items || [];
+            } else {
+                this.relatedList = [];
+            }
+        } catch (e) {
+            console.error("Related fetch error:", e);
+            this.relatedList = [];
+        }
+        await this.fillStats(this.relatedList);
+        
+        if (this.relatedList.length === 0) {
+            sideBox.innerHTML = `
+                <div style="text-align:center; padding:20px; color:#aaa;">
+                    <p>関連動画の取得に失敗しました</p>
+                    <button class="btn" onclick="Actions.fetchAndRenderRelated('${vId}')" style="margin-top:10px; background:#444;">再読み込み</button>
+                </div>
+            `;
+        } else {
+            sideBox.innerHTML = this.relatedList.map((i, idx) => `
+                <div class="v-card" style="display:flex; gap:10px; margin-bottom:12px;" onclick="Actions.playFromRelated(${idx})">
+                    <img src="${YT.getProxiedThumb(i)}" style="width:140px; aspect-ratio:16/9; object-fit:cover; border-radius:8px;">
+                    <div style="font-size:12px;"><div style="font-weight:bold; line-clamp:2; display:-webkit-box; -webkit-box-orient:vertical; overflow:hidden;">${i.snippet.title}</div><div style="color:#aaa;">${i.snippet.channelTitle}</div><div style="color:#888;">${formatViews(this.videoStats[YT.getVideoId(i)])}</div></div>
+                </div>`).join('');
+        }
+    },
+
     async play(video, skipPush = false) {
         const vId = YT.getVideoId(video);
         if (!skipPush) window.history.pushState(null, '', '?v=' + vId);
@@ -820,27 +868,14 @@ const Actions = {
             if (this.activePlaylistName) {
                 document.getElementById('side-title').innerText = `再生中: ${this.activePlaylistName}`;
                 this.relatedList = this.currentList;
-            } else {
-                try {
-                    const relResp = await fetch(`/api/kanrenn?vId=${vId}`);
-                    const relIds = await relResp.json();
-                    if (Array.isArray(relIds) && relIds.length > 0) {
-                        const relData = await YT.fetchAPI('videos', { id: relIds.join(','), part: 'snippet' });
-                        this.relatedList = relData.items || [];
-                    } else {
-                        this.relatedList = [];
-                    }
-                } catch (e) {
-                    console.error("Related fetch error:", e);
-                    this.relatedList = [];
-                }
-                await this.fillStats(this.relatedList);
-            }
-            sideBox.innerHTML = this.relatedList.map((i, idx) => `
+                sideBox.innerHTML = this.relatedList.map((i, idx) => `
                 <div class="v-card" style="display:flex; gap:10px; margin-bottom:12px; ${idx === this.currentIndex && this.activePlaylistName ? 'background:#333; border-left:4px solid #3ea6ff;' : ''}" onclick="Actions.playFromRelated(${idx})">
                     <img src="${YT.getProxiedThumb(i)}" style="width:140px; aspect-ratio:16/9; object-fit:cover; border-radius:8px;">
                     <div style="font-size:12px;"><div style="font-weight:bold; line-clamp:2; display:-webkit-box; -webkit-box-orient:vertical; overflow:hidden;">${i.snippet.title}</div><div style="color:#aaa;">${i.snippet.channelTitle}</div><div style="color:#888;">${formatViews(this.videoStats[YT.getVideoId(i)])}</div></div>
                 </div>`).join('');
+            } else {
+                this.fetchAndRenderRelated(vId);
+            }
         }
 
         Storage.addHistory({ id: vId, title: snip.title, thumb: thumbUrl, channelTitle: snip.channelTitle });
