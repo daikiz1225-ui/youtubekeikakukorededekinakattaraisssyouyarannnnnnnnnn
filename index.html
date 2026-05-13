@@ -158,7 +158,54 @@
         }
     </script>
 </head>
-<body onpopstate="location.reload()">
+<body> 
+    <div id="announcement-bar" style="
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    background-color: #ff0000; /* YouTubeっぽい赤色 */
+    color: white;
+    z-index: 9999;
+    padding: 10px 20px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+    font-family: sans-serif;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-sizing: border-box;
+">
+    <div style="flex-grow: 1; font-size: 14px; line-height: 1.4; padding-right: 15px;">
+        <strong>【重要なお知らせ】</strong> 
+        今のYouTubeサイトは最初ブロックされる可能性がありますが、それを防げるドメイン（レンタルサーバー）を見つけました。
+        そちらに <strong>ver2</strong> を新しく作ろうと思っています。
+        ver1で使っていない機能を整理して完成を早めたいので、消してほしくない機能を最大5つ投票してください。
+        追加希望も募集中です！
+        <span style="text-decoration: underline; margin-left: 10px;">
+            ※連投は無効票。IP制限のため学校ではなく<strong>家で</strong>投票してください。
+        </span>
+        <a href="https://strawpoll.com/polls/e7ZJa73kBg3" target="_blank" style="color: #ffff00; font-weight: bold; margin-left: 10px;">投票はこちら ➔</a>
+    </div>
+    
+    <button onclick="document.getElementById('announcement-bar').style.display='none'" style="
+        background: none;
+        border: 2px solid white;
+        color: white;
+        cursor: pointer;
+        font-size: 16px;
+        font-weight: bold;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        flex-shrink: 0;
+    ">×</button>
+</div>
+
+<div style="margin-top: 60px;"></div>
+    <onpopstate="location.reload()">
     <header class="header">
         <div style="display: flex; align-items: center; gap: 15px;">
             <div id="back-btn" onclick="Actions.goBack()" style="cursor: pointer; font-size: 20px; padding: 5px; display: none;">🔄</div>
