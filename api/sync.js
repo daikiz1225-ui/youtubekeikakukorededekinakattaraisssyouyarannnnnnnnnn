@@ -11,25 +11,22 @@ export default async function handler(req, res) {
 
     if (!username) return res.status(400).json({ error: "ログインが必要です" });
 
-    // バックエンドが代わりにUpstashへデータを保存
     if (action === 'save') {
         try {
             await kv.set(`user:${username}:data`, JSON.stringify(backupData));
-            return res.status(200).json({ success: true, message: "クラウドにデータを同期しました！" });
+            return res.status(200).json({ success: true, message: "☁️ オンライン保存が完了しました！" });
         } catch (error) {
-            return res.status(500).json({ error: "データの保存に失敗しました" });
+            return res.status(500).json({ error: "保存失敗" });
         }
     }
 
-    // バックエンドが代わりにUpstashからデータを読み込み
     if (action === 'load') {
         try {
             const data = await kv.get(`user:${username}:data`);
-            if (!data) return res.status(404).json({ error: "保存されたデータがありません" });
+            if (!data) return res.status(404).json({ error: "保存データがありません" });
             return res.status(200).json({ success: true, data: data });
         } catch (error) {
-            return res.status(500).json({ error: "データの読み込みに失敗しました" });
+            return res.status(500).json({ error: "読み込み失敗" });
         }
     }
-    return res.status(400).json({ error: "無効なアクションです" });
 }
