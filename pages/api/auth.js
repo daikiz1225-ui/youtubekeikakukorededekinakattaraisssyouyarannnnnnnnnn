@@ -1,4 +1,5 @@
-import { kv } from '@vercel/kv';
+import { Redis } from '@upstash/redis';
+const kv = Redis.fromEnv(); // Upstashの環境変数から自動で接続
 import crypto from 'crypto'; // パスワードを暗号化するためのNode.js標準モジュール
 
 export default async function handler(req, res) {
@@ -30,6 +31,7 @@ export default async function handler(req, res) {
 
             return res.status(200).json({ success: true, message: "アカウントを作成しました！" });
         } catch (error) {
+            console.error(error);
             return res.status(500).json({ error: "サーバーエラーが発生しました" });
         }
     }
@@ -47,9 +49,10 @@ export default async function handler(req, res) {
                 return res.status(400).json({ error: "ユーザー名またはパスワードが違います" });
             }
 
-            // ログイン成功（本来はJWTなどを発行しますが、今回は簡易的にユーザー名をトークン代わりにします）
+            // ログイン成功
             return res.status(200).json({ success: true, username: username });
         } catch (error) {
+            console.error(error);
             return res.status(500).json({ error: "サーバーエラーが発生しました" });
         }
     }
