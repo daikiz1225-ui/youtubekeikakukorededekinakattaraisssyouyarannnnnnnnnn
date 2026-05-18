@@ -2,62 +2,61 @@ const DataManager = {
     // データ取得（履歴500件制限を維持）
     getLocalData() {
         return {
-            yt_subs: JSON.parse(localStorage.getItem('yt_subs') || '[]'),
-            yt_history: JSON.parse(localStorage.getItem('yt_history') || '[]').slice(0, 500),
-            yt_my_playlists: JSON.parse(localStorage.getItem('yt_my_playlists') || '{}'),
-            yt_watchlater: JSON.parse(localStorage.getItem('yt_watchlater') || '[]'),
-            yt_resume_list: JSON.parse(localStorage.getItem('yt_resume_list') || '[]'),
-            exportedAt: new Date().toISOString()
+            yt_subs: JSON.parse(localStorage.getItem('yt_subs') || '[]'), //
+            yt_history: JSON.parse(localStorage.getItem('yt_history') || '[]').slice(0, 500), // 直近500件制限
+            yt_my_playlists: JSON.parse(localStorage.getItem('yt_my_playlists') || '{}'), //
+            yt_watchlater: JSON.parse(localStorage.getItem('yt_watchlater') || '[]'), //
+            yt_resume_list: JSON.parse(localStorage.getItem('yt_resume_list') || '[]'), //
+            exportedAt: new Date().toISOString() //
         };
     },
 
     export() {
         try {
             const data = this.getLocalData();
-            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `googlo_full_data_${new Date().toISOString().split('T')[0]}.json`;
-            a.click();
-            URL.revokeObjectURL(url);
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }); //
+            const url = URL.createObjectURL(blob); //
+            const a = document.createElement('a'); //
+            a.href = url; //
+            a.download = `googlo_full_data_${new Date().toISOString().split('T')[0]}.json`; //
+            a.click(); //
+            URL.revokeObjectURL(url); //
         } catch (e) {
             alert("エクスポート失敗");
         }
     },
 
     import() {
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = '.json';
-        input.onchange = (e) => {
-            const file = e.target.files[0];
-            const reader = new FileReader();
-            reader.onload = (event) => {
+        const input = document.createElement('input'); //
+        input.type = 'file'; //
+        input.accept = '.json'; //
+        input.onchange = (e) => { //
+            const file = e.target.files[0]; //
+            const reader = new FileReader(); //
+            reader.onload = (event) => { //
                 try {
-                    const importedData = JSON.parse(event.target.result);
+                    const importedData = JSON.parse(event.target.result); //
                     this.applyDataToLocal(importedData);
-                    alert("復元しました。再読み込みします。");
-                    location.reload();
+                    alert("復元しました。再読み込みします。"); //
+                    location.reload(); //
                 } catch (err) {
                     alert("ファイル形式が正しくありません。");
                 }
             };
-            reader.readAsText(file);
+            reader.readAsText(file); //
         };
-        input.click();
+        input.click(); //
     },
 
     applyDataToLocal(data) {
-        if (!data.yt_subs && !data.yt_my_playlists && !data.yt_watchlater) throw new Error("無効");
-        if (data.yt_subs) localStorage.setItem('yt_subs', JSON.stringify(data.yt_subs));
-        if (data.yt_history) localStorage.setItem('yt_history', JSON.stringify(data.yt_history));
-        if (data.yt_my_playlists) localStorage.setItem('yt_my_playlists', JSON.stringify(data.yt_my_playlists));
-        if (data.yt_watchlater) localStorage.setItem('yt_watchlater', JSON.stringify(data.yt_watchlater));
-        if (data.yt_resume_list) localStorage.setItem('yt_resume_list', JSON.stringify(data.yt_resume_list));
+        if (!data.yt_subs && !data.yt_my_playlists && !data.yt_watchlater) throw new Error("無効"); //
+        if (data.yt_subs) localStorage.setItem('yt_subs', JSON.stringify(data.yt_subs)); //
+        if (data.yt_history) localStorage.setItem('yt_history', JSON.stringify(data.yt_history)); //
+        if (data.yt_my_playlists) localStorage.setItem('yt_my_playlists', JSON.stringify(data.yt_my_playlists)); //
+        if (data.yt_watchlater) localStorage.setItem('yt_watchlater', JSON.stringify(data.yt_watchlater)); //
+        if (data.yt_resume_list) localStorage.setItem('yt_resume_list', JSON.stringify(data.yt_resume_list)); //
     },
 
-    // 🛡️ バックエンドのAPIに向けてリクエストを送信する仕様に変更
     async authenticate(action, username, password) {
         if (!username || !password) return alert("入力が足りません");
         try {
@@ -92,7 +91,7 @@ const DataManager = {
                 body: JSON.stringify({ username, action: 'save', backupData })
             });
             const resData = await response.json();
-            alert(resData.message || "保存完了");
+            alert(resData.message || "オンライン保存が完了しました！");
         } catch (e) {
             alert("保存エラー");
         }
@@ -172,11 +171,12 @@ const DataManager = {
     },
 
     injectUI() {
-        const sidebar = document.querySelector('.sidebar');
-        if (sidebar && !document.getElementById('backup-manager-ui')) {
-            const container = document.createElement('div');
-            container.id = 'backup-manager-ui';
-            container.style = "border-top:1px solid #333; margin-top:10px; padding-top:10px;";
+        // サイドバーUIの組み立て
+        const sidebar = document.querySelector('.sidebar'); //
+        if (sidebar && !document.getElementById('backup-manager-ui')) { //
+            const container = document.createElement('div'); //
+            container.id = 'backup-manager-ui'; //
+            container.style = "border-top:1px solid #333; margin-top:10px; padding-top:10px;"; //
 
             const accountBtn = document.createElement('div');
             accountBtn.className = 'nav-item';
@@ -185,40 +185,67 @@ const DataManager = {
             accountBtn.onclick = () => this.toggleModal(true);
             container.appendChild(accountBtn);
 
-            const expBtn = document.createElement('div');
-            expBtn.className = 'nav-item'; expBtn.style.color = "#8aa";
-            expBtn.innerHTML = `📤 <span style="font-size:12px;">PCに保存(ファイル)</span>`;
-            expBtn.onclick = () => this.export();
-            container.appendChild(expBtn);
+            const expBtn = document.createElement('div'); //
+            expBtn.className = 'nav-item'; expBtn.style.color = "#8aa"; //
+            expBtn.innerHTML = `📤 <span style="font-size:12px;">PCに保存(ファイル)</span>`; //
+            expBtn.onclick = () => this.export(); //
+            container.appendChild(expBtn); //
 
-            const impBtn = document.createElement('div');
-            impBtn.className = 'nav-item'; impBtn.style.color = "#8aa";
-            impBtn.innerHTML = `📥 <span style="font-size:12px;">PCから復元(ファイル)</span>`;
-            impBtn.onclick = () => this.import();
-            container.appendChild(impBtn);
+            const impBtn = document.createElement('div'); //
+            impBtn.className = 'nav-item'; impBtn.style.color = "#8aa"; //
+            impBtn.innerHTML = `📥 <span style="font-size:12px;">PCから復元(ファイル)</span>`; //
+            impBtn.onclick = () => this.import(); //
+            container.appendChild(impBtn); //
 
-            sidebar.appendChild(container);
+            sidebar.appendChild(container); //
         }
 
-        // 右上の🔔アイコンの左隣に💾マークを設置
+        // 💾ボタンの生成と設置（不具合対策強化版）
         const currentUser = localStorage.getItem('googlo_logged_in_user');
-        const bell = document.querySelector('.header .actions .notification-icon') || document.querySelector('.notification-icon') || document.querySelector('.fa-bell');
-        if (currentUser && bell && !document.getElementById('googlo-cloud-save-header')) {
+        if (currentUser && !document.getElementById('googlo-cloud-save-header')) {
             const saveMark = document.createElement('span');
             saveMark.id = 'googlo-cloud-save-header';
             saveMark.innerText = "💾";
-            saveMark.style = "font-size: 20px; cursor: pointer; margin-right: 15px; display: inline-block; vertical-align: middle;";
+            saveMark.title = "データをクラウドにオンライン保存";
+            saveMark.style = "font-size: 22px; cursor: pointer; margin-right: 15px; display: inline-block; vertical-align: middle; transition: opacity 0.2s;";
             saveMark.onclick = () => this.cloudSave();
-            bell.parentNode.insertBefore(saveMark, bell);
+
+            // 🔔マークを探す確率を上げるために、あり得るセレクターをすべて検証
+            const bellSelectors = [
+                '.header .actions .notification-icon',
+                '.header .notification-icon',
+                '.notification-icon',
+                '.actions .notification-icon',
+                '.fa-bell',
+                '[class*="bell"]',
+                '.header .actions > *:last-child' // 🔔が見つからない場合のヘッダー右端の要素
+            ];
+
+            let bell = null;
+            for (let selector of bellSelectors) {
+                bell = document.querySelector(selector);
+                if (bell) break;
+            }
+
+            if (bell && bell.parentNode) {
+                // 🔔マークが見つかったら、その左隣（直前）に挿入
+                bell.parentNode.insertBefore(saveMark, bell);
+            } else {
+                // 【最終防衛策】どうしても🔔が見つからない場合、画面右上に固定で浮かび上がらせる
+                saveMark.style.position = "fixed";
+                saveMark.style.top = "12px";
+                saveMark.style.right = "60px"; // 🔔があると思われる位置の左側
+                saveMark.style.zindex = "999";
+                document.body.appendChild(saveMark);
+            }
         }
     }
 };
 
 // 起動時処理
-window.addEventListener('DOMContentLoaded', () => {
-    // ログイン中の場合は入った瞬間に自動でバックエンドから読み込み
+window.addEventListener('DOMContentLoaded', () => { //
     if (localStorage.getItem('googlo_logged_in_user')) {
         DataManager.cloudLoad(true);
     }
-    setTimeout(() => { DataManager.injectUI(); }, 500);
+    setTimeout(() => { DataManager.injectUI(); }, 600);
 });
