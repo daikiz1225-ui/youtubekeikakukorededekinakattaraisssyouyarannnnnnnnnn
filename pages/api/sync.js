@@ -1,4 +1,5 @@
-import { kv } from '@vercel/kv';
+import { Redis } from '@upstash/redis';
+const kv = Redis.fromEnv(); // Upstashの環境変数から自動で接続
 
 export default async function handler(req, res) {
     if (req.method !== 'POST') return res.status(405).json({ error: "Method not allowed" });
@@ -15,6 +16,7 @@ export default async function handler(req, res) {
             await kv.set(`user:${username}:data`, backupData);
             return res.status(200).json({ success: true, message: "クラウドにデータを保存しました！" });
         } catch (error) {
+            console.error(error);
             return res.status(500).json({ error: "データの保存に失敗しました" });
         }
     }
@@ -28,6 +30,7 @@ export default async function handler(req, res) {
             }
             return res.status(200).json(data);
         } catch (error) {
+            console.error(error);
             return res.status(500).json({ error: "データの読み込みに失敗しました" });
         }
     }
