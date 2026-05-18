@@ -1,74 +1,113 @@
 /**
- * backup.js - データのバックアップ（保存）と復元（読み込み）機能
- * 対応項目: チャンネル登録、履歴(50件)、プレイリスト、後で見る、続きから
+ * backup.js - アカウント認証 ＆ クラウド同期対応版
  */
 const DataManager = {
-    // 1. エクスポート（保存）
-    export() {
+    // 現在ログインしているユーザー名を取得
+    getLoggedInUser() {
+        return localStorage.getItem('googlo_username') || null;
+    },
+
+    // 1. クラウドへデータを保存
+    async saveToCloud() {
+        const username = this.getLoggedInUser();
+        if (!username) return alert("ログインが必要です");
+
         try {
-            const data = {
+            const backupData = {
                 yt_subs: JSON.parse(localStorage.getItem('yt_subs') || '[]'),
-                // 履歴を直近50件まで保存できるように拡張
-                yt_history: JSON.parse(localStorage.getItem('yt_history') || '[]').slice(0, 500),
+                yt_history: JSON.parse(localStorage.getItem('yt_history') || '[]').slice(0, 50),
                 yt_my_playlists: JSON.parse(localStorage.getItem('yt_my_playlists') || '{}'),
-                // 新規追加: 「後で見る」と「続きから見る」をバックアップ対象に含める
                 yt_watchlater: JSON.parse(localStorage.getItem('yt_watchlater') || '[]'),
                 yt_resume_list: JSON.parse(localStorage.getItem('yt_resume_list') || '[]'),
                 exportedAt: new Date().toISOString()
             };
 
-            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `googlo_full_data_${new Date().toISOString().split('T')[0]}.json`;
-            a.click();
-            URL.revokeObjectURL(url);
+            const res = await fetch('/api/sync', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, action: 'save', backupData })
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                alert("クラウドにデータを保存しました！");
+            } else {
+                alert("保存失敗: " + data.error);
+            }
         } catch (e) {
             console.error(e);
-            alert("データの書き出しに失敗しました。");
+            alert("通信エラーが発生しました。");
         }
     },
 
-    // 2. インポート（復元）
-    import() {
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = '.json';
-        
-        input.onchange = (e) => {
-            const file = e.target.files[0];
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                try {
-                    const importedData = JSON.parse(event.target.result);
-                    
-                    // データのバリデーション（最低限のチェック）
-                    if (!importedData.yt_subs && !importedData.yt_my_playlists && !importedData.yt_watchlater) {
-                        throw new Error("無効なファイル形式です");
-                    }
+    // 2. クラウドからデータを読み込んで復元
+    async loadFromCloud() {
+        const username = this.getLoggedInUser();
+        if (!username) return alert("ログインが必要です");
 
-                    // localStorageへ各データを復元
-                    if (importedData.yt_subs) localStorage.setItem('yt_subs', JSON.stringify(importedData.yt_subs));
-                    if (importedData.yt_history) localStorage.setItem('yt_history', JSON.stringify(importedData.yt_history));
-                    if (importedData.yt_my_playlists) localStorage.setItem('yt_my_playlists', JSON.stringify(importedData.yt_my_playlists));
-                    
-                    // 新規追加分の復元処理
-                    if (importedData.yt_watchlater) localStorage.setItem('yt_watchlater', JSON.stringify(importedData.yt_watchlater));
-                    if (importedData.yt_resume_list) localStorage.setItem('yt_resume_list', JSON.stringify(importedData.yt_resume_list));
+        try {
+            const res = await fetch('/api/sync', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, action: 'load' })
+            });
+            
+            if (res.status === 404) {
+                return alert("クラウドに保存されたデータがまだありません。");
+            }
+            
+            const importedData = await res.json();
 
-                    alert("すべてのデータを復元しました。ページを再読み込みします。");
-                    location.reload();
-                } catch (err) {
-                    alert("復元に失敗しました。正しいファイルを選択してください。");
-                }
-            };
-            reader.readAsText(file);
-        };
-        input.click();
+            // localStorageへ各データを復元
+            if (importedData.yt_subs) localStorage.setItem('yt_subs', JSON.stringify(importedData.yt_subs));
+            if (importedData.yt_history) localStorage.setItem('yt_history', JSON.stringify(importedData.yt_history));
+            if (importedData.yt_my_playlists) localStorage.setItem('yt_my_playlists', JSON.stringify(importedData.yt_my_playlists));
+            if (importedData.yt_watchlater) localStorage.setItem('yt_watchlater', JSON.stringify(importedData.yt_watchlater));
+            if (importedData.yt_resume_list) localStorage.setItem('yt_resume_list', JSON.stringify(importedData.yt_resume_list));
+
+            alert("クラウドからすべてのデータを復元しました！再読み込みします。");
+            location.reload();
+        } catch (e) {
+            console.error(e);
+            alert("復元に失敗しました。");
+        }
     },
 
-    // 3. サイドバーに操作ボタンを追加
+    // 3. アカウント操作（ログイン・登録・ログアウト）
+    async handleAuth(action, username, password) {
+        if (!username || !password) return alert("ユーザー名とパスワードを入力してください");
+
+        try {
+            const res = await fetch('/api/auth', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action, username, password })
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                if (action === 'signup') {
+                    alert("アカウントを作成しました！ログインしてください。");
+                } else if (action === 'login') {
+                    localStorage.setItem('googlo_username', data.username);
+                    alert(`おかえりなさい、${data.username} さん！`);
+                    location.reload();
+                }
+            } else {
+                alert("エラー: " + data.error);
+            }
+        } catch (e) {
+            alert("通信エラーが発生しました。");
+        }
+    },
+
+    logout() {
+        localStorage.removeItem('googlo_username');
+        alert("ログアウトしました。");
+        location.reload();
+    },
+
+    // 4. サイドバーに操作UIを注入する
     injectUI() {
         const sidebar = document.querySelector('.sidebar');
         if (!sidebar) return;
@@ -76,30 +115,56 @@ const DataManager = {
         const container = document.createElement('div');
         container.id = 'backup-manager-ui';
         container.style.borderTop = "1px solid #333";
-        container.style.marginTop = "10px";
-        container.style.paddingTop = "10px";
+        container.style.marginTop = "15px";
+        container.style.paddingTop = "15px";
+        container.style.paddingLeft = "10px";
+        container.style.paddingRight = "10px";
 
-        // 保存ボタン
-        const expBtn = document.createElement('div');
-        expBtn.className = 'nav-item';
-        expBtn.style.color = "#4CAF50"; // 保存は緑っぽく
-        expBtn.innerHTML = `📤<span style="font-size:12px;">データ保存(フル)</span>`;
-        expBtn.onclick = () => this.export();
+        const username = this.getLoggedInUser();
 
-        // 復元ボタン
-        const impBtn = document.createElement('div');
-        impBtn.className = 'nav-item';
-        impBtn.style.color = "#2196F3"; // 復元は青っぽく
-        impBtn.innerHTML = `📥<span style="font-size:12px;">データ復元</span>`;
-        impBtn.onclick = () => this.import();
+        if (!username) {
+            // 【未ログイン時のUI】
+            container.innerHTML = `
+                <div style="font-size:12px; color:#aaa; margin-bottom:10px;">☁️ クラウド同期アカウント</div>
+                <input type="text" id="auth-user" placeholder="ユーザー名" style="width:100%; background:#222; color:#fff; border:1px solid #444; padding:4px; margin-bottom:5px; font-size:12px; border-radius:4px;">
+                <input type="password" id="auth-pass" placeholder="パスワード" style="width:100%; background:#222; color:#fff; border:1px solid #444; padding:4px; margin-bottom:8px; font-size:12px; border-radius:4px;">
+                <div style="display:flex; gap:5px;">
+                    <button id="btn-login" style="flex:1; background:#2196F3; color:white; border:none; padding:5px; font-size:11px; cursor:pointer; border-radius:4px;">ログイン</button>
+                    <button id="btn-signup" style="flex:1; background:#444; color:white; border:none; padding:5px; font-size:11px; cursor:pointer; border-radius:4px;">新規登録</button>
+                </div>
+            `;
+            sidebar.appendChild(container);
 
-        container.appendChild(expBtn);
-        container.appendChild(impBtn);
-        sidebar.appendChild(container);
+            // イベント設定
+            document.getElementById('btn-login').onclick = () => {
+                const u = document.getElementById('auth-user').value;
+                const p = document.getElementById('auth-pass').value;
+                this.handleAuth('login', u, p);
+            };
+            document.getElementById('btn-signup').onclick = () => {
+                const u = document.getElementById('auth-user').value;
+                const p = document.getElementById('auth-pass').value;
+                this.handleAuth('signup', u, p);
+            };
+        } else {
+            // 【ログイン済みのUI】
+            container.innerHTML = `
+                <div style="font-size:12px; color:#4CAF50; margin-bottom:8px;">👤 ${username} としてログイン中</div>
+                <div id="btn-cloud-save" class="nav-item" style="color:#4CAF50; cursor:pointer; margin-bottom:5px; font-size:12px;">📤 クラウドへデータを保存</div>
+                <div id="btn-cloud-load" class="nav-item" style="color:#2196F3; cursor:pointer; margin-bottom:10px; font-size:12px;">📥 クラウドからデータ復元</div>
+                <button id="btn-logout" style="width:100%; background:#d32f2f; color:white; border:none; padding:4px; font-size:11px; cursor:pointer; border-radius:4px;">ログアウト</button>
+            `;
+            sidebar.appendChild(container);
+
+            // イベント設定
+            document.getElementById('btn-cloud-save').onclick = () => this.saveToCloud();
+            document.getElementById('btn-cloud-load').onclick = () => this.loadFromCloud();
+            document.getElementById('btn-logout').onclick = () => this.logout();
+        }
     }
 };
 
-// 起動（重複注入防止のためIDチェック付き）
+// 起動
 window.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => {
         if(!document.getElementById('backup-manager-ui')) {
