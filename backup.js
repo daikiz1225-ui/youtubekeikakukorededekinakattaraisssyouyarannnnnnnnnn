@@ -1,6 +1,6 @@
 /**
- * backup.js - Google風マルチアカウント対応版
- * ログインなしの一瞬切り替え ＆ 個別ログアウト（アカウント削除）機能搭載
+ * backup.js - アカウント切り替え時自動保存 ＆ 強制自動同期版
+ * 別のユーザーに切り替える際、現在のデータを自動でクラウドに保存してから切り替えます
  */
 const DataManager = {
     // データ一括取得（履歴500件制限を維持）
@@ -25,10 +25,22 @@ const DataManager = {
         if (data.yt_resume_list) localStorage.setItem('yt_resume_list', JSON.stringify(data.yt_resume_list));
     },
 
+    // 🧹 YouTube関連のデータだけをピンポイントで安全に消去する処理
+    clearYoutubeDataOnly() {
+        localStorage.removeItem('yt_subs');
+        localStorage.removeItem('yt_history');
+        localStorage.removeItem('yt_my_playlists');
+        localStorage.removeItem('yt_watchlater');
+        localStorage.removeItem('yt_resume_list');
+    },
+
     // 🛡️ アカウント認証（サインアップ・ログイン）
     async authenticate(action, username, password) {
         if (!username || !password) return alert("ユーザー名とパスワードを入力してください");
         try {
+            // 新規ログイン時も、もし現在ログイン中の人がいれば念のため自動保存しておく
+            await this.cloudSave(true);
+
             const response = await fetch('/api/auth', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -38,16 +50,19 @@ const DataManager = {
             if (data.success) {
                 alert(data.message || "ログインに成功しました！");
                 
+                this.clearYoutubeDataOnly();
+
                 // 現在のアクティブユーザーに設定
                 localStorage.setItem('googlo_logged_in_user', username);
                 
-                // マルチアカウントリストに保存（重複除去）
+                // マルチアカウントリストに保存
                 let list = JSON.parse(localStorage.getItem('googlo_account_list') || '[]');
                 if (!list.includes(username)) {
                     list.push(username);
                     localStorage.setItem('googlo_account_list', JSON.stringify(list));
                 }
                 
+                await this.cloudLoad(true);
                 location.reload();
             } else {
                 alert("エラー: " + data.error);
@@ -57,16 +72,32 @@ const DataManager = {
         }
     },
 
-    // 🔄 アカウントをタップして一瞬で切り替える機能（Google風）
-    switchAccount(username) {
+    // 🔄 アカウントをタップして一瞬で切り替える機能（自動保存追加版）
+    async switchAccount(username) {
+        const currentUser = localStorage.getItem('googlo_logged_in_user');
+        
+        // 1. もし現在誰かがログイン中なら、切り替える前にその人のデータを「無言で自動保存」
+        if (currentUser) {
+            console.log(`googlo: 切り替え前に ${currentUser} のデータを自動保存中...`);
+            await this.cloudSave(true); 
+        }
+
+        // 2. 前のユーザーの古いYouTubeデータをクリア
+        this.clearYoutubeDataOnly();
+
+        // 3. アクティブユーザーを新しい人に書き換え
         localStorage.setItem('googlo_logged_in_user', username);
-        alert(`${username} に切り替えました。データを同期します。`);
+        
+        // 4. 新しいユーザーのデータをクラウドから強制ダウンロード
+        await this.cloudLoad(true);
+
+        alert(`${username} に切り替えました。変更は自動保存されました！`);
         location.reload();
     },
 
-    // ❌ 特定のアカウントだけを個別ログアウト（リストから削除）
-    logoutIndividual(username, e) {
-        if(e) e.stopPropagation(); // 切り替え処理が同時に動くのを防ぐ
+    // ❌ 特定のアカウントだけを個別ログアウト
+    async logoutIndividual(username, e) {
+        if(e) e.stopPropagation(); 
         
         if (!confirm(`${username} をログアウト（端末から削除）しますか？`)) return;
 
@@ -76,10 +107,12 @@ const DataManager = {
 
         const currentUser = localStorage.getItem('googlo_logged_in_user');
         
-        // もし今使っているアカウントをログアウトした場合は、次のアカウントに切り替えるか初期化する
         if (currentUser === username) {
+            // ログアウトする人が現在のユーザーなら、保存はせずにクリアして切り替える
+            this.clearYoutubeDataOnly();
             if (list.length > 0) {
                 localStorage.setItem('googlo_logged_in_user', list[0]);
+                await this.cloudLoad(true);
             } else {
                 localStorage.removeItem('googlo_logged_in_user');
             }
@@ -89,10 +122,13 @@ const DataManager = {
         location.reload();
     },
 
-    // 🛡️ クラウドへデータを同期保存
-    async cloudSave() {
+    // 🛡️ クラウドへデータを同期保存（isAutoがtrueの時はアラートを出さない）
+    async cloudSave(isAuto = false) {
         const username = localStorage.getItem('googlo_logged_in_user');
-        if (!username) return alert("保存するにはログインが必要です");
+        if (!username) {
+            if (!isAuto) alert("保存するにはログインが必要です");
+            return;
+        }
 
         try {
             const backupData = this.getLocalData();
@@ -102,9 +138,13 @@ const DataManager = {
                 body: JSON.stringify({ username, action: 'save', backupData })
             });
             const resData = await response.json();
-            alert(resData.message || "オンライン保存が完了しました！");
+            
+            // 手動保存のときだけ完了アラートを出す
+            if (!isAuto) {
+                alert(resData.message || "オンライン保存が完了しました！");
+            }
         } catch (e) {
-            alert("クラウドへの保存中にエラーが発生しました");
+            if (!isAuto) alert("クラウドへの保存中にエラーが発生しました");
         }
     },
 
@@ -122,10 +162,6 @@ const DataManager = {
             const resData = await response.json();
             if (resData.success) {
                 this.applyDataToLocal(resData.data);
-                if (!isAuto) {
-                    alert("クラウドからデータを復元しました！再読み込みします。");
-                    location.reload();
-                }
             } else if (!isAuto) {
                 alert("エラー: " + resData.error);
             }
@@ -143,7 +179,6 @@ const DataManager = {
             const currentUser = localStorage.getItem('googlo_logged_in_user');
             const accountList = JSON.parse(localStorage.getItem('googlo_account_list') || '[]');
 
-            // アカウントのフォームを表示する場合、またはまだ誰もログインしていない場合
             if (showAddForm || accountList.length === 0) {
                 modal.innerHTML = `
                     <div style="background:#1a1a1a; padding:25px; border-radius:8px; border:1px solid #333; width:320px; color:#fff; position:relative; box-shadow:0 4px 20px rgba(0,0,0,0.5);">
@@ -178,7 +213,6 @@ const DataManager = {
                     this.authenticate(isSignUp ? 'signup' : 'login', document.getElementById('modal-user').value, document.getElementById('modal-pass').value);
                 };
             } else {
-                // Google風アカウントリスト画面
                 let listHTML = "";
                 accountList.forEach(user => {
                     const isActive = (user === currentUser);
@@ -209,7 +243,6 @@ const DataManager = {
                 document.getElementById('modal-close-btn').onclick = () => this.toggleModal(false);
                 document.getElementById('modal-btn-go-add').onclick = () => { modal.remove(); this.toggleModal(true, true); };
 
-                // リスト内の行クリックで切り替え、ログアウトボタンで個別削除
                 modal.querySelectorAll('.account-item-row').forEach(row => {
                     row.onclick = () => this.switchAccount(row.getAttribute('data-user'));
                 });
@@ -233,7 +266,6 @@ const DataManager = {
 
         const currentUser = localStorage.getItem('googlo_logged_in_user');
 
-        // 1. メインのアカウント切り替え・管理ボタン
         const accountBtn = document.createElement('div');
         accountBtn.className = 'nav-item';
         accountBtn.style = "color:#fff; cursor:pointer; margin-bottom:8px;";
@@ -245,7 +277,6 @@ const DataManager = {
         accountBtn.onclick = () => this.toggleModal(true, false);
         container.appendChild(accountBtn);
 
-        // 2. クラウド同期ボタン
         if (currentUser) {
             const saveBtn = document.createElement('div');
             saveBtn.className = 'nav-item';
