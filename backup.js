@@ -273,7 +273,7 @@ const DataManager = {
         document.body.classList.add('has-wallpaper');
     },
 
-    // 📱 パスコードキーパッド画面
+    // 📱 パスコードキーパッド画面（バグ修正完了：既存モーダルを使い回す仕様）
     showPasscodePad(targetUser) {
         let modal = document.getElementById('googlo-auth-modal');
         if (!modal) return;
@@ -424,7 +424,7 @@ const DataManager = {
 
                         ${currentUser ? `
                         <div style="margin-bottom:15px; padding:10px; background:#222; border-radius:6px; border:1px solid #333;">
-                            <div style="font-size:12px; font-weight:bold; color:#ff9800; margin-bottom:6px; text-align:center;">🎨 このアカウントの壁紙変更 (未完成)</div>
+                            <div style="font-size:12px; font-weight:bold; color:#ff9800; margin-bottom:6px; text-align:center;">🎨 このアカウントの壁紙変更</div>
                             <input type="file" id="wallpaper-input" accept="image/*" style="display:none;">
                             <button id="wallpaper-select-btn" style="width:100%; background:#ff9800; color:#000; border:none; padding:8px; border-radius:4px; font-weight:bold; cursor:pointer; font-size:12px;">お気に入りの写真を選択</button>
                             <div style="font-size:10px; color:#aaa; text-align:center; margin-top:5px; line-height:1.4;"></div>
@@ -454,14 +454,13 @@ const DataManager = {
                     };
                 }
 
-                // アカウントクリック時のセキュリティロック起動
+                // アカウントクリック時のセキュリティロック起動（バグ修正：modal.removeせずに中身だけ遷移）
                 modal.querySelectorAll('.account-item-row').forEach(row => {
                     row.onclick = (e) => {
                         if(e.target.classList.contains('individual-logout-btn')) return;
                         const targetUser = row.getAttribute('data-user');
                         if (targetUser === currentUser) return; // 使用中なら何もしない
-                        modal.remove();
-                        this.showPasscodePad(targetUser);
+                        this.showPasscodePad(targetUser); // モーダルを消さずに中身をテンキーに切り替える
                     };
                 });
                 modal.querySelectorAll('.individual-logout-btn').forEach(btn => {
@@ -534,7 +533,7 @@ const DataManager = {
     }
 };
 
-// 💡【ヘズマ方式】app.jsに一切触れず、localStorageの変更を傍受して自動保存するロジック（ 그대로）
+// 💡【ヘズマ方式】app.jsに一切触れず、localStorageの変更を傍受して自動保存するロジック
 (function() {
     const originalSetItem = localStorage.setItem;
     const originalRemoveItem = localStorage.removeItem;
@@ -572,6 +571,5 @@ const DataManager = {
 
 // ページ読み込み完了時の自動トリガー処理
 window.addEventListener('DOMContentLoaded', () => {
-    // 💡 進入時の自動クラウドロードは無効化された安全な状態をキープ
     setTimeout(() => { DataManager.injectUI(); }, 500);
 });
