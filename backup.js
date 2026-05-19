@@ -1,9 +1,11 @@
 /**
- * backup.js - パスコード ＆ マルチアカウント ＆ クラウド壁紙同期システム
+ * backup.js - パスコードロック ＆ 自動同期フック搭載（透過性能アップ対応版）
  */
 const DataManager = {
+    // 内部管理用の一時フラグ
     _isSyncing: false,
 
+    // データ一括取得（履歴500件制限を維持）
     getLocalData() {
         return {
             yt_subs: JSON.parse(localStorage.getItem('yt_subs') || '[]'),
@@ -15,8 +17,10 @@ const DataManager = {
         };
     },
 
+    // ローカルストレージへデータを上書き反映
     applyDataToLocal(data) {
         if (!data) return;
+        
         DataManager._isSyncing = true;
         if (data.yt_subs) localStorage.setItem('yt_subs', JSON.stringify(data.yt_subs));
         if (data.yt_history) localStorage.setItem('yt_history', JSON.stringify(data.yt_history));
@@ -26,6 +30,7 @@ const DataManager = {
         DataManager._isSyncing = false;
     },
 
+    // YouTube関連のデータだけを安全に消去する処理
     clearYoutubeDataOnly() {
         DataManager._isSyncing = true;
         localStorage.removeItem('yt_subs');
@@ -34,11 +39,12 @@ const DataManager = {
         localStorage.removeItem('yt_watchlater');
         localStorage.removeItem('yt_resume_list');
         DataManager._isSyncing = false;
-        // 壁紙のクリーンアップ
+        // ✅ 壁紙のクリーンアップを追加
         document.body.style.backgroundImage = '';
         document.body.classList.remove('has-wallpaper');
     },
 
+    // 📤 ローカルへのエクスポート
     export() {
         try {
             const data = this.getLocalData();
@@ -50,10 +56,12 @@ const DataManager = {
             a.click();
             URL.revokeObjectURL(url);
         } catch (e) {
+            console.error(e);
             alert("エクスポートに失敗しました。");
         }
     },
 
+    // 📥 ローカルからのインポート（直後自動保存フック付き）
     import() {
         const input = document.createElement('input');
         input.type = 'file';
@@ -66,11 +74,14 @@ const DataManager = {
                 try {
                     const data = JSON.parse(event.target.result);
                     this.applyDataToLocal(data);
+                    
+                    // インポート直後にクラウドに緊急自動保存
                     await this.cloudSave(true);
-                    alert("データを復元し、オンラインに同期しました！");
+                    
+                    alert("データを復元し、オンラインに同期しました！ページを再読み込みします。");
                     location.reload();
                 } catch (err) {
-                    alert("復元に失敗しました。");
+                    alert("復元に失敗しました。ファイルの形式を確認してください。");
                 }
             };
             reader.readAsText(file);
@@ -78,14 +89,11 @@ const DataManager = {
         input.click();
     },
 
-    // 🛡️ アカウント認証（新規登録画面で4桁パスコードを設定）
+    // 🛡️ アカウント認証
     async authenticate(action, username, password, passcodedigit) {
         if (!username || !password) return alert("ユーザー名とパスワードを入力してください");
-        
-        if (action === 'signup') {
-            if (!passcodedigit || passcodedigit.length !== 4 || isNaN(passcodedigit)) {
-                return alert("画面ロック用の【数字4桁】のパスコードを入力してください");
-            }
+        if (action === 'signup' && (!passcodedigit || passcodedigit.length !== 4)) {
+            return alert("セキュリティ用の4桁の数字パスコードを入力してください");
         }
 
         try {
@@ -98,7 +106,7 @@ const DataManager = {
             });
             const data = await response.json();
             if (data.success) {
-                alert(action === 'signup' ? "アカウントを作成しました！" : "ログインに成功しました！");
+                alert(data.message || "ログインに成功しました！");
                 
                 this.clearYoutubeDataOnly();
                 localStorage.setItem('googlo_logged_in_user', username);
@@ -109,7 +117,7 @@ const DataManager = {
                     localStorage.setItem('googlo_account_list', JSON.stringify(list));
                 }
 
-                // パスコードマップに登録（新規登録時、ログイン時は未設定なら0000）
+                // パスコードの保存
                 let passMap = JSON.parse(localStorage.getItem('googlo_passcodes') || '{}');
                 if (action === 'signup') {
                     passMap[username] = passcodedigit;
@@ -119,7 +127,8 @@ const DataManager = {
                 localStorage.setItem('googlo_passcodes', JSON.stringify(passMap));
                 
                 await this.cloudLoad(true);
-                await this.cloudLoadWallpaper(); // 壁紙もロード
+                // ✅ 壁紙もクラウドからダウンロード
+                await this.cloudLoadWallpaper();
                 location.reload();
             } else {
                 alert("エラー: " + data.error);
@@ -129,20 +138,26 @@ const DataManager = {
         }
     },
 
+    // 🔄 アカウントを切り替える機能（不動壁紙適用版）
     async switchAccount(username) {
         const currentUser = localStorage.getItem('googlo_logged_in_user');
+        
         if (currentUser) {
+            console.log(`googlo: 切り替え前に ${currentUser} のデータを自動保存中...`);
             await this.cloudSave(true); 
         }
+
         this.clearYoutubeDataOnly();
         localStorage.setItem('googlo_logged_in_user', username);
         await this.cloudLoad(true);
-        await this.cloudLoadWallpaper(); // 新しいユーザーの壁紙をロード
+        // ✅ 新しいユーザーの壁紙をクラウドからロード
+        await this.cloudLoadWallpaper();
 
         alert(`${username} に切り替えました！`);
         location.reload();
     },
 
+    // ❌ 特定のアカウントだけを個別ログアウト
     async logoutIndividual(username, e) {
         if(e) e.stopPropagation(); 
         if (!confirm(`${username} をログアウト（端末から削除）しますか？`)) return;
@@ -170,9 +185,11 @@ const DataManager = {
         location.reload();
     },
 
+    // 🛡️ クラウドへデータを同期保存
     async cloudSave(isAuto = false) {
         const username = localStorage.getItem('googlo_logged_in_user');
         if (!username) return;
+
         try {
             const backupData = this.getLocalData();
             const response = await fetch('/api/sync', {
@@ -187,9 +204,11 @@ const DataManager = {
         }
     },
 
+    // 🛡️ クラウドからデータを復元
     async cloudLoad(isAuto = false) {
         const username = localStorage.getItem('googlo_logged_in_user');
         if (!username) return;
+
         try {
             const response = await fetch('/api/sync', {
                 method: 'POST',
@@ -244,15 +263,13 @@ const DataManager = {
         } catch (e) {}
     },
 
-    // 🎨 DOM（画面）に安全に壁紙を展開する
+    // 🎨 DOM（画面）に不動の壁紙を安全に適用する
     applyWallpaperToDOM(base64Data) {
-        // 🚨 偽造画面が表示されている（ロック未解除）時は絶対に適用させない
+        // 🚨 偽造画面が表示されている時は適用させない
         if (localStorage.getItem('youtube_unlocked') !== 'true') return;
 
         document.body.style.backgroundImage = `url(${base64Data})`;
-        document.body.style.backgroundSize = 'cover';
-        document.body.style.backgroundPosition = 'center';
-        document.body.style.backgroundAttachment = 'fixed';
+        // ✅ style.cssの不動設定をここでも強制する
         document.body.classList.add('has-wallpaper');
     },
 
@@ -280,17 +297,16 @@ const DataManager = {
 
                 <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:15px; justify-items:center;">
                     ${[1,2,3,4,5,6,7,8,9].map(num => `
-                        <div class="pad-btn" data-val="${num}" style="width:60px; height:60px; background:#222; border-radius:50%; display:flex; justify-content:center; align-items:center; font-size:20px; font-weight:bold; cursor:pointer; user-select:none;">${num}</div>
+                        <div class="pad-btn" data-val="${num}" style="width:60px; height:60px; background:#222; border-radius:50%; display:flex; justify-content:center; align-items:center; font-size:20px; font-weight:bold; cursor:pointer;">${num}</div>
                     `).join('')}
-                    <div class="pad-btn" data-val="clear" style="width:60px; height:60px; display:flex; justify-content:center; align-items:center; font-size:12px; color:#aaa; cursor:pointer; user-select:none;">クリア</div>
-                    <div class="pad-btn" data-val="0" style="width:60px; height:60px; background:#222; border-radius:50%; display:flex; justify-content:center; align-items:center; font-size:20px; font-weight:bold; cursor:pointer; user-select:none;">0</div>
-                    <div id="pad-close" style="width:60px; height:60px; display:flex; justify-content:center; align-items:center; font-size:12px; color:#ff5252; cursor:pointer; user-select:none;">戻る</div>
+                    <div class="pad-btn" data-val="clear" style="width:60px; height:60px; display:flex; justify-content:center; align-items:center; font-size:12px; color:#aaa; cursor:pointer;">クリア</div>
+                    <div class="pad-btn" data-val="0" style="width:60px; height:60px; background:#222; border-radius:50%; display:flex; justify-content:center; align-items:center; font-size:20px; font-weight:bold; cursor:pointer;">0</div>
+                    <div id="pad-close" style="width:60px; height:60px; display:flex; justify-content:center; align-items:center; font-size:12px; color:#ff5252; cursor:pointer;">戻る</div>
                 </div>
             </div>
         `;
 
         const dots = modal.querySelectorAll('.dot');
-        
         const updateDots = () => {
             dots.forEach((dot, idx) => {
                 if (idx < currentInput.length) {
@@ -306,18 +322,8 @@ const DataManager = {
         modal.querySelectorAll('.pad-btn').forEach(btn => {
             btn.onclick = async () => {
                 const val = btn.getAttribute('data-val');
-                
-                if (val === 'clear') {
-                    currentInput = "";
-                    updateDots();
-                    return;
-                }
-
-                if (currentInput.length < 4) {
-                    currentInput += val;
-                    updateDots();
-                }
-
+                if (val === 'clear') { currentInput = ""; updateDots(); return; }
+                if (currentInput.length < 4) { currentInput += val; updateDots(); }
                 if (currentInput.length === 4) {
                     if (currentInput === correctCode) {
                         modal.remove();
@@ -331,38 +337,37 @@ const DataManager = {
             };
         });
 
-        document.getElementById('pad-close').onclick = () => {
-            modal.remove();
-            this.toggleModal(true, false);
-        };
+        document.getElementById('pad-close').onclick = () => { modal.remove(); this.toggleModal(true, false); };
     },
 
+    // 画面中央ポップアップ（マルチアカウント仕様 ＆ 不動壁紙変更機能追加）
     toggleModal(show, showAddForm = false) {
         let modal = document.getElementById('googlo-auth-modal');
         if (!modal && show) {
             modal = document.createElement('div');
             modal.id = 'googlo-auth-modal';
-            modal.style = "position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:flex; justify-content:center; align-items:center; z-index:9999;";
+            modal.style = "position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); display:flex; justify-content:center; align-items:center; z-index:9999;";
             
             const currentUser = localStorage.getItem('googlo_logged_in_user');
             const accountList = JSON.parse(localStorage.getItem('googlo_account_list') || '[]');
 
             if (showAddForm || accountList.length === 0) {
+                // ... (新規登録フォーム、パスコード設定を含む。透過性能アップ)
                 modal.innerHTML = `
-                    <div style="background:#1a1a1a; padding:25px; border-radius:8px; border:1px solid #333; width:320px; color:#fff; position:relative; box-shadow:0 4px 20px rgba(0,0,0,0.5);">
-                        <div id="modal-close-btn" style="position:absolute; top:10px; right:15px; cursor:pointer; color:#aaa; font-size:18px;">&times;</div>
-                        <h3 style="margin:0 0 15px 0; font-size:16px; border-bottom:1px solid #333; padding-bottom:5px;">💻 アカウントを追加</h3>
-                        <input type="text" id="modal-user" placeholder="ユーザー名" style="width:100%; margin-bottom:10px; background:#2a2a2a; color:#fff; border:1px solid #444; padding:8px; border-radius:4px; box-sizing:border-box;">
-                        <input type="password" id="modal-pass" placeholder="パスワード" style="width:100%; margin-bottom:10px; background:#2a2a2a; color:#fff; border:1px solid #444; padding:8px; border-radius:4px; box-sizing:border-box;">
+                    <div style="background:#111; padding:25px; border-radius:16px; border:1px solid #333; width:320px; color:#fff; position:relative; box-shadow:0 10px 40px rgba(0,0,0,0.8);">
+                        <div id="modal-close-btn" style="position:absolute; top:15px; right:20px; cursor:pointer; color:#aaa; font-size:20px; font-weight:bold;">&times;</div>
+                        <h3 id="modal-title" style="margin:0 0 15px 0; font-size:18px; border-bottom:1px solid #333; padding-bottom:5px; text-align:center;">💻 アカウントを追加</h3>
+                        <input type="text" id="modal-user" placeholder="ユーザー名" style="width:100%; margin-bottom:10px; background:#222; color:#fff; border:1px solid #444; padding:10px; border-radius:6px; box-sizing:border-box; outline:none;">
+                        <input type="password" id="modal-pass" placeholder="パスワード" style="width:100%; margin-bottom:10px; background:#222; color:#fff; border:1px solid #444; padding:10px; border-radius:6px; box-sizing:border-box; outline:none;">
                         
-                        <div id="passcode-field" style="display:none; margin-bottom:15px;">
-                           <label style="font-size:11px; color:#4CAF50; font-weight:bold; display:block; margin-bottom:4px;">🔒 切り替え用パスコード (数字4桁)</label>
-                           <input type="password" id="modal-passcode" maxlength="4" placeholder="例: 1234" style="width:100%; background:#2a2a2a; color:#fff; border:1px solid #4CAF50; padding:8px; border-radius:4px; box-sizing:border-box; text-align:center; font-weight:bold; letter-spacing:5px;">
+                        <div id="passcode-setup-zone" style="display:none; background:#222; padding:10px; border-radius:6px; margin-bottom:15px; border:1px solid #444;">
+                            <label style="font-size:11px; color:#4CAF50; font-weight:bold; display:block; margin-bottom:5px;">🔒 切り替え用パスコード (数字4桁)</label>
+                            <input type="text" id="modal-passcode" placeholder="例: 1234" maxlength="4" style="width:100%; background:#111; color:#fff; border:1px solid #555; padding:8px; border-radius:4px; text-align:center; font-weight:bold; letter-spacing:5px; box-sizing:border-box; outline:none;">
                         </div>
 
-                        <button id="modal-btn-submit" style="width:100%; background:#4CAF50; color:white; border:none; padding:8px; border-radius:4px; font-weight:bold; cursor:pointer; margin-bottom:8px;">ログイン</button>
-                        <button id="modal-btn-switch" style="width:100%; background:#555; color:white; border:none; padding:8px; border-radius:4px; cursor:pointer; margin-bottom:8px;">新規登録画面へ切り替え</button>
-                        ${accountList.length > 0 ? `<button id="modal-btn-back" style="width:100%; background:#333; color:white; border:1px solid #555; padding:8px; border-radius:4px; cursor:pointer;">アカウント一覧に戻る</button>` : ''}
+                        <button id="modal-btn-submit" style="width:100%; background:#4CAF50; color:white; border:none; padding:10px; border-radius:6px; font-weight:bold; cursor:pointer; margin-bottom:8px;">ログイン</button>
+                        <button id="modal-btn-switch" style="width:100%; background:#222; color:white; border:1px solid #444; padding:10px; border-radius:6px; cursor:pointer; margin-bottom:8px; font-size:12px;">新規登録画面へ切り替え</button>
+                        ${accountList.length > 0 ? `<button id="modal-btn-back" style="width:100%; background:transparent; color:#aaa; border:none; padding:5px; cursor:pointer; display:block; margin:5px auto; font-size:12px;">アカウント一覧に戻る</button>` : ''}
                     </div>
                 `;
                 document.body.appendChild(modal);
@@ -374,8 +379,8 @@ const DataManager = {
                 let isSignUp = false;
                 const swBtn = document.getElementById('modal-btn-switch');
                 const subBtn = document.getElementById('modal-btn-submit');
-                const pField = document.getElementById('passcode-field');
-                const title = modal.querySelector('h3');
+                const title = document.getElementById('modal-title');
+                const pZone = document.getElementById('passcode-setup-zone');
                 
                 swBtn.onclick = () => {
                     isSignUp = !isSignUp;
@@ -383,14 +388,14 @@ const DataManager = {
                     subBtn.innerText = isSignUp ? "新規アカウント作成" : "ログイン";
                     subBtn.style.backgroundColor = isSignUp ? "#2196F3" : "#4CAF50";
                     swBtn.innerText = isSignUp ? "ログイン画面へ切り替え" : "新規登録画面へ切り替え";
-                    pField.style.display = isSignUp ? "block" : "none";
+                    pZone.style.display = isSignUp ? "block" : "none"; 
                 };
                 subBtn.onclick = () => {
                     this.authenticate(
                         isSignUp ? 'signup' : 'login', 
-                        document.getElementById('modal-user').value, 
+                        document.getElementById('modal-user').value.trim(), 
                         document.getElementById('modal-pass').value,
-                        document.getElementById('modal-passcode') ? document.getElementById('modal-passcode').value : ""
+                        document.getElementById('modal-passcode') ? document.getElementById('modal-passcode').value.trim() : ""
                     );
                 };
             } else {
@@ -398,41 +403,43 @@ const DataManager = {
                 accountList.forEach(user => {
                     const isActive = (user === currentUser);
                     listHTML += `
-                        <div class="account-item-clickable" data-user="${user}" style="display:flex; justify-content:space-between; align-items:center; padding:10px; margin-bottom:8px; background:${isActive ? '#2e3d30' : '#222'}; border:1px solid ${isActive ? '#4CAF50' : '#444'}; border-radius:6px; cursor:pointer;">
+                        <div class="account-item-clickable" data-user="${user}" style="display:flex; justify-content:space-between; align-items:center; padding:12px; margin-bottom:10px; background:${isActive ? 'rgba(76, 175, 80, 0.2)' : '#222'}; border:1px solid ${isActive ? '#4CAF50' : '#444'}; border-radius:10px; cursor:pointer; transition:background 0.2s, transform 0.2s active;">
                             <div style="flex-grow:1; font-size:14px; display:flex; align-items:center; color:#fff;">
-                                <span style="margin-right:8px; font-size:16px;">${isActive ? '🟢' : '👤'}</span>
-                                <strong>${user}</strong> ${isActive ? '<span style="font-size:11px; color:#4CAF50; margin-left:5px;">(使用中)</span>' : ''}
+                                <span style="margin-right:10px; font-size:18px;">👤</span>
+                                <strong>${user}</strong> ${isActive ? '<span style="font-size:11px; color:#4CAF50; margin-left:8px;">(使用中)</span>' : ''}
                             </div>
-                            <button class="individual-logout-btn" data-user="${user}" style="background:transparent; color:#ff5252; border:none; font-size:12px; cursor:pointer; padding:5px 8px; font-weight:bold;">ログアウト</button>
+                            <button class="individual-logout-btn" data-user="${user}" style="background:transparent; color:#ff5252; border:none; font-size:12px; cursor:pointer; padding:5px 8px; border-radius:6px; font-weight:bold;">ログアウト</button>
                         </div>
                     `;
                 });
 
+                // ✅ 壁紙変更UIを統合したマルチアカウント一覧画面（透過性能アップ）
                 modal.innerHTML = `
-                    <div style="background:#1a1a1a; padding:25px; border-radius:8px; border:1px solid #333; width:340px; color:#fff; position:relative; box-shadow:0 4px 20px rgba(0,0,0,0.5);">
-                        <div id="modal-close-btn" style="position:absolute; top:10px; right:15px; cursor:pointer; color:#aaa; font-size:18px;">&times;</div>
-                        <h3 style="margin:0 0 15px 0; font-size:16px; border-bottom:1px solid #333; padding-bottom:5px;">💻 アカウントの切り替え</h3>
+                    <div style="background:#111; padding:25px; border-radius:16px; border:1px solid #333; width:340px; color:#fff; position:relative; box-shadow:0 10px 40px rgba(0,0,0,0.8);">
+                        <div id="modal-close-btn" style="position:absolute; top:15px; right:20px; cursor:pointer; color:#aaa; font-size:20px; font-weight:bold;">&times;</div>
+                        <h3 style="margin:0 0 18px 0; font-size:18px; border-bottom:1px solid #333; padding-bottom:5px; text-align:center;">💻 アカウントの切り替え</h3>
                         
-                        <div style="max-height:180px; overflow-y:auto; margin-bottom:15px;">
+                        <div style="max-height:220px; overflow-y:auto; margin-bottom:20px; padding-right:5px;">
                             ${listHTML}
                         </div>
 
                         ${currentUser ? `
-                        <div style="margin-bottom:15px; padding:10px; background:#222; border-radius:6px; border:1px solid #333;">
-                            <div style="font-size:12px; font-weight:bold; color:#ff9800; margin-bottom:6px;">🎨 このアカウントの壁紙変更</div>
+                        <div style="margin-bottom:15px; padding:12px; background:#222; border-radius:10px; border:1px solid #333;">
+                            <div style="font-size:12px; font-weight:bold; color:#ff9800; margin-bottom:8px; text-align:center;">🎨 このアカウントの壁紙変更 (不動設定)</div>
                             <input type="file" id="wallpaper-input" accept="image/*" style="display:none;">
-                            <button id="wallpaper-select-btn" style="width:100%; background:#ff9800; color:#000; border:none; padding:6px; border-radius:4px; font-weight:bold; cursor:pointer; font-size:12px;">画像ファイルを選択して変更</button>
+                            <button id="wallpaper-select-btn" style="width:100%; background:linear-gradient(135deg, #ff9800, #e65100); color:#000; border:none; padding:8px; border-radius:6px; font-weight:bold; cursor:pointer; font-size:12px; box-shadow:0 2px 5px rgba(0,0,0,0.3);">お気に入りの写真を選択</button>
+                            <div style="font-size:10px; color:#aaa; text-align:center; margin-top:5px; line-height:1.4;">※ドアップ・ぼやけ・見切れなしで、画面の中央にそのまま表示されます。動かない固定背景です。</div>
                         </div>
                         ` : ''}
                         
-                        <button id="modal-btn-go-add" style="width:100%; background:#2196F3; color:white; border:none; padding:10px; border-radius:4px; font-weight:bold; cursor:pointer;">➕ 別のアカウントを追加する</button>
+                        <button id="modal-btn-go-add" style="width:100%; background:transparent; color:#2196F3; border:1px solid #2196F3; padding:10px; border-radius:6px; font-weight:bold; cursor:pointer; font-size:13px; transition:background 0.2s, color 0.2s active;">➕ 別のアカウントを追加する</button>
                     </div>
                 `;
                 document.body.appendChild(modal);
                 document.getElementById('modal-close-btn').onclick = () => this.toggleModal(false);
                 document.getElementById('modal-btn-go-add').onclick = () => { modal.remove(); this.toggleModal(true, true); };
 
-                // 壁紙選択イベントの紐付け
+                // 壁紙選択イベントの紐付け（そのままの写真保存ロジック）
                 if(document.getElementById('wallpaper-select-btn')) {
                     const wInput = document.getElementById('wallpaper-input');
                     document.getElementById('wallpaper-select-btn').onclick = () => wInput.click();
@@ -441,15 +448,19 @@ const DataManager = {
                         if(!file) return;
                         const reader = new FileReader();
                         reader.onload = event => {
+                            // そのままのDataURLをサーバーへ投げる
                             this.cloudSaveWallpaper(event.target.result);
                         };
                         reader.readAsDataURL(file);
                     };
                 }
 
+                // アカウントクリック時のセキュリティロック起動
                 modal.querySelectorAll('.account-item-clickable').forEach(row => {
                     row.onclick = (e) => {
+                        // ログアウトボタンなら何もしない
                         if(e.target.classList.contains('individual-logout-btn')) return;
+                        
                         const targetUser = row.getAttribute('data-user');
                         if (targetUser === currentUser) return; // 使用中なら何もしない
                         
@@ -467,6 +478,7 @@ const DataManager = {
         }
     },
 
+    // サイドバーへUIを挿入
     injectUI() {
         const sidebar = document.querySelector('.sidebar');
         if (!sidebar || document.getElementById('backup-manager-ui')) return;
@@ -527,6 +539,44 @@ const DataManager = {
     }
 };
 
+// 💡【ヘズマ方式】app.jsに一切触れず、localStorageの変更を傍受して自動保存するロジック（そのまま）
+(function() {
+    const originalSetItem = localStorage.setItem;
+    const originalRemoveItem = localStorage.removeItem;
+    const targetKeys = ['yt_subs', 'yt_my_playlists', 'yt_watchlater', 'yt_history'];
+
+    localStorage.setItem = function(key, value) {
+        let oldHistoryLength = 0;
+        if (key === 'yt_history') {
+            try { oldHistoryLength = JSON.parse(localStorage.getItem('yt_history') || '[]').length; } catch(e){}
+        }
+
+        originalSetItem.apply(this, arguments);
+
+        if (DataManager._isSyncing) return;
+
+        if (targetKeys.includes(key)) {
+            if (key === 'yt_history') {
+                try {
+                    const newHistoryLength = JSON.parse(value || '[]').length;
+                    if (newHistoryLength >= oldHistoryLength && oldHistoryLength !== 0) return;
+                } catch(e) { return; }
+            }
+            DataManager.cloudSave(true);
+        }
+    };
+
+    localStorage.removeItem = function(key) {
+        originalRemoveItem.apply(this, arguments);
+        if (DataManager._isSyncing) return;
+        if (targetKeys.includes(key)) {
+            DataManager.cloudSave(true);
+        }
+    };
+})();
+
+// ページ読み込み完了時の自動トリガー処理
 window.addEventListener('DOMContentLoaded', () => {
+    // 💡 進入時の自動クラウドロードは無効化された安全な状態をキープ
     setTimeout(() => { DataManager.injectUI(); }, 500);
 });
