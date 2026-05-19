@@ -18,20 +18,26 @@ const DataManager = {
     // ローカルストレージへデータを上書き反映
     applyDataToLocal(data) {
         if (!data.yt_subs && !data.yt_my_playlists && !data.yt_watchlater) throw new Error("無効なデータ構造");
+        
+        // フックの無限ループを防ぐため、一時的に監視をオフにして書き込む
+        DataManager._isSyncing = true;
         if (data.yt_subs) localStorage.setItem('yt_subs', JSON.stringify(data.yt_subs));
         if (data.yt_history) localStorage.setItem('yt_history', JSON.stringify(data.yt_history));
         if (data.yt_my_playlists) localStorage.setItem('yt_my_playlists', JSON.stringify(data.yt_my_playlists));
         if (data.yt_watchlater) localStorage.setItem('yt_watchlater', JSON.stringify(data.yt_watchlater));
         if (data.yt_resume_list) localStorage.setItem('yt_resume_list', JSON.stringify(data.yt_resume_list));
+        DataManager._isSyncing = false;
     },
 
     // 🧹 YouTube関連のデータだけをピンポイントで安全に消去する処理
     clearYoutubeDataOnly() {
+        DataManager._isSyncing = true;
         localStorage.removeItem('yt_subs');
         localStorage.removeItem('yt_history');
         localStorage.removeItem('yt_my_playlists');
         localStorage.removeItem('yt_watchlater');
         localStorage.removeItem('yt_resume_list');
+        DataManager._isSyncing = false;
     },
 
     // 📤 ローカルへのエクスポート（JSONファイルダウンロード）
@@ -60,11 +66,15 @@ const DataManager = {
             const file = e.target.files[0];
             if (!file) return;
             const reader = new FileReader();
-            reader.onload = event => {
+            reader.onload = async event => {
                 try {
                     const data = JSON.parse(event.target.result);
                     this.applyDataToLocal(data);
-                    alert("データをローカルファイルから復元しました！ページを再読み込みします。");
+                    
+                    // ✨【追加】ファイルからインポートした直後、間髪入れずにクラウドへ強制自動保存
+                    await this.cloudSave(true);
+                    
+                    alert("データをローカルファイルから復元し、オンラインへ同期しました！ページを再読み込みします。");
                     location.reload();
                 } catch (err) {
                     alert("復元に失敗しました。正しいファイルを選択してください。");
@@ -79,7 +89,8 @@ const DataManager = {
     async authenticate(action, username, password) {
         if (!username || !password) return alert("ユーザー名とパスワードを入力してください");
         try {
-            // 新規ログイン時も、もし現在ログイン中の人がいれば念のため自動保存しておく
+            // ✨【追加】新規ログイン・アカウント追加リクエストを投げる「直前」に今のローカルデータを緊急バックアップ
+            console.log("googlo: アカウント認証・追加の直前バックアップを実行中...");
             await this.cloudSave(true);
 
             const response = await fetch('/api/auth', {
@@ -319,7 +330,7 @@ const DataManager = {
         accountBtn.onclick = () => this.toggleModal(true, false);
         container.appendChild(accountBtn);
 
-        // 📥 【復活】ファイルから復元ボタン（常時表示、ログイン不要）
+        // 📥 ファイルから復元ボタン（常時表示、ログイン不要）
         const importBtn = document.createElement('div');
         importBtn.className = 'nav-item';
         importBtn.style = "color:#FF9800; cursor:pointer; margin-bottom:8px; padding-left:5px;";
@@ -327,7 +338,7 @@ const DataManager = {
         importBtn.onclick = () => this.import();
         container.appendChild(importBtn);
 
-        // 📤 【復活】ファイルに保存ボタン（常時表示、ログイン不要）
+        // 📤 ファイルに保存ボタン（常時表示、ログイン不要）
         const exportBtn = document.createElement('div');
         exportBtn.className = 'nav-item';
         exportBtn.style = "color:#e91e63; cursor:pointer; margin-bottom:8px; padding-left:5px;";
@@ -360,8 +371,50 @@ const DataManager = {
     }
 };
 
+// 💡【強力フック】app.jsに一切触れず、localStorageの変更を傍受して自動保存するロジック
+(function() {
+    const originalSetItem = localStorage.setItem;
+    const originalRemoveItem = localStorage.removeItem;
+    const targetKeys = ['yt_subs', 'yt_my_playlists', 'yt_watchlater', 'yt_history'];
+
+    localStorage.setItem = function(key, value) {
+        // 現在の履歴件数を取得しておく（履歴削除の判定用）
+        let oldHistoryLength = 0;
+        if (key === 'yt_history') {
+            try { oldHistoryLength = JSON.parse(localStorage.getItem('yt_history') || '[]').length; } catch(e){}
+        }
+
+        originalSetItem.apply(this, arguments);
+
+        // DataManager自身がデータ反映・削除中の時は自動保存をスキップ
+        if (DataManager._isSyncing) return;
+
+        if (targetKeys.includes(key)) {
+            // 動画の視聴完了（履歴追加）で無駄な保存が走らないようにガードする
+            if (key === 'yt_history') {
+                try {
+                    const newHistoryLength = JSON.parse(value || '[]').length;
+                    // 件数が減った（＝削除された）時だけ自動保存する
+                    if (newHistoryLength >= oldHistoryLength && oldHistoryLength !== 0) return;
+                } catch(e) { return; }
+            }
+            
+            // 条件をクリアしたら無言で自動クラウド保存
+            DataManager.cloudSave(true);
+        }
+    };
+
+    localStorage.removeItem = function(key) {
+        originalRemoveItem.apply(this, arguments);
+        if (DataManager._isSyncing) return;
+        if (targetKeys.includes(key)) {
+            DataManager.cloudSave(true);
+        }
+    };
+})();
+
 // ページ読み込み完了時の自動トリガー処理
 window.addEventListener('DOMContentLoaded', () => {
-    // 💡 【修正】入った瞬間にサーバーと勝手に繋ぐ（cloudLoadする）コードを完全消去しました。
+    // 💡 入った瞬間に勝手に cloudLoad するバグコードは完全除去された状態をキープ
     setTimeout(() => { DataManager.injectUI(); }, 500);
 });
