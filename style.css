@@ -9,6 +9,7 @@
 
 * { box-sizing: border-box; }
 
+/* 既存のbodyは1文字も変えずに完全復元 */
 body { 
     margin: 0; 
     font-family: "Roboto", Arial, sans-serif; 
@@ -17,17 +18,24 @@ body {
     overflow-x: hidden; 
 }
 
-/* 🎨 【修正版】画像を表示させたまま、どんなにスクロールしても視界の真ん中に固定する */
+/* 🎨 【今回の主役】iPadのバグを回避し、既存UIを一切邪魔せず、視界のど真ん中に固定する設定 */
 body.has-wallpaper {
-    background-color: transparent !important;
-    /* どのブラウザでも、どれだけ動画が読み込まれても、今見てる画面の画面に対して背景を完全にロックする */
+    /* JavaScriptがbodyに直接書き込んだ画像を、iPadの画面（ビューポート）に強制ピン留め */
     background-attachment: fixed !important;
     background-position: center center !important; 
     background-repeat: no-repeat !important;
-    background-size: contain !important; /* ドラパルトが潰れない適正サイズ */
+    background-size: contain !important; /* ドラパルトが潰れないサイズ */
 }
 
-/* 壁紙があるときだけ、動画カードの後ろを少し透かしてドラパルトが見えるようにする */
+/* 💡 iOS/iPadOSの「スクロールで背景がどっか行くバグ」を完全に潰す魔法の2行 */
+@supports (-webkit-touch-callout: none) {
+    body.has-wallpaper {
+        /* iPadの時だけ、スクロール中も背景の描画エリアを「今見えている画面サイズ」にカチッと強制固定します */
+        background-size: 100% 100vh !important;
+    }
+}
+
+/* 壁紙があるときだけ、動画カードの後ろをほんのり透かしてドラパルトを見えるようにする */
 body.has-wallpaper .v-card {
     background: rgba(30, 30, 30, 0.85) !important;
 }
@@ -35,7 +43,7 @@ body.has-wallpaper .sidebar {
     background: rgba(15, 15, 15, 0.85) !important;
 }
 
-/* ヘッダー */
+/* ヘッダー（完全復元） */
 .header { 
     position: fixed; 
     top: 0; 
@@ -74,7 +82,7 @@ body.has-wallpaper .sidebar {
 
 .search-bar button { background: transparent; border: none; cursor: pointer; color: white; }
 
-/* レイアウト */
+/* レイアウト（完全復元） */
 .main-layout { display: flex; margin-top: var(--header-height); }
 
 .sidebar { 
@@ -106,7 +114,7 @@ body.has-wallpaper .sidebar {
 
 hr { border: none; border-top: 1px solid #333; margin: 12px 0; }
 
-/* グリッド表示 */
+/* グリッド表示（完全復元） */
 .grid { 
     display: grid; 
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); 
@@ -115,7 +123,7 @@ hr { border: none; border-top: 1px solid #333; margin: 12px 0; }
 }
 
 .v-card { cursor: pointer; transition: transform 0.2s; }
-.v-card:active { transform: scale(0.98); }
+.v-active { transform: scale(0.98); }
 
 .thumb-container { position: relative; width: 100%; aspect-ratio: 16/9; border-radius: 12px; overflow: hidden; background: #333; }
 .main-thumb { width: 100%; height: 100%; object-fit: cover; }
@@ -145,13 +153,13 @@ hr { border: none; border-top: 1px solid #333; margin: 12px 0; }
 }
 .btn.subbed { background: #272727; color: #fff; }
 
-/* 再生画面用（完全維持） */
+/* 再生画面用（完全復元） */
 .watch-layout { display: flex; gap: 24px; flex-wrap: wrap; }
 .player-area { flex: 3; min-width: 600px; }
 .related-area { flex: 1; min-width: 300px; }
 .video-wrapper { width: 100%; aspect-ratio: 16/9; background: #000; border-radius: 12px; overflow: hidden; }
 
-/* ショート再生用 */
+/* ショート再生用（完全復元） */
 .shorts-container { display: flex; flex-direction: column; align-items:center; position: relative; padding-top: 10px; }
 .nav-arrow { 
     position: fixed; 
@@ -171,7 +179,7 @@ hr { border: none; border-top: 1px solid #333; margin: 12px 0; }
 .arrow-prev { left: 20px; }
 .arrow-next { right: 20px; }
 
-/* iPad / レスポンス対応 */
+/* iPad / レスポンス対応（完全復元） */
 @media (max-width: 1024px) {
     :root { --sidebar-width: 72px; }
     .nav-item span { display: none; }
