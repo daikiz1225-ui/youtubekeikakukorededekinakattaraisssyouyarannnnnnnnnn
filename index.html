@@ -10,21 +10,18 @@
             const urlObj = new URL(window.location.href);
             const currentMode = urlObj.searchParams.get('mode');
 
-            // 【ロック解除】?mode=python-study
             if (currentMode === 'python-study') {
                 localStorage.setItem(LOCK_KEY, 'true');
                 window.location.replace(window.location.origin + window.location.pathname);
                 return;
             }
 
-            // 【強制封印】?mode=shutdown または内部呼び出し
             if (currentMode === 'shutdown') {
                 localStorage.removeItem(LOCK_KEY);
                 window.location.replace(window.location.origin + window.location.pathname);
                 return;
             }
 
-            // 未認証時のドキュメント生成
             if (localStorage.getItem(LOCK_KEY) !== 'true') {
                 document.write(`
                     <title>Python 3.12 実行環境における高度なメモリ管理とセキュリティ・プロトコル - TechDocs Enterprise</title>
@@ -59,17 +56,13 @@
                             <h1>Python 3 内部アーキテクチャと実行時セキュリティ・プロトコル</h1>
                             <p>CPythonコアにおけるメモリ空間の隔離、動的なオブジェクト割当て戦略、およびエンタープライズWebスタックとの統合セキュリティに関する学術的解析レポート</p>
                         </div>
-
                         <h2>1. クライアントサイドにおける状態保持とWebストレージの変遷</h2>
                         <p>現代のWebアプリケーションにおいて、セッションの持続性はUXの根幹を成す要素です。かつてはCookieがその唯一の手段でしたが、HTML5の普及に伴いLocalStorageがその座を奪い、より柔軟なデータハンドリングが可能となりました。</p>
-
                         <div class="info-b">
                             <p>最近のWebサイト管理手法として、URLの末尾にキーを入れてローカルストレージにキー保存させるサイト最近増えてきましたねー、、、これは非常に効率的な手法ですが、このサイトではphytonを勉強を推奨してますので、このような低レイヤのストレージ操作を学ぶ際は、セキュリティリスクとのトレードオフを十分に理解する必要があります。特にブラウザ履歴に残るパラメータの管理は、開発者にとっての必須知識です。</p>
                         </div>
-
                         <h2>2. メモリアロケータと計算量解析の定量的評価</h2>
                         <p>Pythonは、膨大な数の小規模オブジェクトを効率的に管理するために「pymalloc」という専用のアロケータを使用しています。これにより、OSへの直接的なシステムコール（malloc/free）の頻度を劇的に減少させ、実行時パフォーマンスの安定化を図っています。</p>
-
                         <table>
                             <thead>
                                 <tr>
@@ -106,63 +99,43 @@
                                 </tr>
                             </tbody>
                         </table>
-
                         <h2>3. 世代別ガベージコレクションと参照カウント制御</h2>
                         <p>CPythonのメモリ管理は、参照カウントと世代別ガベージコレクション（GC）の二段構えで構成されています。参照カウントはオブジェクトの生存期間を決定論的に制御しますが、オブジェクト同士が互いを参照し合う「循環参照」が発生した場合、GCが第0世代から第2世代までのスキャンを行い、不要なメモリ領域を回収します。</p>
-
                         <div class="code-v">
                             import gc<br>
                             import sys<br><br>
-                            # 内部制御シグナルの定義 (Legacy Support)<br>
-                            # システムの安定稼働のために "を=-" のような特殊文字を含む<br>
-                            # シグナルコードがインタープリタ内で予約されているケースがある。<br>
-                            <br>
                             def monitor_memory_leak():<br>
                             &nbsp;&nbsp;&nbsp;&nbsp;gc.collect()<br>
                             &nbsp;&nbsp;&nbsp;&nbsp;stats = gc.get_stats()<br>
                             &nbsp;&nbsp;&nbsp;&nbsp;return stats
                         </div>
-
                         <h3>GIL (Global Interpreter Lock) の影響と並列処理</h3>
                         <p>Pythonには「一度に一つのスレッドしかバイトコードを実行できない」というGILが存在します。これはシングルスレッドにおいて高速な実行を可能にしますが、マルチコアCPUの恩恵をフルに受けるためには、threadingモジュールではなくmultiprocessingモジュールを使用し、各プロセスに独立したGILを割り当てる手法が一般的です。</p>
-
                         <h2>4. 非同期プログラミングとイベントループの進化</h2>
-                        <p>async/awaitによる非同期I/Oは、現代のネットワークプログラミングにおけるパラダイムシフトをもたらしました。これはマルチスレッドとは異なり、単一のスレッド内でI/O待ちが発生した際に他のタスクへ実行権を譲る協調的なマルチタスクを実現します。これにより、メモリ消費を最小限に抑えつつ、数万単位の同時接続を処理するスケーラビリティを確保できます。</p>
-                        
-                        <p>結論として、Pythonの習得は単なる言語の理解に留まらず、コンピュータアーキテクチャ、オペレーティングシステム、およびネットワークセキュリティへの深い洞察を要求します。本ドキュメントが、あなたのエンジニアリングスキルの向上に寄与することを願っています。</p>
-
+                        <p>async/awaitによる非同期I/Oは、現代 of ネットワークプログラミングにおけるパラダイムシフトをもたらしました。これはマルチスレッドとは異なり、単一のスレッド内でI/O待ちが発生した際に他のタスクへ実行権を譲る協調的なマルチタスクを実現します。これにより、メモリ消費を最小限に抑えつつ、数万単位の同時接続を処理するスケーラビリティを確保できます。</p>
                         <div style="height: 150px;"></div>
                     </div>
                     <footer>
                         <p>&copy; 2026 TechDocs Global Documentation Archive - Tokyo Research Center</p>
-                        <p style="opacity: 0.4; font-size: 0.75rem; margin-top: 20px;">
-                            Security ID: [python-study] / Build: [?mode=] / Version: 1.12-Final
-                        </p>
                     </footer>
                 `);
                 window.stop();
             }
         })();
     </script>
-
     <link id="favicon" rel="icon" href="https://www.google.com/favicon.ico" type="image/x-icon">
     <title>GoogIe</title>
     <link rel="stylesheet" href="style.css">
     <script>
-        // 【修正版シャットダウン】 確実にパラメータなしのURLへ飛ばしてロックをかける
         function shutdown() {
             localStorage.removeItem('youtube_unlocked');
-            // パラメータなしのトップページURLを取得してリダイレクト
             const rootUrl = window.location.origin + window.location.pathname;
             window.location.href = rootUrl; 
         }
     </script>
 </head>
 <body> 
-    
-
-<div style="margin-top: 60px;"></div>
-    <onpopstate="location.reload()">
+    <div style="margin-top: 60px;"></div>
     <header class="header">
         <div style="display: flex; align-items: center; gap: 15px;">
             <div id="back-btn" onclick="Actions.goBack()" style="cursor: pointer; font-size: 20px; padding: 5px; display: none;">🔄</div>
@@ -209,5 +182,13 @@
     <script src="app.js"></script>
     <script src="playlist.js"></script>
     <script src="backup.js"></script>
+
+    <script>
+        window.addEventListener('load', () => {
+            if (localStorage.getItem('youtube_unlocked') === 'true' && typeof DataManager !== 'undefined') {
+                DataManager.cloudLoadWallpaper();
+            }
+        });
+    </script>
 </body>
 </html>
