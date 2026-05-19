@@ -1,5 +1,5 @@
 /**
- * backup.js - 4桁パスコードロック(スマホ風キーパッド) ＆ 自動同期フック搭載版
+ * backup.js - 4桁パスコードロック ＆ 自動同期フック搭載（データ復元バグ修正版）
  */
 const DataManager = {
     // 内部管理用の一時フラグ
@@ -17,11 +17,12 @@ const DataManager = {
         };
     },
 
-    // ローカルストレージへデータを上書き反映
+    // ローカルストレージへデータを上書き反映（古い形式でも弾かないように修正）
     applyDataToLocal(data) {
-        if (!data.yt_subs && !data.yt_my_playlists && !data.yt_watchlater) throw new Error("無効なデータ構造");
+        if (!data) return;
         
         DataManager._isSyncing = true;
+        // データが存在するときだけピンポイントで上書きする（なければスルーする安全設計）
         if (data.yt_subs) localStorage.setItem('yt_subs', JSON.stringify(data.yt_subs));
         if (data.yt_history) localStorage.setItem('yt_history', JSON.stringify(data.yt_history));
         if (data.yt_my_playlists) localStorage.setItem('yt_my_playlists', JSON.stringify(data.yt_my_playlists));
@@ -78,7 +79,7 @@ const DataManager = {
                     alert("データをローカルファイルから復元し、オンラインに同期しました！再読み込みします。");
                     location.reload();
                 } catch (err) {
-                    alert("復元に失敗しました。");
+                    alert("復元に失敗しました。ファイルの形式を確認してください。");
                 }
             };
             reader.readAsText(file);
@@ -116,12 +117,12 @@ const DataManager = {
                     localStorage.setItem('googlo_account_list', JSON.stringify(list));
                 }
 
-                // ✨ パスコードの保存（新規登録時のみ設定、無ければデフォルト「0000」）
-                let pass Map = JSON.parse(localStorage.getItem('googlo_passcodes') || '{}');
+                // タイポを修正してパスコードを安全に保存
+                let passMap = JSON.parse(localStorage.getItem('googlo_passcodes') || '{}');
                 if (action === 'signup') {
                     passMap[username] = passcodedigit;
                 } else if (!passMap[username]) {
-                    passMap[username] = "0000"; // 既存アカウント用
+                    passMap[username] = "0000"; 
                 }
                 localStorage.setItem('googlo_passcodes', JSON.stringify(passMap));
                 
@@ -161,7 +162,6 @@ const DataManager = {
         list = list.filter(user => user !== username);
         localStorage.setItem('googlo_account_list', JSON.stringify(list));
 
-        // パスコード情報の削除
         let passMap = JSON.parse(localStorage.getItem('googlo_passcodes') || '{}');
         delete passMap[username];
         localStorage.setItem('googlo_passcodes', JSON.stringify(passMap));
@@ -219,12 +219,11 @@ const DataManager = {
 
     // 📱 スマホ風の4桁数字キーパッド画面を表示するロジック
     showPasscodePad(targetUser) {
-        // すでにあるモーダルを一旦クリア
         let modal = document.getElementById('googlo-auth-modal');
         if (!modal) return;
 
         const passMap = JSON.parse(localStorage.getItem('googlo_passcodes') || '{}');
-        const correctCode = passMap[targetUser] || "0000"; // 設定がなければ0000
+        const correctCode = passMap[targetUser] || "0000"; 
 
         let currentInput = "";
 
@@ -241,7 +240,7 @@ const DataManager = {
                 </div>
 
                 <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:15px; justify-items:center; margin-bottom:15px;">
-                    ${[1,2,3,4,5,6,7,8,9].map(n => `<button class="pad-num-btn" data-num="${n}" style="width:55px; height:55px; border-radius:50%; background:#222; color:#fff; border:none; font-size:22px; font-weight:bold; cursor:pointer; active {background:#444};">${n}</button>`).join('')}
+                    ${[1,2,3,4,5,6,7,8,9].map(n => `<button class="pad-num-btn" data-num="${n}" style="width:55px; height:55px; border-radius:50%; background:#222; color:#fff; border:none; font-size:22px; font-weight:bold; cursor:pointer;">${n}</button>`).join('')}
                     <button id="pad-cancel-btn" style="width:55px; height:55px; background:transparent; color:#aaa; border:none; font-size:12px; cursor:pointer;">戻る</button>
                     <button class="pad-num-btn" data-num="0" style="width:55px; height:55px; border-radius:50%; background:#222; color:#fff; border:none; font-size:22px; font-weight:bold; cursor:pointer;">0</button>
                     <button id="pad-clear-btn" style="width:55px; height:55px; background:transparent; color:#ff5252; border:none; font-size:13px; font-weight:bold; cursor:pointer;">消去</button>
@@ -249,7 +248,6 @@ const DataManager = {
             </div>
         `;
 
-        // ドットの光り方を更新する関数
         const updateDots = () => {
             for (let i = 0; i < 4; i++) {
                 const dot = document.getElementById(`dot-${i}`);
@@ -263,20 +261,16 @@ const DataManager = {
             }
         };
 
-        // 数字ボタンを押した時の処理
         modal.querySelectorAll('.pad-num-btn').forEach(btn => {
             btn.onclick = async () => {
                 if (currentInput.length >= 4) return;
                 currentInput += btn.getAttribute('data-num');
                 updateDots();
 
-                // 4桁に達した瞬間、自動で判定
                 if (currentInput.length === 4) {
                     if (currentInput === correctCode) {
-                        // ロック解除成功！アカウント切り替え実行
                         await this.switchAccount(targetUser);
                     } else {
-                        // 間違いバイブレーションの代わりにドットを赤くするエフェクト
                         for (let i = 0; i < 4; i++) {
                             document.getElementById(`dot-${i}`).style.background = "#ff5252";
                             document.getElementById(`dot-${i}`).style.borderColor = "#ff5252";
@@ -290,7 +284,6 @@ const DataManager = {
             };
         });
 
-        // 1文字消去
         document.getElementById('pad-clear-btn').onclick = () => {
             if (currentInput.length > 0) {
                 currentInput = currentInput.slice(0, -1);
@@ -298,7 +291,6 @@ const DataManager = {
             }
         };
 
-        // キャンセルして一覧に戻る
         document.getElementById('pad-cancel-btn').onclick = () => {
             modal.remove();
             this.toggleModal(true, false);
@@ -352,7 +344,7 @@ const DataManager = {
                     subBtn.innerText = isSignUp ? "新規アカウント作成" : "ログイン";
                     subBtn.style.backgroundColor = isSignUp ? "#2196F3" : "#4CAF50";
                     swBtn.innerText = isSignUp ? "ログイン画面へ切り替え" : "新規登録画面へ切り替え";
-                    pZone.style.display = isSignUp ? "block" : "none"; // 新規作成の時だけ数字入力欄を出す
+                    pZone.style.display = isSignUp ? "block" : "none"; 
                 };
                 subBtn.onclick = () => {
                     this.authenticate(
@@ -393,7 +385,6 @@ const DataManager = {
                 document.getElementById('modal-close-btn').onclick = () => this.toggleModal(false);
                 document.getElementById('modal-btn-go-add').onclick = () => { modal.remove(); this.toggleModal(true, true); };
 
-                // アカウントをタップした時 ➔ すぐ切り替えず、スマホ風キーパッド画面へ飛ばす
                 modal.querySelectorAll('.account-item-row').forEach(row => {
                     row.onclick = () => {
                         const targetUser = row.getAttribute('data-user');
@@ -474,7 +465,7 @@ const DataManager = {
     }
 };
 
-// 💡【ヘズマ方式】app.jsを一切改造せず、データの変更を玄関前で横取りして自動同期するロジック
+// 💡【ヘズマ方式】データの変更を玄関前で横取りして自動同期するロジック
 (function() {
     const originalSetItem = localStorage.setItem;
     const originalRemoveItem = localStorage.removeItem;
@@ -512,6 +503,5 @@ const DataManager = {
 
 // ページ読み込み完了時の初期化
 window.addEventListener('DOMContentLoaded', () => {
-    // 進入時の自動クラウドロードは完全に無効化された安全な状態をキープ
     setTimeout(() => { DataManager.injectUI(); }, 500);
 });
