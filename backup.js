@@ -34,6 +34,47 @@ const DataManager = {
         localStorage.removeItem('yt_resume_list');
     },
 
+    // 📤 ローカルへのエクスポート（JSONファイルダウンロード）
+    export() {
+        try {
+            const data = this.getLocalData();
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `googlo_full_data_${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        } catch (e) {
+            console.error(e);
+            alert("エクスポートに失敗しました。");
+        }
+    },
+
+    // 📥 ローカルからのインポート（JSONファイル読み込み）
+    import() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json';
+        input.onchange = e => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = event => {
+                try {
+                    const data = JSON.parse(event.target.result);
+                    this.applyDataToLocal(data);
+                    alert("データをローカルファイルから復元しました！ページを再読み込みします。");
+                    location.reload();
+                } catch (err) {
+                    alert("復元に失敗しました。正しいファイルを選択してください。");
+                }
+            };
+            reader.readAsText(file);
+        };
+        input.click();
+    },
+
     // 🛡️ アカウント認証（サインアップ・ログイン）
     async authenticate(action, username, password) {
         if (!username || !password) return alert("ユーザー名とパスワードを入力してください");
@@ -217,7 +258,7 @@ const DataManager = {
                 accountList.forEach(user => {
                     const isActive = (user === currentUser);
                     listHTML += `
-                        <div class="account-item-row" data-user="${user}" style="display:flex; justify-content:between; align-items:center; padding:10px; margin-bottom:8px; background:${isActive ? '#2e3d30' : '#222'}; border:1px solid ${isActive ? '#4CAF50' : '#444'}; border-radius:6px; cursor:pointer; transition:background 0.2s;">
+                        <div class="account-item-row" data-user="${user}" style="display:flex; justify-content:space-between; align-items:center; padding:10px; margin-bottom:8px; background:${isActive ? '#2e3d30' : '#222'}; border:1px solid ${isActive ? '#4CAF50' : '#444'}; border-radius:6px; cursor:pointer; transition:background 0.2s;">
                             <div style="flex-grow:1; font-size:14px; display:flex; align-items:center; color:#fff;">
                                 <span style="margin-right:8px; font-size:16px;">${isActive ? '🟢' : '👤'}</span>
                                 <strong>${user}</strong> ${isActive ? '<span style="font-size:11px; color:#4CAF50; margin-left:5px;">(使用中)</span>' : ''}
@@ -266,6 +307,7 @@ const DataManager = {
 
         const currentUser = localStorage.getItem('googlo_logged_in_user');
 
+        // アカウント設定モーダルボタン
         const accountBtn = document.createElement('div');
         accountBtn.className = 'nav-item';
         accountBtn.style = "color:#fff; cursor:pointer; margin-bottom:8px;";
@@ -276,6 +318,22 @@ const DataManager = {
         }
         accountBtn.onclick = () => this.toggleModal(true, false);
         container.appendChild(accountBtn);
+
+        // 📥 【復活】ファイルから復元ボタン（常時表示、ログイン不要）
+        const importBtn = document.createElement('div');
+        importBtn.className = 'nav-item';
+        importBtn.style = "color:#FF9800; cursor:pointer; margin-bottom:8px; padding-left:5px;";
+        importBtn.innerHTML = `📥 <span style="font-size:12px; font-weight:bold;">ファイルから復元</span>`;
+        importBtn.onclick = () => this.import();
+        container.appendChild(importBtn);
+
+        // 📤 【復活】ファイルに保存ボタン（常時表示、ログイン不要）
+        const exportBtn = document.createElement('div');
+        exportBtn.className = 'nav-item';
+        exportBtn.style = "color:#e91e63; cursor:pointer; margin-bottom:8px; padding-left:5px;";
+        exportBtn.innerHTML = `📤 <span style="font-size:12px; font-weight:bold;">ファイルに保存</span>`;
+        exportBtn.onclick = () => this.export();
+        container.appendChild(exportBtn);
 
         if (currentUser) {
             const saveBtn = document.createElement('div');
@@ -294,7 +352,7 @@ const DataManager = {
         } else {
             const infoText = document.createElement('div');
             infoText.style = "color:#555; font-size:11px; padding:4px 5px; line-height:1.3;";
-            infoText.innerText = "※ログインするとここにオンライン保存・復元ボタンが出現します。";
+            infoText.innerText = "※ログインするとオンライン保存・復元ボタンが出現します。";
             container.appendChild(infoText);
         }
 
@@ -304,8 +362,6 @@ const DataManager = {
 
 // ページ読み込み完了時の自動トリガー処理
 window.addEventListener('DOMContentLoaded', () => {
-    if (localStorage.getItem('googlo_logged_in_user')) {
-        DataManager.cloudLoad(true);
-    }
+    // 💡 【修正】入った瞬間にサーバーと勝手に繋ぐ（cloudLoadする）コードを完全消去しました。
     setTimeout(() => { DataManager.injectUI(); }, 500);
 });
