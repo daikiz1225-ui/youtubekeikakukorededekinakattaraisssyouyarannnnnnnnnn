@@ -1,5 +1,5 @@
 /**
- * backup.js - パスコードロック ＆ 自動同期フック搭載（透過性能アップ対応版）
+ * backup.js - パスコードロック ＆ 自動同期フック搭載（完全不動・追従壁紙仕様対応）
  */
 const DataManager = {
     // 内部管理用の一時フラグ
@@ -39,7 +39,7 @@ const DataManager = {
         localStorage.removeItem('yt_watchlater');
         localStorage.removeItem('yt_resume_list');
         DataManager._isSyncing = false;
-        // ✅ 壁紙のクリーンアップを追加
+        // 壁紙のクリーンアップ
         document.body.style.backgroundImage = '';
         document.body.classList.remove('has-wallpaper');
     },
@@ -127,7 +127,7 @@ const DataManager = {
                 localStorage.setItem('googlo_passcodes', JSON.stringify(passMap));
                 
                 await this.cloudLoad(true);
-                // ✅ 壁紙もクラウドからダウンロード
+                // 壁紙もクラウドからダウンロード
                 await this.cloudLoadWallpaper();
                 location.reload();
             } else {
@@ -138,7 +138,7 @@ const DataManager = {
         }
     },
 
-    // 🔄 アカウントを切り替える機能（不動壁紙適用版）
+    // 🔄 アカウントを切り替える機能（不動・追従壁紙適用版）
     async switchAccount(username) {
         const currentUser = localStorage.getItem('googlo_logged_in_user');
         
@@ -150,7 +150,7 @@ const DataManager = {
         this.clearYoutubeDataOnly();
         localStorage.setItem('googlo_logged_in_user', username);
         await this.cloudLoad(true);
-        // ✅ 新しいユーザーの壁紙をクラウドからロード
+        // 新しいユーザーの壁紙をクラウドからロード
         await this.cloudLoadWallpaper();
 
         alert(`${username} に切り替えました！`);
@@ -340,7 +340,7 @@ const DataManager = {
         document.getElementById('pad-close').onclick = () => { modal.remove(); this.toggleModal(true, false); };
     },
 
-    // 画面中央ポップアップ（マルチアカウント仕様 ＆ 不動壁紙変更機能追加）
+    // 画面中央ポップアップ（マルチアカウント仕様 ＆ 完全不動壁紙変更機能追加）
     toggleModal(show, showAddForm = false) {
         let modal = document.getElementById('googlo-auth-modal');
         if (!modal && show) {
@@ -352,22 +352,21 @@ const DataManager = {
             const accountList = JSON.parse(localStorage.getItem('googlo_account_list') || '[]');
 
             if (showAddForm || accountList.length === 0) {
-                // ... (新規登録フォーム、パスコード設定を含む。透過性能アップ)
                 modal.innerHTML = `
-                    <div style="background:#111; padding:25px; border-radius:16px; border:1px solid #333; width:320px; color:#fff; position:relative; box-shadow:0 10px 40px rgba(0,0,0,0.8);">
-                        <div id="modal-close-btn" style="position:absolute; top:15px; right:20px; cursor:pointer; color:#aaa; font-size:20px; font-weight:bold;">&times;</div>
-                        <h3 id="modal-title" style="margin:0 0 15px 0; font-size:18px; border-bottom:1px solid #333; padding-bottom:5px; text-align:center;">💻 アカウントを追加</h3>
-                        <input type="text" id="modal-user" placeholder="ユーザー名" style="width:100%; margin-bottom:10px; background:#222; color:#fff; border:1px solid #444; padding:10px; border-radius:6px; box-sizing:border-box; outline:none;">
-                        <input type="password" id="modal-pass" placeholder="パスワード" style="width:100%; margin-bottom:10px; background:#222; color:#fff; border:1px solid #444; padding:10px; border-radius:6px; box-sizing:border-box; outline:none;">
+                    <div style="background:#1a1a1a; padding:25px; border-radius:12px; border:1px solid #333; width:320px; color:#fff; position:relative; box-shadow:0 4px 20px rgba(0,0,0,0.5);">
+                        <div id="modal-close-btn" style="position:absolute; top:10px; right:15px; cursor:pointer; color:#aaa; font-size:18px;">&times;</div>
+                        <h3 id="modal-title" style="margin:0 0 15px 0; font-size:16px; border-bottom:1px solid #333; padding-bottom:5px;">💻 アカウントを追加</h3>
+                        <input type="text" id="modal-user" placeholder="ユーザー名" style="width:100%; margin-bottom:10px; background:#2a2a2a; color:#fff; border:1px solid #444; padding:8px; border-radius:4px; box-sizing:border-box;">
+                        <input type="password" id="modal-pass" placeholder="パスワード" style="width:100%; margin-bottom:10px; background:#2a2a2a; color:#fff; border:1px solid #444; padding:8px; border-radius:4px; box-sizing:border-box;">
                         
                         <div id="passcode-setup-zone" style="display:none; background:#222; padding:10px; border-radius:6px; margin-bottom:15px; border:1px solid #444;">
                             <label style="font-size:11px; color:#4CAF50; font-weight:bold; display:block; margin-bottom:5px;">🔒 切り替え用パスコード (数字4桁)</label>
-                            <input type="text" id="modal-passcode" placeholder="例: 1234" maxlength="4" style="width:100%; background:#111; color:#fff; border:1px solid #555; padding:8px; border-radius:4px; text-align:center; font-weight:bold; letter-spacing:5px; box-sizing:border-box; outline:none;">
+                            <input type="text" id="modal-passcode" placeholder="例: 1234" maxlength="4" style="width:100%; background:#111; color:#fff; border:1px solid #555; padding:8px; border-radius:4px; text-align:center; font-weight:bold; letter-spacing:5px; box-sizing:border-box;">
                         </div>
 
-                        <button id="modal-btn-submit" style="width:100%; background:#4CAF50; color:white; border:none; padding:10px; border-radius:6px; font-weight:bold; cursor:pointer; margin-bottom:8px;">ログイン</button>
-                        <button id="modal-btn-switch" style="width:100%; background:#222; color:white; border:1px solid #444; padding:10px; border-radius:6px; cursor:pointer; margin-bottom:8px; font-size:12px;">新規登録画面へ切り替え</button>
-                        ${accountList.length > 0 ? `<button id="modal-btn-back" style="width:100%; background:transparent; color:#aaa; border:none; padding:5px; cursor:pointer; display:block; margin:5px auto; font-size:12px;">アカウント一覧に戻る</button>` : ''}
+                        <button id="modal-btn-submit" style="width:100%; background:#4CAF50; color:white; border:none; padding:8px; border-radius:4px; font-weight:bold; cursor:pointer; margin-bottom:8px;">ログイン</button>
+                        <button id="modal-btn-switch" style="width:100%; background:#555; color:white; border:none; padding:8px; border-radius:4px; cursor:pointer; margin-bottom:8px;">新規登録画面へ切り替え</button>
+                        ${accountList.length > 0 ? `<button id="modal-btn-back" style="width:100%; background:#333; color:white; border:1px solid #555; padding:8px; border-radius:4px; cursor:pointer;">アカウント一覧に戻る</button>` : ''}
                     </div>
                 `;
                 document.body.appendChild(modal);
@@ -403,36 +402,36 @@ const DataManager = {
                 accountList.forEach(user => {
                     const isActive = (user === currentUser);
                     listHTML += `
-                        <div class="account-item-clickable" data-user="${user}" style="display:flex; justify-content:space-between; align-items:center; padding:12px; margin-bottom:10px; background:${isActive ? 'rgba(76, 175, 80, 0.2)' : '#222'}; border:1px solid ${isActive ? '#4CAF50' : '#444'}; border-radius:10px; cursor:pointer; transition:background 0.2s, transform 0.2s active;">
+                        <div class="account-item-row" data-user="${user}" style="display:flex; justify-content:space-between; align-items:center; padding:10px; margin-bottom:8px; background:${isActive ? '#2e3d30' : '#222'}; border:1px solid ${isActive ? '#4CAF50' : '#444'}; border-radius:6px; cursor:pointer; transition:background 0.2s;">
                             <div style="flex-grow:1; font-size:14px; display:flex; align-items:center; color:#fff;">
-                                <span style="margin-right:10px; font-size:18px;">👤</span>
-                                <strong>${user}</strong> ${isActive ? '<span style="font-size:11px; color:#4CAF50; margin-left:8px;">(使用中)</span>' : ''}
+                                <span style="margin-right:8px; font-size:16px;">${isActive ? '🟢' : '🔒'}</span>
+                                <strong>${user}</strong> ${isActive ? '<span style="font-size:11px; color:#4CAF50; margin-left:5px;">(使用中)</span>' : ''}
                             </div>
-                            <button class="individual-logout-btn" data-user="${user}" style="background:transparent; color:#ff5252; border:none; font-size:12px; cursor:pointer; padding:5px 8px; border-radius:6px; font-weight:bold;">ログアウト</button>
+                            <button class="individual-logout-btn" data-user="${user}" style="background:transparent; color:#ff5252; border:none; font-size:12px; cursor:pointer; padding:5px 8px; border-radius:4px; font-weight:bold;">ログアウト</button>
                         </div>
                     `;
                 });
 
-                // ✅ 壁紙変更UIを統合したマルチアカウント一覧画面（透過性能アップ）
+                // ✅ 壁紙変更UIを統合したマルチアカウント一覧画面（ボタン透過性能アップ版）
                 modal.innerHTML = `
-                    <div style="background:#111; padding:25px; border-radius:16px; border:1px solid #333; width:340px; color:#fff; position:relative; box-shadow:0 10px 40px rgba(0,0,0,0.8);">
-                        <div id="modal-close-btn" style="position:absolute; top:15px; right:20px; cursor:pointer; color:#aaa; font-size:20px; font-weight:bold;">&times;</div>
-                        <h3 style="margin:0 0 18px 0; font-size:18px; border-bottom:1px solid #333; padding-bottom:5px; text-align:center;">💻 アカウントの切り替え</h3>
+                    <div style="background:#1a1a1a; padding:25px; border-radius:8px; border:1px solid #333; width:340px; color:#fff; position:relative; box-shadow:0 4px 20px rgba(0,0,0,0.5);">
+                        <div id="modal-close-btn" style="position:absolute; top:10px; right:15px; cursor:pointer; color:#aaa; font-size:18px;">&times;</div>
+                        <h3 style="margin:0 0 15px 0; font-size:16px; border-bottom:1px solid #333; padding-bottom:5px;">💻 アカウントの切り替え</h3>
                         
-                        <div style="max-height:220px; overflow-y:auto; margin-bottom:20px; padding-right:5px;">
+                        <div style="max-height:180px; overflow-y:auto; margin-bottom:15px; padding-right:5px;">
                             ${listHTML}
                         </div>
 
                         ${currentUser ? `
-                        <div style="margin-bottom:15px; padding:12px; background:#222; border-radius:10px; border:1px solid #333;">
-                            <div style="font-size:12px; font-weight:bold; color:#ff9800; margin-bottom:8px; text-align:center;">🎨 このアカウントの壁紙変更 (不動設定)</div>
+                        <div style="margin-bottom:15px; padding:10px; background:#222; border-radius:6px; border:1px solid #333;">
+                            <div style="font-size:12px; font-weight:bold; color:#ff9800; margin-bottom:6px; text-align:center;">🎨 このアカウントの壁紙変更 (追従仕様)</div>
                             <input type="file" id="wallpaper-input" accept="image/*" style="display:none;">
-                            <button id="wallpaper-select-btn" style="width:100%; background:linear-gradient(135deg, #ff9800, #e65100); color:#000; border:none; padding:8px; border-radius:6px; font-weight:bold; cursor:pointer; font-size:12px; box-shadow:0 2px 5px rgba(0,0,0,0.3);">お気に入りの写真を選択</button>
-                            <div style="font-size:10px; color:#aaa; text-align:center; margin-top:5px; line-height:1.4;">※ドアップ・ぼやけ・見切れなしで、画面の中央にそのまま表示されます。動かない固定背景です。</div>
+                            <button id="wallpaper-select-btn" style="width:100%; background:#ff9800; color:#000; border:none; padding:8px; border-radius:4px; font-weight:bold; cursor:pointer; font-size:12px;">お気に入りの写真を選択</button>
+                            <div style="font-size:10px; color:#aaa; text-align:center; margin-top:5px; line-height:1.4;">※ドアップ・ぼやけなしで、画面全体の奥に固定され、ずっと真正面に表示されます。</div>
                         </div>
                         ` : ''}
                         
-                        <button id="modal-btn-go-add" style="width:100%; background:transparent; color:#2196F3; border:1px solid #2196F3; padding:10px; border-radius:6px; font-weight:bold; cursor:pointer; font-size:13px; transition:background 0.2s, color 0.2s active;">➕ 別のアカウントを追加する</button>
+                        <button id="modal-btn-go-add" style="width:100%; background:#2196F3; color:white; border:none; padding:10px; border-radius:4px; font-weight:bold; cursor:pointer; font-size:13px;">➕ 別のアカウントを追加する</button>
                     </div>
                 `;
                 document.body.appendChild(modal);
@@ -456,15 +455,11 @@ const DataManager = {
                 }
 
                 // アカウントクリック時のセキュリティロック起動
-                modal.querySelectorAll('.account-item-clickable').forEach(row => {
+                modal.querySelectorAll('.account-item-row').forEach(row => {
                     row.onclick = (e) => {
-                        // ログアウトボタンなら何もしない
                         if(e.target.classList.contains('individual-logout-btn')) return;
-                        
                         const targetUser = row.getAttribute('data-user');
                         if (targetUser === currentUser) return; // 使用中なら何もしない
-                        
-                        // 切り替え時はセキュリティロック画面を起動！
                         modal.remove();
                         this.showPasscodePad(targetUser);
                     };
@@ -539,7 +534,7 @@ const DataManager = {
     }
 };
 
-// 💡【ヘズマ方式】app.jsに一切触れず、localStorageの変更を傍受して自動保存するロジック（そのまま）
+// 💡【ヘズマ方式】app.jsに一切触れず、localStorageの変更を傍受して自動保存するロジック（ 그대로）
 (function() {
     const originalSetItem = localStorage.setItem;
     const originalRemoveItem = localStorage.removeItem;
