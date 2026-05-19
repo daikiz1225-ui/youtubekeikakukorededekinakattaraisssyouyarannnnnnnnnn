@@ -895,8 +895,8 @@ const Actions = {
                     </div>
                     
                     <div id="ch-sort-container" style="display:flex; gap:20px; margin-bottom:10px;">
-                        <div id="ch-sort-date" class="ch-sort-btn" onclick="Actions.changeChSort('${chId}', 'date')" style="padding:10px 25px; font-size:15px; font-weight:bold; border-radius:20px; cursor:pointer; transition:all 0.3s ease;">🕒 最新順</div>
-                        <div id="ch-sort-viewCount" class="ch-sort-btn" onclick="Actions.changeChSort('${chId}', 'viewCount')" style="padding:10px 25px; font-size:15px; font-weight:bold; border-radius:20px; cursor:pointer; transition:all 0.3s ease;">🔥 人気順</div>
+                        <div id="ch-sort-date" class="ch-sort-btn" onclick="Actions.fetchChData('${chId}', 'date')" style="padding:10px 25px; font-size:15px; font-weight:bold; border-radius:20px; cursor:pointer; transition:all 0.3s ease;">🕒 最新の投稿順</div>
+                        <div id="ch-sort-viewCount" class="ch-sort-btn" onclick="Actions.fetchChData('${chId}', 'viewCount')" style="padding:10px 25px; font-size:15px; font-weight:bold; border-radius:20px; cursor:pointer; transition:all 0.3s ease;">🔥 人気の動画順</div>
                     </div>
                 </div>
             </div>
@@ -959,23 +959,19 @@ const Actions = {
         }
     },
 
-    async fetchChData(chId) {
+    async fetchChData(chId, order = 'date') {
+        this.chState.sort = order;
+        this.updateChUI();
+        
         const grid = document.getElementById('channel-content-grid');
         grid.innerHTML = "<div style='padding:40px; text-align:center;'>読込中...</div>";
 
         if (this.chState.type === 'videos') {
             this.currentView = "channel";
-            // 修正: qパラメータのAPI除外検索をやめ、全取得後にJavaScriptでフィルタリング
             this.currentParams = { channelId: chId, part: 'snippet', type: 'video', order: this.chState.sort, maxResults: 24 };
             const data = await YT.fetchAPI('search', this.currentParams);
             let items = data.items || [];
             this.nextToken = data.nextPageToken || "";
-            
-            // クライアント側で #shorts を含むタイトルを除外
-            items = items.filter(item => {
-                const title = item.snippet?.title?.toLowerCase() || '';
-                return !title.includes('#shorts') && !title.includes('shorts');
-            });
             
             this.currentList = items;
             await this.fillStats(this.currentList);
@@ -983,7 +979,6 @@ const Actions = {
             
         } else if (this.chState.type === 'shorts') {
             this.currentView = "channel_shorts";
-            // 修正: videoDuration='short' だけでショート動画を抽出
             this.currentParams = { channelId: chId, part: 'snippet', type: 'video', videoDuration: 'short', order: this.chState.sort, maxResults: 24 };
             const data = await YT.fetchAPI('search', this.currentParams);
             this.currentList = data.items || []; 
@@ -1129,107 +1124,12 @@ window.onload = async () => {
     Actions.init(); 
     await YT.refreshEduKey(); 
     Actions.routeCurrentUrl();
-
-    // ==========================================
-// ☁️ Upstash Redis を使ったアカウント・同期機能
-// ==========================================
-const { Redis } = require('@upstash/redis');
-const crypto = require('crypto');
-
-// 環境変数から自動でUpstashに接続
-const kv = Redis.fromEnv();
-
-// JSONを受け取れるようにする設定（もしファイルの上のほうに既に無ければ必須）
-app.use(express.json());
-
-// パスワードを暗号化する関数
-const hashPassword = (pwd) => {
-    return crypto.createHmac('sha256', 'super-secret-key').update(pwd).digest('hex');
 };
 
-// 【1. アカウント作成 ＆ ログイン API】
-app.post('/api/auth', async (req, res) => {
-    const { action, username, password } = req.body;
-
-    if (!username || !password) {
-        return res.status(400).json({ error: "ユーザー名とパスワードを入力してください" });
-    }
-
-    // 新規登録
-    if (action === 'signup') {
-        try {
-            const exists = await kv.exists(`user:${username}`);
-            if (exists) {
-                return res.status(400).json({ error: "このユーザー名は既に使われています" });
-            }
-
-            const hashedPassword = hashPassword(password);
-            await kv.set(`user:${username}`, { password: hashedPassword });
-
-            return res.json({ success: true, message: "アカウントを作成しました！" });
-        } catch (error) {
-            console.error(error);
-            return res.status(500).json({ error: "サーバーエラーが発生しました" });
-        }
-    }
-
-    // ログイン
-    if (action === 'login') {
-        try {
-            const userData = await kv.get(`user:${username}`);
-            if (!userData) {
-                return res.status(400).json({ error: "ユーザー名またはパスワードが違います" });
-            }
-
-            const hashedPassword = hashPassword(password);
-            if (userData.password !== hashedPassword) {
-                return res.status(400).json({ error: "ユーザー名またはパスワードが違います" });
-            }
-
-            return res.json({ success: true, username: username });
-        } catch (error) {
-            console.error(error);
-            return res.status(500).json({ error: "サーバーエラーが発生しました" });
-        }
-    }
-
-    return res.status(400).json({ error: "無効なアクションです" });
-});
-
-// 【2. クラウドデータ同期 API】
-app.post('/api/sync', async (req, res) => {
-    const { username, action, backupData } = req.body;
-
-    if (!username) {
-        return res.status(400).json({ error: "ログインが必要です" });
-    }
-
-    // 保存
-    if (action === 'save') {
-        try {
-            await kv.set(`user:${username}:data`, backupData);
-            return res.json({ success: true, message: "クラウドにデータを保存しました！" });
-        } catch (error) {
-            console.error(error);
-            return res.status(500).json({ error: "データの保存に失敗しました" });
-        }
-    }
-
-    // 読み込み
-    if (action === 'load') {
-        try {
-            const data = await kv.get(`user:${username}:data`);
-            if (!data) {
-                return res.status(404).json({ error: "保存されたデータがありません" });
-            }
-            return res.json(data);
-        } catch (error) {
-            console.error(error);
-            return res.status(500).json({ error: "データの読み込みに失敗しました" });
-        }
-    }
-
-    return res.status(400).json({ error: "無効なアクションです" });
-});
-};
-
+// ゲーム起動関数群
+function startTetris() { if (typeof initTetris === 'function') initTetris(); else Actions.showStatusNotification("エラー"); }
+function startSnake() { if (typeof initSnake === 'function') initSnake(); else Actions.showStatusNotification("エラー"); }
+function startReversi() { if (typeof initReversi === 'function') initReversi(); else Actions.showStatusNotification("エラー"); }
+function startShogi() { if (typeof initShogi === 'function') initShogi(); else Actions.showStatusNotification("エラー"); }
+function startBlockBlast() { if (typeof initBlock === 'function') initBlock(); else Actions.showStatusNotification("エラー"); }
+function start2048() { if (typeof init2048 === 'function') init2048(); else Actions.showStatusNotification("エラー"); }
