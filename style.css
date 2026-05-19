@@ -9,7 +9,7 @@
 
 * { box-sizing: border-box; }
 
-/* 🎨 既存のbodyレイアウトはそのまま維持 */
+/* 🎨 既存のベースレイアウト */
 body { 
     margin: 0; 
     font-family: "Roboto", Arial, sans-serif; 
@@ -18,43 +18,42 @@ body {
     overflow-x: hidden; 
 }
 
-/* 📱【iPadバグ対策・最重要】body自体の背景画像は非表示にし、画面全体に広がる固定の透明レイヤーを裏側に生成する */
+/* 📱【iPadバグ完全回避】壁紙がある時、body自体を画面サイズにロックして画像をど真ん中に固定する */
 body.has-wallpaper {
-    background-image: none !important; /* body直の画像はバグるので消す */
-}
-
-body.has-wallpaper::before {
-    content: "";
-    position: fixed; /* 👈 これでiPadの画面に対して完全に固定 */
+    position: fixed !important; /* 👈 body自体を画面全体にピン留めして動かさなくする */
     top: 0;
     left: 0;
     width: 100vw;
     height: 100vh;
-    /* backup.jsがbodyに入れたインラインスタイル（画像）を引き継ぐ */
-    background-image: inherit; 
-    background-position: center center !important; /* 👈 常に画面のど真ん中 */
+    background-position: center center !important; /* 常にど真ん中 */
     background-repeat: no-repeat !important;
-    background-size: contain !important; /* 👈 ドラパルトが画面からはみ出さないサイズ（全体を入れる） */
-    z-index: -1; /* 👈 すべてのUIの裏側に配置 */
-    pointer-events: none; /* クリックなどの邪魔をしない */
+    background-size: contain !important; /* ドラパルトが綺麗に収まるサイズ */
 }
 
-/* 🎨 黒背景に埋もれないように、壁紙がある時だけ手前のメインパーツを完全に透明化 */
+/* 🎨【超重要】壁紙がある時だけ、手前のレイアウトの黒背景を完全に透明化する */
 body.has-wallpaper .main-layout,
-body.has-wallpaper .content,
 body.has-wallpaper #view-container {
     background: transparent !important; 
 }
 
-/* 動画カードとサイドバーはほんのり透けさせて、ドラパルトのイラストと綺麗に馴染ませる */
+/* 🎨【スクロール対策】bodyが固定された代わりに、メインコンテンツ側をスルスルとスクロールさせる */
+body.has-wallpaper .content { 
+    background: transparent !important;
+    height: calc(100vh - var(--header-height)); /* 画面に収まる高さ */
+    overflow-y: auto; /* 👈 ここが代わりにスクロールしてくれる！ */
+    -webkit-overflow-scrolling: touch; /* iPadでのスクロールをなめらかにする */
+}
+
+/* 動画カードとサイドバーはほんのり透けさせてドラパルトと馴染ませる */
 body.has-wallpaper .v-card {
     background: rgba(30, 30, 30, 0.85) !important;
 }
 body.has-wallpaper .sidebar {
     background: rgba(15, 15, 15, 0.85) !important;
+    height: calc(100vh - var(--header-height));
 }
 
-/* ヘッダー（上部バー） */
+/* ヘッダー */
 .header { 
     position: fixed; 
     top: 0; 
@@ -68,7 +67,7 @@ body.has-wallpaper .sidebar {
     z-index: 1000; 
 }
 
-/* 壁紙がある時はヘッダーも少しだけ透かすと、上まで壁紙が透けて超綺麗になります */
+/* 壁紙がある時はヘッダーもほんのり透かす */
 body.has-wallpaper .header {
     background: rgba(15, 15, 15, 0.9) !important;
 }
@@ -98,7 +97,7 @@ body.has-wallpaper .header {
 
 .search-bar button { background: transparent; border: none; cursor: pointer; color: white; }
 
-/* レイアウト */
+/* 通常レイアウト（壁紙がない時用） */
 .main-layout { display: flex; margin-top: var(--header-height); }
 
 .sidebar { 
