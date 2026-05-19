@@ -9,6 +9,7 @@
 
 * { box-sizing: border-box; }
 
+/* 🎨 既存のbodyレイアウトはこれまで通り完全維持 */
 body { 
     margin: 0; 
     font-family: "Roboto", Arial, sans-serif; 
@@ -17,36 +18,22 @@ body {
     overflow-x: hidden; 
 }
 
-/* 🎨 【新機能】検索バーと同じ手法で、iPadの視界のど真ん中に画像を完全固定する設定 */
-#fixed-wallpaper {
-    position: fixed; /* 👈 検索バーと同じく、画面の特定位置にピン留め */
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    z-index: -1; /* 👈 動画リストの「真後ろ」に配置して操作の邪魔をしない */
-    display: none; /* 通常時は非表示 */
-    pointer-events: none; /* タップ操作などを貫通させる */
-    
-    /* 画面のど真ん中に画像を配置する設定 */
-    background-position: center center;
-    background-repeat: no-repeat;
-    background-size: contain;
-}
-
-/* 🎨 壁紙機能がON（has-wallpaper）の時だけ起動する設定 */
-body.has-wallpaper #fixed-wallpaper {
-    display: block;
-    /* backup.jsがbodyに直接書き込んだ画像をここに引き継ぐ */
-    background-image: inherit; 
-}
-
-/* 壁紙有効時はbody自体の背景を透過させて、固定したドラパルトを覗かせる */
+/* 🎨 【重要】JavaScriptがbodyに入れた画像を、iPadの視界のど真ん中にカチッと固定する */
 body.has-wallpaper {
-    background-image: none !important;
+    background-attachment: fixed !important;
+    background-position: center center !important; 
+    background-repeat: no-repeat !important;
+    background-size: contain !important; /* ドラパルトが潰れないサイズ */
 }
 
-/* 壁紙があるときだけ、動画カードの後ろを少し透かしてドラパルトが見えるようにする */
+/* 🎨 【超重要】黒背景に埋もれないように、壁紙がある時だけ手前のパーツを透過させる */
+body.has-wallpaper .main-layout,
+body.has-wallpaper .content,
+body.has-wallpaper #view-container {
+    background: transparent !important; /* 背景の黒を透明にして壁紙を透かす */
+}
+
+/* 動画カードとサイドバーも少しだけ透けさせてドラパルトと馴染ませる */
 body.has-wallpaper .v-card {
     background: rgba(30, 30, 30, 0.85) !important;
 }
@@ -66,6 +53,11 @@ body.has-wallpaper .sidebar {
     justify-content: space-between; 
     padding: 0 16px; 
     z-index: 1000; 
+}
+
+/* 壁紙がある時はヘッダーも少しだけ透かすとさらに綺麗になります */
+body.has-wallpaper .header {
+    background: rgba(15, 15, 15, 0.9) !important;
 }
 
 .logo { font-size: 20px; font-weight: bold; cursor: pointer; display: flex; align-items: center; }
@@ -93,7 +85,7 @@ body.has-wallpaper .sidebar {
 
 .search-bar button { background: transparent; border: none; cursor: pointer; color: white; }
 
-/* レイアウト */
+/* レイアウト（これまで通り） */
 .main-layout { display: flex; margin-top: var(--header-height); }
 
 .sidebar { 
@@ -125,7 +117,7 @@ body.has-wallpaper .sidebar {
 
 hr { border: none; border-top: 1px solid #333; margin: 12px 0; }
 
-/* グリッド表示 */
+/* グリッド表示（これまで通り） */
 .grid { 
     display: grid; 
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); 
@@ -164,13 +156,13 @@ hr { border: none; border-top: 1px solid #333; margin: 12px 0; }
 }
 .btn.subbed { background: #272727; color: #fff; }
 
-/* 再生画面用 */
+/* 再生画面用（絶対に潰れないように完全維持） */
 .watch-layout { display: flex; gap: 24px; flex-wrap: wrap; }
 .player-area { flex: 3; min-width: 600px; }
 .related-area { flex: 1; min-width: 300px; }
 .video-wrapper { width: 100%; aspect-ratio: 16/9; background: #000; border-radius: 12px; overflow: hidden; }
 
-/* ショート再生用 */
+/* ショート再生用（これまで通り） */
 .shorts-container { display: flex; flex-direction: column; align-items:center; position: relative; padding-top: 10px; }
 .nav-arrow { 
     position: fixed; 
@@ -190,7 +182,7 @@ hr { border: none; border-top: 1px solid #333; margin: 12px 0; }
 .arrow-prev { left: 20px; }
 .arrow-next { right: 20px; }
 
-/* iPad / レスポンス対応 */
+/* iPad / レスポンス対応（これまで通り） */
 @media (max-width: 1024px) {
     :root { --sidebar-width: 72px; }
     .nav-item span { display: none; }
