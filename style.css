@@ -1,11 +1,12 @@
 :root {
     --bg-color: #0f0f0f;
-    --card-bg: rgba(30, 30, 30, 0.4); /* 透過率アップ */
+    --card-bg: rgba(20, 20, 20, 0.4); /* さらに透過率アップ */
     --text-color: #ffffff;
     --accent-red: #ff0000;
     --sidebar-width: 240px;
     --header-height: 56px;
-    --glass-blur: 20px; /* ボカシを強くして高級感を出す */
+    --glass-blur: 40px; /* ボカシを最強（前回の2倍以上）にして高级感を出す */
+    --wallpaper-blur: 8px; /* 壁紙自体も少しボカして追従感を出す */
 }
 
 * { box-sizing: border-box; }
@@ -18,33 +19,32 @@ body {
     overflow-x: hidden; 
 }
 
-/* 🎨 壁紙設定（不動・ドアップなし・中央配置） */
+/* 🎨 壁紙設定（完全不動・追従仕様：パララックス） */
 body.has-wallpaper {
     background-color: transparent !important;
-    /* ✅ 【重要】スクロールしても壁紙は動かさない（不動） */
+    /* ✅ 【重要】スクロールしても壁紙は1ミリも動かさない */
     background-attachment: fixed !important;
-    /* ✅ 【重要】ドアップにせず、画像本来のサイズを維持する */
-    background-size: auto !important; 
-    /* ✅ 【重要】画面の中央に配置する */
+    /* ✅ 【重要】ドラパルトの「色味」が常に真正面に見えるよう、画像を画面全体に広げる（シルエット化） */
+    background-size: cover !important; 
     background-position: center !important; 
-    background-repeat: no-repeat !important; /* 1枚だけ表示 */
+    background-repeat: no-repeat !important; 
 }
 
-/* ✅ ボタン、テキストの可読性を上げるための影（背景がどんな色でも読めるように） */
+/* ✅ ボタン、テキストの可読性を上げるための影 */
 body.has-wallpaper * {
-    text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+    text-shadow: 0 1px 4px rgba(0,0,0,0.9);
 }
 
-/* 🎨 各パーツの透過性能を大幅アップ（ガラス感） */
+/* 🎨 各パーツの透過性能を最強（ガラス感）にアップ */
 body.has-wallpaper .header {
-    background: rgba(15, 15, 15, 0.5) !important; /* かなり透けさせる */
-    backdrop-filter: blur(var(--glass-blur)) saturate(180%);
-    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+    background: rgba(15, 15, 15, 0.3) !important; /* かなり透けさせる */
+    backdrop-filter: blur(var(--glass-blur)) saturate(200%);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(200%);
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 body.has-wallpaper .sidebar {
-    background: rgba(15, 15, 15, 0.4) !important; /* ヘッダーよりさらに透けさせる */
+    background: rgba(15, 15, 15, 0.25) !important; /* ヘッダーよりさらに透けさせる */
     backdrop-filter: blur(var(--glass-blur));
     -webkit-backdrop-filter: blur(var(--glass-blur));
     border-right: 1px solid rgba(255, 255, 255, 0.03);
@@ -52,8 +52,8 @@ body.has-wallpaper .sidebar {
 
 body.has-wallpaper .v-card {
     background: var(--card-bg) !important;
-    backdrop-filter: blur(8px);
-    border-radius: 16px; /* 角を丸くして柔らかく馴染ませる */
+    backdrop-filter: blur(10px);
+    border-radius: 16px; 
     border: 1px solid rgba(255, 255, 255, 0.03);
     padding: 12px;
 }
@@ -78,7 +78,7 @@ body.has-wallpaper .v-card {
 .search-bar { 
     display: flex; 
     flex: 0 1 600px; 
-    background: rgba(0,0,0,0.2); 
+    background: rgba(0,0,0,0.3); 
     border-radius: 40px; 
     padding: 2px 15px; 
     border: 1px solid #333; 
@@ -130,7 +130,7 @@ body.has-wallpaper .search-bar {
     margin-bottom: 4px; 
 }
 
-.nav-item:hover { background: rgba(255,255,255,0.08); }
+.nav-item:hover { background: rgba(255,255,255,0.1); }
 .nav-item span { margin-left: 20px; }
 
 hr { border: none; border-top: 1px solid #333; margin: 12px 0; }
@@ -163,9 +163,9 @@ hr { border: none; border-top: 1px solid #333; margin: 12px 0; }
 .v-text h3 { font-size: 14px; margin: 10px 0 4px; line-clamp: 2; display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; }
 .v-text p { font-size: 12px; color: #aaa; margin: 0; }
 
-/* ボタンの透過性能もアップ */
+/* ボタンの透過性能も最強にアップ */
 .btn { 
-    background: rgba(255,255,255,0.9); 
+    background: rgba(255,255,255,0.95); 
     color: #0f0f0f; 
     border: none; 
     padding: 10px 20px; 
@@ -174,13 +174,15 @@ hr { border: none; border-top: 1px solid #333; margin: 12px 0; }
     font-weight: bold; 
 }
 body.has-wallpaper .btn {
-    background: rgba(255,255,255,0.8);
-    backdrop-filter: blur(4px);
+    background: rgba(255,255,255,0.6) !important; /* かなり透けさせる */
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: #fff !important;
 }
 .btn.subbed { background: #272727; color: #fff; }
 body.has-wallpaper .btn.subbed {
-    background: rgba(40,40,40,0.7);
-    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(40,40,40,0.5);
 }
 
 @media (max-width: 1024px) {
