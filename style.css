@@ -1,12 +1,10 @@
 :root {
     --bg-color: #0f0f0f;
-    --card-bg: rgba(20, 20, 20, 0.4); /* さらに透過率アップ */
+    --card-bg: #1e1e1e;
     --text-color: #ffffff;
     --accent-red: #ff0000;
     --sidebar-width: 240px;
     --header-height: 56px;
-    --glass-blur: 40px; /* ボカシを最強（前回の2倍以上）にして高级感を出す */
-    --wallpaper-blur: 8px; /* 壁紙自体も少しボカして追従感を出す */
 }
 
 * { box-sizing: border-box; }
@@ -19,43 +17,23 @@ body {
     overflow-x: hidden; 
 }
 
-/* 🎨 壁紙設定（完全不動・追従仕様：パララックス） */
+/* 🎨 壁紙有効時：スクロールしても常に今見てる画面の目の前に移動してくる設定 */
 body.has-wallpaper {
     background-color: transparent !important;
-    /* ✅ 【重要】スクロールしても壁紙は1ミリも動かさない */
+    /* 常に視界のど真ん中に画像が移動・追従してくるように固定 */
     background-attachment: fixed !important;
-    /* ✅ 【重要】ドラパルトの「色味」が常に真正面に見えるよう、画像を画面全体に広げる（シルエット化） */
-    background-size: cover !important; 
-    background-position: center !important; 
-    background-repeat: no-repeat !important; 
+    background-position: center center !important; 
+    background-repeat: no-repeat !important;
+    /* 画像が潰れたりドアップになりすぎない適度なサイズ感に調整 */
+    background-size: contain !important; 
 }
 
-/* ✅ ボタン、テキストの可読性を上げるための影 */
-body.has-wallpaper * {
-    text-shadow: 0 1px 4px rgba(0,0,0,0.9);
-}
-
-/* 🎨 各パーツの透過性能を最強（ガラス感）にアップ */
-body.has-wallpaper .header {
-    background: rgba(15, 15, 15, 0.3) !important; /* かなり透けさせる */
-    backdrop-filter: blur(var(--glass-blur)) saturate(200%);
-    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(200%);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-body.has-wallpaper .sidebar {
-    background: rgba(15, 15, 15, 0.25) !important; /* ヘッダーよりさらに透けさせる */
-    backdrop-filter: blur(var(--glass-blur));
-    -webkit-backdrop-filter: blur(var(--glass-blur));
-    border-right: 1px solid rgba(255, 255, 255, 0.03);
-}
-
+/* 壁紙があるときだけ、動画カードの後ろを少し透かしてドラパルトが見えるようにする */
 body.has-wallpaper .v-card {
-    background: var(--card-bg) !important;
-    backdrop-filter: blur(10px);
-    border-radius: 16px; 
-    border: 1px solid rgba(255, 255, 255, 0.03);
-    padding: 12px;
+    background: rgba(30, 30, 30, 0.85) !important;
+}
+body.has-wallpaper .sidebar {
+    background: rgba(15, 15, 15, 0.85) !important;
 }
 
 /* ヘッダー */
@@ -78,16 +56,11 @@ body.has-wallpaper .v-card {
 .search-bar { 
     display: flex; 
     flex: 0 1 600px; 
-    background: rgba(0,0,0,0.3); 
+    background: #121212; 
     border-radius: 40px; 
     padding: 2px 15px; 
     border: 1px solid #333; 
     margin: 0 10px;
-}
-
-body.has-wallpaper .search-bar {
-    background: rgba(255,255,255,0.05);
-    border: 1px solid rgba(255,255,255,0.1);
 }
 
 .search-bar input { 
@@ -111,7 +84,6 @@ body.has-wallpaper .search-bar {
     position: fixed; 
     overflow-y: auto; 
     padding: 12px;
-    background: var(--bg-color);
 }
 
 .content { 
@@ -130,7 +102,7 @@ body.has-wallpaper .search-bar {
     margin-bottom: 4px; 
 }
 
-.nav-item:hover { background: rgba(255,255,255,0.1); }
+.nav-item:hover { background: #272727; }
 .nav-item span { margin-left: 20px; }
 
 hr { border: none; border-top: 1px solid #333; margin: 12px 0; }
@@ -143,8 +115,8 @@ hr { border: none; border-top: 1px solid #333; margin: 12px 0; }
     padding: 20px 0;
 }
 
-.v-card { cursor: pointer; transition: transform 0.2s, background 0.2s; }
-.v-card:hover { background: rgba(255,255,255,0.02) !important; }
+.v-card { cursor: pointer; transition: transform 0.2s; }
+.v-card:active { transform: scale(0.98); }
 
 .thumb-container { position: relative; width: 100%; aspect-ratio: 16/9; border-radius: 12px; overflow: hidden; background: #333; }
 .main-thumb { width: 100%; height: 100%; object-fit: cover; }
@@ -163,9 +135,8 @@ hr { border: none; border-top: 1px solid #333; margin: 12px 0; }
 .v-text h3 { font-size: 14px; margin: 10px 0 4px; line-clamp: 2; display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; }
 .v-text p { font-size: 12px; color: #aaa; margin: 0; }
 
-/* ボタンの透過性能も最強にアップ */
 .btn { 
-    background: rgba(255,255,255,0.95); 
+    background: #f1f1f1; 
     color: #0f0f0f; 
     border: none; 
     padding: 10px 20px; 
@@ -173,21 +144,43 @@ hr { border: none; border-top: 1px solid #333; margin: 12px 0; }
     cursor: pointer; 
     font-weight: bold; 
 }
-body.has-wallpaper .btn {
-    background: rgba(255,255,255,0.6) !important; /* かなり透けさせる */
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    border: 1px solid rgba(255,255,255,0.1);
-    color: #fff !important;
-}
 .btn.subbed { background: #272727; color: #fff; }
-body.has-wallpaper .btn.subbed {
-    background: rgba(40,40,40,0.5);
-}
 
+/* 再生画面用（ここが潰れないようにオリジナルを完全維持） */
+.watch-layout { display: flex; gap: 24px; flex-wrap: wrap; }
+.player-area { flex: 3; min-width: 600px; }
+.related-area { flex: 1; min-width: 300px; }
+.video-wrapper { width: 100%; aspect-ratio: 16/9; background: #000; border-radius: 12px; overflow: hidden; }
+
+/* ショート再生用 */
+.shorts-container { display: flex; flex-direction: column; align-items:center; position: relative; padding-top: 10px; }
+.nav-arrow { 
+    position: fixed; 
+    top: 50%; 
+    transform: translateY(-50%); 
+    width: 50px; 
+    height: 50px; 
+    background: rgba(255,255,255,0.1); 
+    border-radius: 50%; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    font-size: 24px; 
+    cursor: pointer; 
+    z-index: 10;
+}
+.arrow-prev { left: 20px; }
+.arrow-next { right: 20px; }
+
+/* iPad / レスポンス対応 */
 @media (max-width: 1024px) {
     :root { --sidebar-width: 72px; }
     .nav-item span { display: none; }
     .sidebar { padding: 12px 4px; }
     .nav-item { justify-content: center; font-size: 20px; }
+}
+
+@media (max-width: 768px) {
+    .player-area { min-width: 100%; }
+    .related-area { min-width: 100%; }
 }
