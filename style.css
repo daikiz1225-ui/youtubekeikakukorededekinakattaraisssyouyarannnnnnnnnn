@@ -1,10 +1,11 @@
 :root {
     --bg-color: #0f0f0f;
-    --card-bg: #1e1e1e;
+    --card-bg: rgba(30, 30, 30, 0.4); /* 透過率アップ */
     --text-color: #ffffff;
     --accent-red: #ff0000;
     --sidebar-width: 240px;
     --header-height: 56px;
+    --glass-blur: 20px; /* ボカシを強くして高級感を出す */
 }
 
 * { box-sizing: border-box; }
@@ -17,28 +18,44 @@ body {
     overflow-x: hidden; 
 }
 
-/* 🎨 壁紙適用時の特別透過ルール (偽造画面の時は絶対に効かない構造) */
+/* 🎨 壁紙設定（不動・ドアップなし・中央配置） */
 body.has-wallpaper {
     background-color: transparent !important;
+    /* ✅ 【重要】スクロールしても壁紙は動かさない（不動） */
+    background-attachment: fixed !important;
+    /* ✅ 【重要】ドアップにせず、画像本来のサイズを維持する */
+    background-size: auto !important; 
+    /* ✅ 【重要】画面の中央に配置する */
+    background-position: center !important; 
+    background-repeat: no-repeat !important; /* 1枚だけ表示 */
 }
+
+/* ✅ ボタン、テキストの可読性を上げるための影（背景がどんな色でも読めるように） */
+body.has-wallpaper * {
+    text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+}
+
+/* 🎨 各パーツの透過性能を大幅アップ（ガラス感） */
 body.has-wallpaper .header {
-    background: rgba(15, 15, 15, 0.75) !important;
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(15, 15, 15, 0.5) !important; /* かなり透けさせる */
+    backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
+
 body.has-wallpaper .sidebar {
-    background: rgba(15, 15, 15, 0.6) !important;
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border-right: 1px solid rgba(255, 255, 255, 0.05);
+    background: rgba(15, 15, 15, 0.4) !important; /* ヘッダーよりさらに透けさせる */
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    border-right: 1px solid rgba(255, 255, 255, 0.03);
 }
+
 body.has-wallpaper .v-card {
-    background: rgba(30, 30, 30, 0.6) !important;
-    backdrop-filter: blur(4px);
-    border-radius: 12px;
-    padding: 10px;
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    background: var(--card-bg) !important;
+    backdrop-filter: blur(8px);
+    border-radius: 16px; /* 角を丸くして柔らかく馴染ませる */
+    border: 1px solid rgba(255, 255, 255, 0.03);
+    padding: 12px;
 }
 
 /* ヘッダー */
@@ -61,11 +78,16 @@ body.has-wallpaper .v-card {
 .search-bar { 
     display: flex; 
     flex: 0 1 600px; 
-    background: #121212; 
+    background: rgba(0,0,0,0.2); 
     border-radius: 40px; 
     padding: 2px 15px; 
     border: 1px solid #333; 
     margin: 0 10px;
+}
+
+body.has-wallpaper .search-bar {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
 }
 
 .search-bar input { 
@@ -108,7 +130,7 @@ body.has-wallpaper .v-card {
     margin-bottom: 4px; 
 }
 
-.nav-item:hover { background: #272727; }
+.nav-item:hover { background: rgba(255,255,255,0.08); }
 .nav-item span { margin-left: 20px; }
 
 hr { border: none; border-top: 1px solid #333; margin: 12px 0; }
@@ -121,8 +143,8 @@ hr { border: none; border-top: 1px solid #333; margin: 12px 0; }
     padding: 20px 0;
 }
 
-.v-card { cursor: pointer; transition: transform 0.2s; }
-.v-card:active { transform: scale(0.98); }
+.v-card { cursor: pointer; transition: transform 0.2s, background 0.2s; }
+.v-card:hover { background: rgba(255,255,255,0.02) !important; }
 
 .thumb-container { position: relative; width: 100%; aspect-ratio: 16/9; border-radius: 12px; overflow: hidden; background: #333; }
 .main-thumb { width: 100%; height: 100%; object-fit: cover; }
@@ -141,8 +163,9 @@ hr { border: none; border-top: 1px solid #333; margin: 12px 0; }
 .v-text h3 { font-size: 14px; margin: 10px 0 4px; line-clamp: 2; display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; }
 .v-text p { font-size: 12px; color: #aaa; margin: 0; }
 
+/* ボタンの透過性能もアップ */
 .btn { 
-    background: #f1f1f1; 
+    background: rgba(255,255,255,0.9); 
     color: #0f0f0f; 
     border: none; 
     padding: 10px 20px; 
@@ -150,42 +173,19 @@ hr { border: none; border-top: 1px solid #333; margin: 12px 0; }
     cursor: pointer; 
     font-weight: bold; 
 }
-.btn.subbed { background: #272727; color: #fff; }
-
-/* 再生画面用 */
-.watch-layout { display: flex; gap: 24px; flex-wrap: wrap; }
-.player-area { flex: 3; min-width: 600px; }
-.related-area { flex: 1; min-width: 300px; }
-.video-wrapper { width: 100%; aspect-ratio: 16/9; background: #000; border-radius: 12px; overflow: hidden; }
-
-/* ショート再生用 */
-.shorts-container { display: flex; flex-direction: column; align-items:center; position: relative; padding-top: 10px; }
-.nav-arrow { 
-    position: fixed; 
-    top: 50%; 
-    transform: translateY(-50%); 
-    width: 50px; 
-    height: 50px; 
-    background: rgba(255,255,255,0.1); 
-    border-radius: 50%; 
-    display: flex; 
-    align-items: center; 
-    justify-content: center; 
-    font-size: 24px; 
-    cursor: pointer; 
-    z-index: 10;
+body.has-wallpaper .btn {
+    background: rgba(255,255,255,0.8);
+    backdrop-filter: blur(4px);
 }
-.arrow-prev { left: 20px; }
-.arrow-next { right: 20px; }
+.btn.subbed { background: #272727; color: #fff; }
+body.has-wallpaper .btn.subbed {
+    background: rgba(40,40,40,0.7);
+    border: 1px solid rgba(255,255,255,0.1);
+}
 
 @media (max-width: 1024px) {
     :root { --sidebar-width: 72px; }
     .nav-item span { display: none; }
     .sidebar { padding: 12px 4px; }
     .nav-item { justify-content: center; font-size: 20px; }
-}
-
-@media (max-width: 768px) {
-    .player-area { min-width: 100%; }
-    .related-area { min-width: 100%; }
 }
