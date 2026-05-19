@@ -17,15 +17,27 @@ body {
     overflow-x: hidden; 
 }
 
-/* 🎨 壁紙有効時：スクロールしても常に今見てる画面の目の前に移動してくる設定 */
+/* 🎨 【超重要】どんなにスクロールしても視界のド真ん中を追尾してくる設定 */
+body.has-wallpaper::before {
+    content: "";
+    position: fixed; /* 👈 これでブラウザの画面（視界）に完全にピン留めします */
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    /* backup.jsから入ってくる背景画像をそのままここで受け取る */
+    background-image: inherit; 
+    background-position: center center;
+    background-repeat: no-repeat;
+    background-size: contain; /* 画像が潰れない適正サイズ */
+    z-index: -1; /* 👈 動画カードやプレイヤーの「真後ろ」に配置して邪魔しない */
+    pointer-events: none; /* クリックやスクロールを貫通させる */
+}
+
+/* 壁紙有効時はbody自体の背景色を透過させて、後ろの固定画像を覗かせる */
 body.has-wallpaper {
     background-color: transparent !important;
-    /* 常に視界のど真ん中に画像が移動・追従してくるように固定 */
-    background-attachment: fixed !important;
-    background-position: center center !important; 
-    background-repeat: no-repeat !important;
-    /* 画像が潰れたりドアップになりすぎない適度なサイズ感に調整 */
-    background-size: contain !important; 
+    background-image: none !important; /* body自体のバグる背景は消す */
 }
 
 /* 壁紙があるときだけ、動画カードの後ろを少し透かしてドラパルトが見えるようにする */
@@ -146,7 +158,7 @@ hr { border: none; border-top: 1px solid #333; margin: 12px 0; }
 }
 .btn.subbed { background: #272727; color: #fff; }
 
-/* 再生画面用（ここが潰れないようにオリジナルを完全維持） */
+/* 再生画面用（1文字も変えずに完全維持） */
 .watch-layout { display: flex; gap: 24px; flex-wrap: wrap; }
 .player-area { flex: 3; min-width: 600px; }
 .related-area { flex: 1; min-width: 300px; }
