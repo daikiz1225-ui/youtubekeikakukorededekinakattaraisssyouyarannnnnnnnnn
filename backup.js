@@ -427,7 +427,7 @@ const DataManager = {
                             <div style="font-size:12px; font-weight:bold; color:#ff9800; margin-bottom:6px; text-align:center;">🎨 このアカウントの壁紙変更 (追従仕様)</div>
                             <input type="file" id="wallpaper-input" accept="image/*" style="display:none;">
                             <button id="wallpaper-select-btn" style="width:100%; background:#ff9800; color:#000; border:none; padding:8px; border-radius:4px; font-weight:bold; cursor:pointer; font-size:12px;">お気に入りの写真を選択</button>
-                            <div style="font-size:10px; color:#aaa; text-align:center; margin-top:5px; line-height:1.4;">※ドアップ・ぼやけなしで、画面全体の奥に固定され、ずっと真正面に表示されます。</div>
+                            <div style="font-size:10px; color:#aaa; text-align:center; margin-top:5px; line-height:1.4;"></div>
                         </div>
                         ` : ''}
                         
