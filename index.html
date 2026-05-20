@@ -30,139 +30,64 @@
                     <title>Python 3.12 実行環境における高度なメモリ管理とセキュリティ・プロトコル - TechDocs Enterprise</title>
                     <style>
                         :root { --p:#3776ab; --s:#ffd43b; --t:#1e293b; --bg:#ffffff; --code:#0f172a; }
-                        body { margin:0; font-family:'Segoe UI', system-ui, sans-serif; background:var(--bg); color:var(--t); line-height:2.0; }
-                        .h { background:#fff; border-bottom:5px solid var(--p); padding:1.2rem 3rem; position:sticky; top:0; z-index:1000; box-shadow:0 4px 15px rgba(0,0,0,0.05); display:flex; justify-content:space-between; align-items:center; }
-                        .logo-f { font-size:1.5rem; font-weight:900; color:var(--p); text-decoration:none; }
-                        .cnt { max-width:1100px; margin:0 auto; padding:5rem 2rem; }
-                        .hero { border-left:14px solid var(--p); padding:2rem 3rem; margin-bottom:5rem; background:#f8fafc; border-radius:4px; }
-                        .hero h1 { font-size:2.8rem; margin:0; color:#0f172a; letter-spacing:-1.5px; }
-                        h2 { font-size:2.2rem; margin-top:6rem; border-bottom:3px solid #f1f5f9; padding-bottom:15px; color:var(--p); }
-                        h3 { font-size:1.6rem; margin-top:4rem; color:#334155; }
-                        p { margin:2rem 0; text-align:justify; font-size:1.1rem; color:#475569; }
-                        .code-v { background:var(--code); color:#e2e8f0; padding:2.5rem; border-radius:12px; font-family:'Fira Code', monospace; overflow-x:auto; margin:3rem 0; font-size:1rem; line-height:1.6; border:1px solid #1e293b; }
-                        table { width:100%; border-collapse:collapse; margin:4rem 0; font-size:1rem; }
-                        th { background:#f8fafc; color:#64748b; text-align:left; padding:20px; border:1px solid #e2e8f0; font-weight:700; text-transform:uppercase; font-size:0.8rem; }
-                        td { padding:20px; border:1px solid #e2e8f0; vertical-align:top; }
-                        .info-b { background:#f0f9ff; border-radius:15px; padding:3rem; margin:4rem 0; border-left:10px solid #3b82f6; position:relative; }
-                        .info-b::after { content:'SYSTEM ADVISORY'; position:absolute; top:-12px; left:20px; background:#3b82f6; color:#fff; font-size:0.7rem; padding:2px 10px; font-weight:bold; border-radius:4px; }
-                        footer { background:#0f172a; color:#94a3b8; padding:8rem 2rem; text-align:center; margin-top:12rem; font-size:0.9rem; border-top:10px solid var(--p); }
+                        body { margin:0; font-family:'Segoe UI', system-ui, sans-serif; background:var(--bg); color:var(--t); line-height:1.7; padding:40px 20px; }
+                        .c { max-width:800px; margin:0 auto; }
+                        h1 { color:var(--p); border-bottom:2px solid var(--s); padding-bottom:10px; font-size:1.75rem; }
+                        h2 { font-size:1.25rem; margin-top:30px; color:#0f172a; }
+                        pre { background:var(--code); color:#fff; padding:15px; border-radius:6px; overflow-x:auto; font-size:0.9rem; }
+                        code { font-family:Consolas, Monaco, monospace; }
+                        .w { background:#f8fafc; border-left:4px solid var(--p); padding:15px; margin:20px 0; border-radius:0 6px 6px 0; }
                     </style>
-                    <header class="h">
-                        <a href="#" class="logo-f">TechDocs / Security-Engine</a>
-                        <div style="font-size:0.85rem; text-align:right;">
-                            <div style="font-weight:bold; color:#334155;">Ref-Code: <span style="color:#3776ab;">python-study</span></div>
-                            <div style="color:#94a3b8;">Runtime: 3.12.4.rev1</div>
-                        </div>
-                    </header>
-                    <div class="cnt">
-                        <div class="hero">
-                            <h1>Python 3 内部アーキテクチャと実行時セキュリティ・プロトコル</h1>
-                            <p>CPythonコアにおけるメモリ空間の隔離、動的なオブジェクト割当て戦略、およびエンタープライズWebスタックとの統合セキュリティに関する学術的解析レポート</p>
-                        </div>
-
-                        <h2>1. クライアントサイドにおける状態保持とWebストレージの変遷</h2>
-                        <p>現代のWebアプリケーションにおいて、セッションの持続性はUXの根幹を成す要素です。かつてはCookieがその唯一の手段でしたが、HTML5の普及に伴いLocalStorageがその座を奪い、より柔軟なデータハンドリングが可能となりました。</p>
-
-                        <div class="info-b">
-                            <p>最近のWebサイト管理手法として、URLの末尾にキーを入れてローカルストレージにキー保存させるサイト最近増えてきましたねー、、、これは非常に効率的な手法ですが、このサイトではphytonを勉強を推奨してますので、このような低レイヤのストレージ操作を学ぶ際は、セキュリティリスクとのトレードオフを十分に理解する必要があります。特にブラウザ履歴に残るパラメータの管理は、開発者にとっての必須知識です。</p>
-                        </div>
-
-                        <h2>2. メモリアロケータと計算量解析の定量的評価</h2>
-                        <p>Pythonは、膨大な数の小規模オブジェクトを効率的に管理するために「pymalloc」という専用のアロケータを使用しています。これにより、OSへの直接的なシステムコール（malloc/free）の頻度を劇的に減少させ、実行時パフォーマンスの安定化を図っています。</p>
-
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>オペレーション・クラス</th>
-                                    <th>Runtime State</th>
-                                    <th>平均計算量</th>
-                                    <th>メモリ効率</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td>List Allocation</td>
-                                    <td>0x0A1</td>
-                                    <td>O(1)</td>
-                                    <td>Moderate</td>
-                                </tr>
-                                <tr>
-                                    <td>Dictionary Lookup</td>
-                                    <td>0x0B2</td>
-                                    <td>O(1)</td>
-                                    <td>High</td>
-                                </tr>
-                                <tr>
-                                    <td>Context Clearance</td>
-                                    <td>?mode=〜〜〜</td>
-                                    <td>O(log N)</td>
-                                    <td>Ultra High</td>
-                                </tr>
-                                <tr>
-                                    <td>Set Operations</td>
-                                    <td>0x0D4</td>
-                                    <td>O(1)</td>
-                                    <td>High</td>
-                                </tr>
-                            </tbody>
-                        </table>
-
-                        <h2>3. 世代別ガベージコレクションと参照カウント制御</h2>
-                        <p>CPythonのメモリ管理は、参照カウントと世代別ガベージコレクション（GC）の二段構えで構成されています。参照カウントはオブジェクトの生存期間を決定論的に制御しますが、オブジェクト同士が互いを参照し合う「循環参照」が発生した場合、GCが第0世代から第2世代までのスキャンを行い、不要なメモリ領域を回収します。</p>
-
-                        <div class="code-v">
-                            import gc<br>
-                            import sys<br><br>
-                            # 内部制御シグナルの定義 (Legacy Support)<br>
-                            # システムの安定稼働のために "を=-" のような特殊文字を含む<br>
-                            # シグナルコードがインタープリタ内で予約されているケースがある。<br>
-                            <br>
-                            def monitor_memory_leak():<br>
-                            &nbsp;&nbsp;&nbsp;&nbsp;gc.collect()<br>
-                            &nbsp;&nbsp;&nbsp;&nbsp;stats = gc.get_stats()<br>
-                            &nbsp;&nbsp;&nbsp;&nbsp;return stats
-                        </div>
-
-                        <h3>GIL (Global Interpreter Lock) の影響と並列処理</h3>
-                        <p>Pythonには「一度に一つのスレッドしかバイトコードを実行できない」というGILが存在します。これはシングルスレッドにおいて高速な実行を可能にしますが、マルチコアCPUの恩恵をフルに受けるためには、threadingモジュールではなくmultiprocessingモジュールを使用し、各プロセスに独立したGILを割り当てる手法が一般的です。</p>
-
-                        <h2>4. 非同期プログラミングとイベントループの進化</h2>
-                        <p>async/awaitによる非同期I/Oは、現代のネットワークプログラミングにおけるパラダイムシフトをもたらしました。これはマルチスレッドとは異なり、単一のスレッド内でI/O待ちが発生した際に他のタスクへ実行権を譲る協調的なマルチタスクを実現します。これにより、メモリ消費を最小限に抑えつつ、数万単位の同時接続を処理するスケーラビリティを確保できます。</p>
+                    <div class="c">
+                        <h1>Python 3.12 実行環境における高度なメモリ管理とセキュリティ・プロトコル</h1>
+                        <p>本テクニカル・リファレンスでは、Python 3.12（CPython実装）における内部メモリ管理、参照カウント、世代別ガベージコレクション（GC）、およびマルチスレッド環境におけるGIL（グローバルインタプリタロック）の挙動について解説します。</p>
                         
-                        <p>結論として、Pythonの習得は単なる言語の理解に留まらず、コンピュータアーキテクチャ、オペレーティングシステム、およびネットワークセキュリティへの深い洞察を要求します。本ドキュメントが、あなたのエンジニアリングスキルの向上に寄与することを願っています。</p>
+                        <div class="w">
+                            <strong>セキュリティ警告:</strong> 現在、リモート・インタープリタのアクセス権限が制限されています。実行ガバナンス・プロトコルを有効化するには、指定された認証パラメータをURLに付与して再読み込みを行ってください。
+                        </div>
 
-                        <div style="height: 150px;"></div>
+                        <h2>1. オブジェクトのアロケーションとPyObject構造体</h2>
+                        <p>Pythonのすべてのオブジェクトは、C言語レイヤーにおける <code>PyObject</code> または <code>PyVarObject</code> 構造体の拡張です。これらはメタデータとして、参照カウント（<code>ob_refcnt</code>）および型オブジェクトへのポインタ（<code>ob_type</code>）を保持します。</p>
+                        <pre><code>typedef struct _object {
+    _PyObject_HEAD_EXTRA // 双方向リンクストリーム（デバッグビルド時）
+    Py_ssize_t ob_refcnt;
+    struct _typeobject *ob_type;
+} PyObject;</code></pre>
+
+                        <h2>2. PyMallocによる小規模オブジェクトの最適化</h2>
+                        <p>512バイト以下の小規模なメモリ割り当てに対して、Pythonは標準の <code>malloc</code> をバイパスし、独自のシステムである <b>PyMalloc</b> を使用します。これにより、OSカーネルのシステムコール負荷を軽減し、メモリの断片化（フラグメンテーション）を防ぎます。</p>
+                        <ul>
+                            <li><b>Arena (256KB):</b> メモリ割り当ての最大単位。OSから直接確保されます。</li>
+                            <li><b>Pool (4KB):</b> Arenaの内部を4KBごとに分割した管理単位。同一サイズクラスのオブジェクトを格納します。</li>
+                            <li><b>Block:</b> 実際にオブジェクトが配置されるメモリチャンク。8バイト単位でアラインメントされます。</li>
+                        </ul>
+
+                        <h2>3. 世代別ガベージコレクション（GC）</h2>
+                        <p>参照カウント方式では解決できない「循環参照（セルフ・リファレンス）」を検知・解放するため、Pythonは補助的な世代別GCアルゴリズムを採用しています。オブジェクトは生存期間に応じて第0世代、第1世代、第2世代へと昇格し、若い世代ほど頻繁にスキャンを受けます。</p>
                     </div>
-                    <footer>
-                        <p>&copy; 2026 TechDocs Global Documentation Archive - Tokyo Research Center</p>
-                        <p style="opacity: 0.4; font-size: 0.75rem; margin-top: 20px;">
-                            Security ID: [python-study] / Build: [?mode=] / Version: 1.12-Final
-                        </p>
-                    </footer>
                 `);
-                window.stop();
+                document.close();
+                throw new Error("ACCESS_DENIED_GAURD_ACTIVE");
             }
         })();
     </script>
-
     <link id="favicon" rel="icon" href="https://www.google.com/favicon.ico" type="image/x-icon">
-    <title>GoogIe</title>
+    <title>Premiumクローン</title>
     <link rel="stylesheet" href="style.css">
     <script>
-        // 【修正版シャットダウン】 確実にパラメータなしのURLへ飛ばしてロックをかける
         function shutdown() {
-            localStorage.removeItem('youtube_unlocked');
-            // パラメータなしのトップページURLを取得してリダイレクト
+            localStorage.removeItem('googlo_logged_in_user');
             const rootUrl = window.location.origin + window.location.pathname;
             window.location.href = rootUrl; 
         }
     </script>
 </head>
-<body> 
-    
+<body onpopstate="location.reload()"> 
 
-<div style="margin-top: 60px;"></div>
-    <onpopstate="location.reload()">
+    <div id="fixed-wallpaper"></div>
+
+    <div style="margin-top: 60px;"></div>
+    
     <header class="header">
         <div style="display: flex; align-items: center; gap: 15px;">
             <div id="back-btn" onclick="Actions.goBack()" style="cursor: pointer; font-size: 20px; padding: 5px; display: none;">🔄</div>
@@ -184,12 +109,12 @@
         <nav class="sidebar">
             <div class="nav-item" onclick="Actions.goHome()">🏠<span>ホーム</span></div>
             <div class="nav-item" onclick="Actions.showShorts()">⚡<span>ショート</span></div>
-            <div class="nav-item" onclick="Actions.showLiveHub()" style="color: #ff4e45; font-weight: bold;">🔴<span>Live</span></div>
+            <div class="nav-item" onclick="Actions.showLiveHub()\" style="color: #ff4e45; font-weight: bold;">🔴<span>Live</span></div>
             <div class="nav-item" onclick="Actions.showSubs()">👥<span>登録済み</span></div>
             <hr>
-            <div class="nav-item" onclick="Actions.showHistory()">🕒<span>履歴</span></div>
+            <div class="nav-item" onclick="Actions.showHistory()\">🕒<span>履歴</span></div>
         </nav>
-        <main class="content" id="view-container"></main>
+        <main class="content" id=\"view-container\"></main>
     </div>
 
     <script src="music.js"></script>
@@ -209,5 +134,9 @@
     <script src="app.js"></script>
     <script src="playlist.js"></script>
     <script src="backup.js"></script>
+
+    <script>
+        // 追加のインライン処理が必要な場合はここに
+    </script>
 </body>
 </html>
