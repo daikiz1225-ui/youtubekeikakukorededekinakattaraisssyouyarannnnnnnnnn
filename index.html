@@ -136,21 +136,21 @@ class DatabaseSessionCache:
         <div class="header-right" style="display: flex; align-items: center; gap: 12px;">
             <div id="account-status-container" style="display: flex; align-items: center; gap: 8px;"></div>
             
-            <div onclick="shutdown()" style="cursor: pointer; font-size: 16px; background: rgba(0,0,0,0.05); color: #ccc; padding: 6px 10px; border-radius: 50%;" title="システム終了">❌</div>
+            <div onclick="shutdown()" style="cursor: pointer; font-size: 16px; background: rgba(0,0,0,0.05); color: #333;" title="システム強制終了">❌</div>
         </div>
     </header>
 
     <div class="main-layout">
         <nav class="sidebar">
             <div class="nav-item" onclick="Actions.goHome()">🏠<span>ホーム</span></div>
-            <div class="nav-item" onclick=\"Actions.showShorts()\">⚡<span>ショート</span></div>
+            <div class="nav-item" onclick="Actions.showShorts()">⚡<span>ショート</span></div>
             <div class="nav-item" onclick="Actions.showLiveHub()" style="color: #ff4e45; font-weight: bold;">🔴<span>Live</span></div>
             <div class="nav-item" onclick="Actions.showSubs()">👥<span>登録済み</span></div>
-            <hr style="border: 0; border-top: 1px solid #333; margin: 12px 0;">
+            <hr>
             <div class="nav-item" onclick="Actions.showHistory()">🕒<span>履歴</span></div>
         </nav>
         
-        <main class="content" id=\"view-container\"></main>
+        <main class="content" id="view-container"></main>
     </div>
 
     <script src="music.js"></script>
@@ -173,7 +173,6 @@ class DatabaseSessionCache:
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            // アプリケーションがロードされたら、デフォルトでホーム画面を表示
             if (typeof Actions !== 'undefined' && typeof Actions.goHome === 'function') {
                 Actions.goHome();
             }
