@@ -38,82 +38,84 @@ body {
     display: flex; 
     flex: 0 1 600px; 
     background: #121212; 
-    border-radius: 40px; 
-    padding: 2px 15px; 
-    border: 1px solid #333; 
-    margin: 0 10px;
+    border: 1px solid #303030;
+    border-radius: 40px;
+    overflow: hidden;
 }
-
 .search-bar input { 
     flex: 1; 
     background: transparent; 
     border: none; 
-    color: white; 
-    padding: 8px; 
-    outline: none; 
-    font-size: 16px; /* iPadでの自動ズーム防止 */
+    color: #fff; 
+    padding: 0 16px; 
+    height: 40px; 
+    font-size: 16px;
+    outline: none;
+}
+.search-bar button { 
+    background: #222222; 
+    border: none; 
+    color: #fff; 
+    width: 64px; 
+    cursor: pointer; 
+    border-left: 1px solid #303030;
+}
+.search-bar button:hover { background: #303030; }
+
+.header-right { display: flex; gap: 16px; align-items: center; font-size: 20px; cursor: pointer; }
+
+/* メインレイアウト */
+.main-layout { 
+    display: flex; 
+    margin-top: var(--header-height); 
+    height: calc(100vh - var(--header-height)); 
 }
 
-.search-bar button { background: transparent; border: none; cursor: pointer; color: white; }
-
-/* レイアウト */
-.main-layout { display: flex; margin-top: var(--header-height); }
-
+/* サイドバー */
 .sidebar { 
     width: var(--sidebar-width); 
-    height: calc(100vh - var(--header-height)); 
-    position: fixed; 
-    overflow-y: auto; 
-    padding: 12px;
+    background: var(--bg-color); 
+    padding: 12px; 
+    display: flex; 
+    flex-direction: column; 
+    gap: 4px; 
+    overflow-y: auto;
+    flex-shrink: 0;
 }
-
-.content { 
-    margin-left: var(--sidebar-width); 
-    flex: 1; 
-    padding: 20px; 
-    min-height: calc(100vh - var(--header-height)); 
-}
-
 .nav-item { 
     display: flex; 
     align-items: center; 
-    padding: 10px 12px; 
-    cursor: pointer; 
+    gap: 24px; 
+    padding: 0 12px; 
+    height: 40px; 
     border-radius: 10px; 
-    margin-bottom: 4px; 
+    cursor: pointer; 
+    font-size: 14px;
+}
+.nav-item:hover { background: rgba(255,255,255,0.1); }
+.nav-item span { white-space: nowrap; }
+hr { border: none; border-top: 1px solid #303030; margin: 12px 0; }
+
+/* メインコンテンツエリア */
+.content { 
+    flex: 1; 
+    padding: 24px; 
+    overflow-y: auto; 
+    background: var(--bg-color);
 }
 
-.nav-item:hover { background: #272727; }
-.nav-item span { margin-left: 20px; }
-
-hr { border: none; border-top: 1px solid #333; margin: 12px 0; }
-
-/* グリッド表示 */
-.grid { 
+/* 動画グリッド */
+.video-grid { 
     display: grid; 
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); 
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); 
     gap: 16px; 
-    padding: 20px 0;
 }
-
-.v-card { cursor: pointer; transition: transform 0.2s; }
-.v-card:active { transform: scale(0.98); }
-
-.thumb-container { position: relative; width: 100%; aspect-ratio: 16/9; border-radius: 12px; overflow: hidden; background: #333; }
-.main-thumb { width: 100%; height: 100%; object-fit: cover; }
-
-.ch-icon-img { 
-    position: absolute; 
-    bottom: 8px; 
-    right: 8px; 
-    width: 36px; 
-    height: 36px; 
-    border-radius: 50%; 
-    border: 2px solid #000; 
-    background: #222;
-}
-
-.v-text h3 { font-size: 14px; margin: 10px 0 4px; line-clamp: 2; display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; }
+.video-card { cursor: pointer; background: transparent; border-radius: 12px; overflow: hidden; }
+.thumbnail { width: 100%; aspect-ratio: 16/9; background: #333; object-fit: cover; border-radius: 12px; }
+.video-info { display: flex; gap: 12px; padding: 12px 4px 0; }
+.channel-icon { width: 36px; height: 36px; background: #555; border-radius: 50%; flex-shrink: 0; }
+.v-text { flex: 1; }
+.v-text h4 { margin: 0 0 4px; font-size: 14px; line-clamp: 2; display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; }
 .v-text p { font-size: 12px; color: #aaa; margin: 0; }
 
 .btn { 
@@ -140,28 +142,19 @@ hr { border: none; border-top: 1px solid #333; margin: 12px 0; }
     top: 50%; 
     transform: translateY(-50%); 
     width: 50px; 
-    height: 50px; 
-    background: rgba(255,255,255,0.1); 
-    border-radius: 50%; 
-    display: flex; 
-    align-items: center; 
-    justify-content: center; 
-    font-size: 24px; 
-    cursor: pointer; 
-    z-index: 10;
-}
-.arrow-prev { left: 20px; }
-.arrow-next { right: 20px; }
-
-/* iPad / レスポンス対応 */
-@media (max-width: 1024px) {
-    :root { --sidebar-width: 72px; }
-    .nav-item span { display: none; }
-    .sidebar { padding: 12px 4px; }
-    .nav-item { justify-content: center; font-size: 20px; }
+    height: 50px;
 }
 
-@media (max-width: 768px) {
-    .player-area { min-width: 100%; }
-    .related-area { min-width: 100%; }
+/* プランB：iPadスクロール追従バグ対策用の固定背景枠定義 */
+#fixed-wallpaper {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: -1;
+    background-position: center;
+    background-size: cover;
+    background-repeat: no-repeat;
+    pointer-events: none;
 }
