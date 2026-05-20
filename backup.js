@@ -218,8 +218,17 @@ const DataManager = {
             const resData = await response.json();
             if (resData.success) {
                 this.applyDataToLocal(resData.data);
+                // 【修正点】手動（ボタンクリック）での復元時は、アラートを出してページをリロードする
+                if (!isAuto) {
+                    alert("クラウドからデータを復元しました！ページを再読み込みします。");
+                    location.reload();
+                }
+            } else {
+                if (!isAuto) alert("復元エラー: " + (resData.error || "データの取得に失敗しました"));
             }
-        } catch (e) {}
+        } catch (e) {
+            if (!isAuto) alert("クラウドからの復元中に通信エラーが発生しました");
+        }
     },
 
     // 🎨 壁紙をサーバーへアップロード保存する処理
