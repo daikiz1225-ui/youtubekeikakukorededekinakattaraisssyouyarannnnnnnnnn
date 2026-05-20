@@ -30,7 +30,7 @@ const DataManager = {
         DataManager._isSyncing = false;
     },
 
-    // YouTube関連のデータだけを安全に消去する処理
+    // 既存のYouTube消去時に、新設した固定枠の壁紙をクリアするように変更
     clearYoutubeDataOnly() {
         DataManager._isSyncing = true;
         localStorage.removeItem('yt_subs');
@@ -39,8 +39,12 @@ const DataManager = {
         localStorage.removeItem('yt_watchlater');
         localStorage.removeItem('yt_resume_list');
         DataManager._isSyncing = false;
-        // 壁紙のクリーンアップ
-        document.body.style.backgroundImage = '';
+        
+        // 変更箇所：固定枠のエレメントの背景を消去
+        const wpEl = document.getElementById('fixed-wallpaper');
+        if (wpEl) {
+            wpEl.style.backgroundImage = '';
+        }
         document.body.classList.remove('has-wallpaper');
     },
 
@@ -263,17 +267,18 @@ const DataManager = {
         } catch (e) {}
     },
 
-    // 🎨 DOM（画面）に不動の壁紙を安全に適用する
+    // 🎨 変更箇所：bodyではなく、新設した独立固定枠（#fixed-wallpaper）に流し込む
     applyWallpaperToDOM(base64Data) {
-        // 🚨 偽造画面が表示されている時は適用させない
         if (localStorage.getItem('youtube_unlocked') !== 'true') return;
-
-        document.body.style.backgroundImage = `url(${base64Data})`;
-        // ✅ style.cssの不動設定をここでも強制する
+        
+        const wpEl = document.getElementById('fixed-wallpaper');
+        if (wpEl) {
+            wpEl.style.backgroundImage = `url(${base64Data})`;
+        }
         document.body.classList.add('has-wallpaper');
     },
 
-    // 📱 パスコードキーパッド画面（バグ修正完了：既存モーダルを使い回す仕様）
+    // 📱 パスコードキーパッド画面（既存モーダルを使い回す仕様）
     showPasscodePad(targetUser) {
         let modal = document.getElementById('googlo-auth-modal');
         if (!modal) return;
@@ -360,7 +365,7 @@ const DataManager = {
                         <input type="password" id="modal-pass" placeholder="パスワード" style="width:100%; margin-bottom:10px; background:#2a2a2a; color:#fff; border:1px solid #444; padding:8px; border-radius:4px; box-sizing:border-box;">
                         
                         <div id="passcode-setup-zone" style="display:none; background:#222; padding:10px; border-radius:6px; margin-bottom:15px; border:1px solid #444;">
-                            <label style="font-size:11px; color:#4CAF50; font-weight:bold; display:block; margin-bottom:5px;">🔒 切り替え用パスコード (数字4桁)</label>
+                            <label style="font-size:11px; color:#4CAF50; font-weight:bold; display:block; margin-bottom:5px;">🔒 切替用パスコード (数字4桁)</label>
                             <input type="text" id="modal-passcode" placeholder="例: 1234" maxlength="4" style="width:100%; background:#111; color:#fff; border:1px solid #555; padding:8px; border-radius:4px; text-align:center; font-weight:bold; letter-spacing:5px; box-sizing:border-box;">
                         </div>
 
@@ -412,7 +417,6 @@ const DataManager = {
                     `;
                 });
 
-                // ✅ 壁紙変更UIを統合したマルチアカウント一覧画面（ボタン透過性能アップ版）
                 modal.innerHTML = `
                     <div style="background:#1a1a1a; padding:25px; border-radius:8px; border:1px solid #333; width:340px; color:#fff; position:relative; box-shadow:0 4px 20px rgba(0,0,0,0.5);">
                         <div id="modal-close-btn" style="position:absolute; top:10px; right:15px; cursor:pointer; color:#aaa; font-size:18px;">&times;</div>
@@ -438,7 +442,6 @@ const DataManager = {
                 document.getElementById('modal-close-btn').onclick = () => this.toggleModal(false);
                 document.getElementById('modal-btn-go-add').onclick = () => { modal.remove(); this.toggleModal(true, true); };
 
-                // 壁紙選択イベントの紐付け（そのままの写真保存ロジック）
                 if(document.getElementById('wallpaper-select-btn')) {
                     const wInput = document.getElementById('wallpaper-input');
                     document.getElementById('wallpaper-select-btn').onclick = () => wInput.click();
@@ -447,20 +450,18 @@ const DataManager = {
                         if(!file) return;
                         const reader = new FileReader();
                         reader.onload = event => {
-                            // そのままのDataURLをサーバーへ投げる
                             this.cloudSaveWallpaper(event.target.result);
                         };
                         reader.readAsDataURL(file);
                     };
                 }
 
-                // アカウントクリック時のセキュリティロック起動（バグ修正：modal.removeせずに中身だけ遷移）
                 modal.querySelectorAll('.account-item-row').forEach(row => {
                     row.onclick = (e) => {
                         if(e.target.classList.contains('individual-logout-btn')) return;
                         const targetUser = row.getAttribute('data-user');
-                        if (targetUser === currentUser) return; // 使用中なら何もしない
-                        this.showPasscodePad(targetUser); // モーダルを消さずに中身をテンキーに切り替える
+                        if (currentUser && targetUser === currentUser) return; 
+                        this.showPasscodePad(targetUser); 
                     };
                 });
                 modal.querySelectorAll('.individual-logout-btn').forEach(btn => {
@@ -569,7 +570,8 @@ const DataManager = {
     };
 })();
 
-// ページ読み込み完了時の自動トリガー処理
 window.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => { DataManager.injectUI(); }, 500);
+    // 初回ロード時にも壁紙が存在すればDOMに適用
+    DataManager.cloudLoadWallpaper();
 });
