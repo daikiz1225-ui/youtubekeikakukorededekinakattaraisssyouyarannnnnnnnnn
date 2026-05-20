@@ -424,7 +424,7 @@ const DataManager = {
 
                         ${currentUser ? `
                         <div style="margin-bottom:15px; padding:10px; background:#222; border-radius:6px; border:1px solid #333;">
-                            <div style="font-size:12px; font-weight:bold; color:#ff9800; margin-bottom:6px; text-align:center;">🎨 このアカウントの壁紙変更</div>
+                            <div style="font-size:12px; font-weight:bold; color:#ff9800; margin-bottom:6px; text-align:center;">🎨 このアカウントの壁紙変更（未完成）</div>
                             <input type="file" id="wallpaper-input" accept="image/*" style="display:none;">
                             <button id="wallpaper-select-btn" style="width:100%; background:#ff9800; color:#000; border:none; padding:8px; border-radius:4px; font-weight:bold; cursor:pointer; font-size:12px;">お気に入りの写真を選択</button>
                             <div style="font-size:10px; color:#aaa; text-align:center; margin-top:5px; line-height:1.4;"></div>
