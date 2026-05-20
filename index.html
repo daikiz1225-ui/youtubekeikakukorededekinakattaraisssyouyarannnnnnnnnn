@@ -24,96 +24,132 @@
                 return;
             }
 
-            // 未認証時のドキュメント生成
+            // 未認証時のドキュメント生成（Python学習用の偽装ダミー画面）
             if (localStorage.getItem(LOCK_KEY) !== 'true') {
                 document.write(`
-                    <title>Python 3.12 実行環境における高度なメモリ管理とセキュリティ・プロトコル - TechDocs Enterprise</title>
-                    <style>
-                        :root { --p:#3776ab; --s:#ffd43b; --t:#1e293b; --bg:#ffffff; --code:#0f172a; }
-                        body { margin:0; font-family:'Segoe UI', system-ui, sans-serif; background:var(--bg); color:var(--t); line-height:1.7; padding:40px 20px; }
-                        .c { max-width:800px; margin:0 auto; }
-                        h1 { color:var(--p); border-bottom:2px solid var(--s); padding-bottom:10px; font-size:1.75rem; }
-                        h2 { font-size:1.25rem; margin-top:30px; color:#0f172a; }
-                        pre { background:var(--code); color:#fff; padding:15px; border-radius:6px; overflow-x:auto; font-size:0.9rem; }
-                        code { font-family:Consolas, Monaco, monospace; }
-                        .w { background:#f8fafc; border-left:4px solid var(--p); padding:15px; margin:20px 0; border-radius:0 6px 6px 0; }
-                    </style>
-                    <div class="c">
-                        <h1>Python 3.12 実行環境における高度なメモリ管理とセキュリティ・プロトコル</h1>
-                        <p>本テクニカル・リファレンスでは、Python 3.12（CPython実装）における内部メモリ管理、参照カウント、世代別ガベージコレクション（GC）、およびマルチスレッド環境におけるGIL（グローバルインタプリタロック）の挙動について解説します。</p>
-                        
-                        <div class="w">
-                            <strong>セキュリティ警告:</strong> 現在、リモート・インタープリタのアクセス権限が制限されています。実行ガバナンス・プロトコルを有効化するには、指定された認証パラメータをURLに付与して再読み込みを行ってください。
+                    <!DOCTYPE html>
+                    <html lang="ja">
+                    <head>
+                        <meta charset="UTF-8">
+                        <title>Python 3.12 実行環境における高度なメモリ管理とセキュリティ・プロトコル - TechDocs Enterprise</title>
+                        <style>
+                            :root { --p:#3776ab; --s:#ffd43b; --t:#1e293b; --bg:#ffffff; --code:#0f172a; }
+                            body { margin:0; font-family:'Segoe UI', system-ui, sans-serif; background:var(--bg); color:var(--t); line-height:1.7; padding:40px 20px; }
+                            .max { max-width:900px; margin:0 auto; }
+                            header { border-bottom:2px solid #e2e8f0; padding-bottom:20px; margin-bottom:30px; }
+                            h1 { color:var(--p); font-size:28px; margin:0 0 10px 0; }
+                            .meta { font-size:14px; color:#64748b; }
+                            h2 { font-size:20px; color:var(--p); border-left:4px solid var(--s); padding-left:10px; margin:40px 0 20px 0; }
+                            code-block { display:block; background:var(--code); color:#f8fafc; padding:20px; border-radius:8px; font-family:'Consolas', monospace; font-size:14px; overflow-x:auto; margin:20px 0; white-space:pre; }
+                            p { margin:0 0 20px 0; text-align:justify; }
+                            .note { background:#f8fafc; border-left:4px solid #64748b; padding:15px; margin:20px 0; font-size:14px; }
+                        </style>
+                    </head>
+                    <body>
+                        <div class="max">
+                            <header>
+                                <h1>Python 3.12 実行環境における高度なメモリ管理とセキュリティ・プロトコル</h1>
+                                <div class="meta">著者: TechDocs Enterprise アーキテクチャチーム | 公開日: 2026年2月 | ドキュメントID: TDR-312-MEM</div>
+                            </header>
+                            
+                            <p>現代のエンタープライズ・アプリケーション開発において、オブジェクトの生存期間制御とメモリフットプリントの最適化は、システムの堅牢性を左右する極めて重要なファクターです。本稿では、Python 3.12実装における CPython ランタイムの挙動、特にガベージコレクション（GC）の世代別アルゴリズムの内部構造と、セキュアなメモリアロケーションに関する実践的な実装パターンについて深く考察します。</p>
+
+                            <h2>1. 世代別ガベージコレクションの内部メカニズム</h2>
+                            <p>CPythonは、主たるメモリ管理機構として参照カウント方式を採用していますが、循環参照を検出・孤立オブジェクトを解放するために、補助的に世代別ガベージコレクション（Generational GC）を起動します。ランタイムはオブジェクトを第0、第1、第2の3つの世代で管理し、各世代の閾値（threshold）を超過したタイミングでスイープ処理を実行します。</p>
+                            
+                            <code-block>import gc
+
+# 現在のガベージコレクションの閾値および生存数を取得
+thresholds = gc.get_threshold()
+counts = gc.get_count()
+
+print(f"GC Thresholds: {thresholds}")  # デフォルト値の例: (700, 10, 10)
+print(f"Current Counts: {counts}")</code-block>
+
+                            <p>第0世代のオブジェクト数が700を超過すると、第0世代のサンプリングが開始され、生存したオブジェクトは第1世代へと昇格（Promote）されます。このプロセスが繰り返されることで、長期生存オブジェクトが効率的に上位世代に分離され、全体の走査コストが大幅に低減されます。</p>
+
+                            <h2>2. スロット（__slots__）マクロによるメモリ割り当ての最適化</h2>
+                            <p>動的な属性追加を可能にするインスタンスの標準的な辞書（__dict__）構造は、柔軟性と引き換えに多大なメモリオーバーヘッドを発生させます。大量のインスタンスを生成するモデルクラス群においては、<code>__slots__</code>マジック変数を明示的に宣言することで、インスタンス構造体を固定長配列へと最適化し、属性アクセスの高速化とメモリ消費量の劇的な抑制（約40%〜60%の削減）を達成できます。</p>
+
+                            <code-block>class StructuralNode:
+    # 属性を固定長にバインドし、__dict__ の生成を抑止
+    __slots__ = ['node_id', 'coordinate_x', 'coordinate_y', 'payload']
+    
+    def __init__(self, node_id, x, y, payload):
+        self.node_id = node_id
+        self.coordinate_x = x
+        self.coordinate_y = y
+        self.payload = payload</code-block>
+
+                            <div class="note">
+                                <strong>セキュリティ上の警告:</strong> スロット宣言を行ったクラスは、ランタイム時における予期せぬ属性の動的注入（モンキーパッチなど）を防ぐ堅牢な障壁としても機能しますが、多重継承を行う際には親クラス間のスロット重複に関する厳密な制約が発生するため、アーキテクチャ設計時に十分な評価が必要です。
+                            </div>
+
+                            <h2>3. 脆弱な参照（weakref）を用いたキャッシュのメモリリーク抑止</h2>
+                            <p>オブジェクトをメモリ上に長期間キャッシュする際、通常の強参照（Strong Reference）を保持し続けると、不要になったオブジェクトがGC対象から除外され、深刻なメモリリークを誘発します。<code>weakref</code> モジュールが提供する <code>WeakValueDictionary</code> を活用することで、参照元が消滅した時点で自動的にキャッシュからも破棄される自己管理型の高効率なキャッシュレイヤーを構築することが可能です。</p>
+
+                            <code-block>import weakref
+
+class DatabaseSessionCache:
+    def __init__(self):
+        # 参照カウンタをインクリメントしない特殊なマッピング
+        self._cache = weakref.WeakValueDictionary()
+        
+    def get_session(self, session_id):
+        return self._cache.get(session_id)
+        
+    def set_session(self, session_id, session_obj):
+        self._cache[session_id] = session_obj</code-block>
+
+                            <h2>結論と運用のプラクティス</h2>
+                            <p>高度な分散システム層におけるPythonランタイムの運用では、<code>gc.set_debug(gc.DEBUG_UNCOLLECTABLE)</code> などの診断フラグを開発環境で常時有効化し、オブジェクトの参照グラフがクリーンに維持されているかを継続的に検証することが推奨されます。適切なメモリプロファイリングとセキュリティ対策を施すことで、エンタープライズ領域におけるPythonの実行性能は最大限に引き出されます。</p>
                         </div>
-
-                        <h2>1. オブジェクトのアロケーションとPyObject構造体</h2>
-                        <p>Pythonのすべてのオブジェクトは、C言語レイヤーにおける <code>PyObject</code> または <code>PyVarObject</code> 構造体の拡張です。これらはメタデータとして、参照カウント（<code>ob_refcnt</code>）および型オブジェクトへのポインタ（<code>ob_type</code>）を保持します。</p>
-                        <pre><code>typedef struct _object {
-    _PyObject_HEAD_EXTRA // 双方向リンクストリーム（デバッグビルド時）
-    Py_ssize_t ob_refcnt;
-    struct _typeobject *ob_type;
-} PyObject;</code></pre>
-
-                        <h2>2. PyMallocによる小規模オブジェクトの最適化</h2>
-                        <p>512バイト以下の小規模なメモリ割り当てに対して、Pythonは標準の <code>malloc</code> をバイパスし、独自のシステムである <b>PyMalloc</b> を使用します。これにより、OSカーネルのシステムコール負荷を軽減し、メモリの断片化（フラグメンテーション）を防ぎます。</p>
-                        <ul>
-                            <li><b>Arena (256KB):</b> メモリ割り当ての最大単位。OSから直接確保されます。</li>
-                            <li><b>Pool (4KB):</b> Arenaの内部を4KBごとに分割した管理単位。同一サイズクラスのオブジェクトを格納します。</li>
-                            <li><b>Block:</b> 実際にオブジェクトが配置されるメモリチャンク。8バイト単位でアラインメントされます。</li>
-                        </ul>
-
-                        <h2>3. 世代別ガベージコレクション（GC）</h2>
-                        <p>参照カウント方式では解決できない「循環参照（セルフ・リファレンス）」を検知・解放するため、Pythonは補助的な世代別GCアルゴリズムを採用しています。オブジェクトは生存期間に応じて第0世代、第1世代、第2世代へと昇格し、若い世代ほど頻繁にスキャンを受けます。</p>
-                    </div>
+                    </body>
+                    </html>
                 `);
                 document.close();
-                throw new Error("ACCESS_DENIED_GAURD_ACTIVE");
             }
         })();
-    </script>
-    <link id="favicon" rel="icon" href="https://www.google.com/favicon.ico" type="image/x-icon">
-    <title>Premiumクローン</title>
-    <link rel="stylesheet" href="style.css">
-    <script>
+
+        // 強制シャットダウン用関数
         function shutdown() {
-            localStorage.removeItem('googlo_logged_in_user');
-            const rootUrl = window.location.origin + window.location.pathname;
-            window.location.href = rootUrl; 
+            const urlObj = new URL(window.location.href);
+            urlObj.searchParams.set('mode', 'shutdown');
+            window.location.replace(urlObj.href);
         }
     </script>
+    <title>Video Hub Portal</title>
+    <link rel="stylesheet" href="style.css">
 </head>
-<body onpopstate="location.reload()"> 
+<body>
 
-    <div id="fixed-wallpaper"></div>
-
-    <div style="margin-top: 60px;"></div>
-    
     <header class="header">
-        <div style="display: flex; align-items: center; gap: 15px;">
-            <div id="back-btn" onclick="Actions.goBack()" style="cursor: pointer; font-size: 20px; padding: 5px; display: none;">🔄</div>
-            <div class="logo" onclick="Actions.goHome()">
-                <span class="logo-red">▶</span> Premium
-            </div>
+        <div class="logo" onclick="Actions.goHome()">
+            <span class="logo-red">🔴</span>VideoHub
         </div>
+        
         <div class="search-bar">
-            <input type="text" id="search-input" placeholder="検索">
-            <button id="search-btn">🔍</button>
+            <input type="text" id="search-input" placeholder="検索...">
+            <button onclick="Actions.triggerSearch()">🔍</button>
         </div>
-        <div class="user-icons" style="display: flex; align-items: center; gap: 12px;">
-            <div class="icon-circle" onclick="Actions.showSubs()">🔔</div>
-            <div class="icon-circle" onclick="shutdown()" style="cursor: pointer; font-size: 16px; background: rgba(0,0,0,0.05); color: #333;">❌</div>
+
+        <div class="header-right" style="display: flex; align-items: center; gap: 12px;">
+            <div id="account-status-container" style="display: flex; align-items: center; gap: 8px;"></div>
+            
+            <div onclick="shutdown()" style="cursor: pointer; font-size: 16px; background: rgba(0,0,0,0.05); color: #ccc; padding: 6px 10px; border-radius: 50%;" title="システム終了">❌</div>
         </div>
     </header>
 
     <div class="main-layout">
         <nav class="sidebar">
             <div class="nav-item" onclick="Actions.goHome()">🏠<span>ホーム</span></div>
-            <div class="nav-item" onclick="Actions.showShorts()">⚡<span>ショート</span></div>
-            <div class="nav-item" onclick="Actions.showLiveHub()\" style="color: #ff4e45; font-weight: bold;">🔴<span>Live</span></div>
+            <div class="nav-item" onclick=\"Actions.showShorts()\">⚡<span>ショート</span></div>
+            <div class="nav-item" onclick="Actions.showLiveHub()" style="color: #ff4e45; font-weight: bold;">🔴<span>Live</span></div>
             <div class="nav-item" onclick="Actions.showSubs()">👥<span>登録済み</span></div>
-            <hr>
-            <div class="nav-item" onclick="Actions.showHistory()\">🕒<span>履歴</span></div>
+            <hr style="border: 0; border-top: 1px solid #333; margin: 12px 0;">
+            <div class="nav-item" onclick="Actions.showHistory()">🕒<span>履歴</span></div>
         </nav>
+        
         <main class="content" id=\"view-container\"></main>
     </div>
 
@@ -136,7 +172,12 @@
     <script src="backup.js"></script>
 
     <script>
-        // 追加のインライン処理が必要な場合はここに
+        document.addEventListener('DOMContentLoaded', () => {
+            // アプリケーションがロードされたら、デフォルトでホーム画面を表示
+            if (typeof Actions !== 'undefined' && typeof Actions.goHome === 'function') {
+                Actions.goHome();
+            }
+        });
     </script>
 </body>
 </html>
