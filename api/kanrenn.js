@@ -1,10 +1,7 @@
 export const config = { runtime: 'edge' };
 
-function isJapanese(text) {
-    return /[\u3040-\u309F\u30A0-\u30FF]/.test(text);
-}
+const JP_REGEX = /[\u3040-\u309F\u30A0-\u30FF]/;
 
-// streaming.js と同じ10個のインスタンス
 const APIS = [
   'https://inv.nadeko.net/',
   'https://invidious.f5.si/',
@@ -35,49 +32,70 @@ const APIS = [
   'https://youtube.mosesmang.com'
 ];
 
-async function fetchRelatedWithFallback(vId) {
-    for (const base of APIS) {
-        try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 2500);
-
-            const res = await fetch(`${base}/api/v1/videos/${vId}?region=JP`, { signal: controller.signal });
-            if (!res.ok) continue; // ダメなら次のインスタンスへ
-            
-            const data = await res.json();
-            clearTimeout(timeoutId);
-            
-            const related = data.relatedVideos || data.recommendedVideos || [];
-            // 日本語が含まれる動画のみを抽出
-            const filtered = related.filter(v => isJapanese(v.title));
-            
-            if (filtered.length > 0) return filtered; // 見つかれば即座に返す
-        } catch (e) {
-            continue; // エラーなら次のインスタンスへ
-        }
-    }
-    return [];
-}
-
 export default async function handler(req) {
     const { searchParams } = new URL(req.url);
     const vId = searchParams.get('vId');
-
     if (!vId) return new Response(JSON.stringify(["No ID"]), { status: 400 });
 
-    try {
-        let finalJapaneseVideos = await fetchRelatedWithFallback(vId);
-        const resultIds = finalJapaneseVideos.map(v => v.videoId);
+    // 全体で4.5秒（4500ms）経ったら遅いインスタンスを強制的に切り捨てるコントローラー
+    const globalController = new AbortController();
+    const timeoutId = setTimeout(() => globalController.abort(), 4500);
 
-        if (resultIds.length === 0) {
-            return new Response(JSON.stringify(["DEBUG_EMPTY_DATA"]), { status: 200 });
+    // 1. 全てのAPIインスタンスに対して一斉に fetch を開始
+    const fetchPromises = APIS.map(async (base) => {
+        try {
+            const res = await fetch(`${base}/api/v1/videos/${vId}?region=JP`, { 
+                signal: globalController.signal 
+            });
+            if (!res.ok) return null;
+            return await res.json();
+        } catch (e) {
+            return null; // エラーが起きた・応答が遅いインスタンスは無視してnullを返す
         }
+    });
 
-        return new Response(JSON.stringify(resultIds), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' }
-        });
-    } catch (e) {
-        return new Response(JSON.stringify(["ERROR"]), { status: 500 });
+    // 2. 27個のプロミスを同時に並列実行（どれか1つが死んでも他を巻き添えにしない）
+    const results = await Promise.allSettled(fetchPromises);
+    clearTimeout(timeoutId);
+
+    let allRelatedVideos = [];
+
+    // 3. 制限時間内に正常にデータが取れたインスタンスの結果をすべて1つの配列に集約
+    for (const result of results) {
+        if (result.status === 'fulfilled' && result.value) {
+            const data = result.value;
+            const related = data.relatedVideos || data.recommendedVideos || [];
+            allRelatedVideos.push(...related);
+        }
     }
+
+    // 4. データが1件も回収できなかった場合はエラーを返す
+    if (allRelatedVideos.length === 0) {
+        return new Response(JSON.stringify({ error: "ALL_APIS_DOWN_OR_EMPTY" }), { 
+            status: 500, 
+            headers: { 'Content-Type': 'application/json' } 
+        });
+    }
+
+    // 5. 前までと同じロジック：日本語タイトルが含まれている動画のみをフィルタリング
+    let filtered = allRelatedVideos.filter(v => {
+        return v.title && JP_REGEX.test(v.title);
+    });
+
+    // 6. 複数サイトから同時にかき集めたため、重複している videoId を完全に排除し最大40件にする
+    const seenIds = new Set();
+    const resultIds = [];
+    for (const v of filtered) {
+        if (v.videoId && !seenIds.has(v.videoId)) {
+            seenIds.add(v.videoId);
+            resultIds.push(v.videoId);
+            if (resultIds.length >= 40) break; // 必要十分な件数が集まったら終了
+        }
+    }
+
+    // 7. フロント（app.js）へマージ済みのデータを一発で返却
+    return new Response(JSON.stringify(resultIds), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+    });
 }
