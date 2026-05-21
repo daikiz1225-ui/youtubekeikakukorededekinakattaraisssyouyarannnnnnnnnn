@@ -3,16 +3,26 @@ export const config = { runtime: 'edge' };
 const JP_REGEX = /[\u3040-\u309F\u30A0-\u30FF]/;
 
 const APIS = [
-    'https://invidious.f5.si',
+    'https://inv.nadeko.net/',
+    'https://invidious.f5.si/',
+    'https://invidious.lunivers.trade/',
+    'https://invidious.ducks.party/',
+    'https://iv.melmac.space/',
+    'https://invidious.nerdvpn.de/',
+    'https://invidious.privacyredirect.com',
+    'https://invidious.technicalvoid.dev',
+    'https://invidious.darkness.services',
+    'https://invidious.nikkosphere.com',
+    'https://invidious.schenkel.eti.br',
+    'https://invidious.tiekoetter.com',
+    'https://invidious.perennialte.ch',
+    'https://invidious.reallyaweso.me',
+    'https://invidious.private.coffee',
+    'https://invidious.privacydev.net',
     'https://yewtu.be',
     'https://iv.nboeck.de',
-    'https://invidious.perennialte.ch',
-    'https://invidious.nerdvpn.de',
     'https://inv.tux.pizza',
-    'https://iv.melmac.space',
-    'https://iv.ggtyler.dev',
-    'https://invidious.privacyredirect.com',
-    'https://invidious.tiekoetter.com'
+    'https://iv.ggtyler.dev'
 ];
 
 export default async function handler(req) {
