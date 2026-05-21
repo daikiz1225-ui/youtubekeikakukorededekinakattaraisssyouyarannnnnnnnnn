@@ -5,17 +5,27 @@ function isJapanese(text) {
 }
 
 // streaming.js と同じ10個のインスタンス
-const APIS = [
-    'https://invidious.f5.si',
+const APIS =[
+    'https://inv.nadeko.net/',
+    'https://invidious.f5.si/',
+    'https://invidious.lunivers.trade/',
+    'https://invidious.ducks.party/',
+    'https://iv.melmac.space/',
+    'https://invidious.nerdvpn.de/',
+    'https://invidious.privacyredirect.com',
+    'https://invidious.technicalvoid.dev',
+    'https://invidious.darkness.services',
+    'https://invidious.nikkosphere.com',
+    'https://invidious.schenkel.eti.br',
+    'https://invidious.tiekoetter.com',
+    'https://invidious.perennialte.ch',
+    'https://invidious.reallyaweso.me',
+    'https://invidious.private.coffee',
+    'https://invidious.privacydev.net',
     'https://yewtu.be',
     'https://iv.nboeck.de',
-    'https://invidious.perennialte.ch',
-    'https://invidious.nerdvpn.de',
     'https://inv.tux.pizza',
-    'https://iv.melmac.space',
-    'https://iv.ggtyler.dev',
-    'https://invidious.privacyredirect.com',
-    'https://invidious.tiekoetter.com'
+    'https://iv.ggtyler.dev'
 ];
 
 async function fetchRelatedWithFallback(vId) {
