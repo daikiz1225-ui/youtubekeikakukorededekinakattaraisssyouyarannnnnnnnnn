@@ -581,4 +581,37 @@ const DataManager = {
 // ページ読み込み完了時の自動トリガー処理
 window.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => { DataManager.injectUI(); }, 500);
+
+    // アカウント未作成時のYouTube強制ブロックシャッター機能
+    if (localStorage.getItem('youtube_unlocked') === 'true') {
+        if (!localStorage.getItem('gh_token') && !localStorage.getItem('gh_gist_id')) {
+            document.body.style.overflow = 'hidden';
+
+            const shutter = document.createElement('div');
+            shutter.id = 'youtube-force-block-shutter';
+            shutter.style = "position:fixed; top:0; left:0; width:100%; height:100%; background:#000; display:flex; flex-direction:column; justify-content:center; align-items:center; z-index:999999; color:#fff; font-family:sans-serif;";
+            
+            shutter.innerHTML = `
+                <div style="font-size:24px; font-weight:bold; margin-bottom:25px; text-align:center; padding:0 20px; line-height:1.4;">アカウントを作成して YouTubeを見ましょう</div>
+                <button id="shutter-connect-btn" style="background:#ff0000; color:#fff; border:none; padding:12px 24px; font-size:16px; font-weight:bold; border-radius:4px; cursor:pointer; box-shadow:0 4px 15px rgba(255,0,0,0.4); transition:background 0.2s;">🔑 アカウントを接続する</button>
+            `;
+
+            document.body.appendChild(shutter);
+
+            document.getElementById('shutter-connect-btn').onclick = () => {
+                const token = prompt('gh_token を入力してください:');
+                if (token === null) return;
+                const gistId = prompt('gh_gist_id を入力してください:');
+                if (gistId === null) return;
+
+                if (token.trim() && gistId.trim()) {
+                    localStorage.setItem('gh_token', token.trim());
+                    localStorage.setItem('gh_gist_id', gistId.trim());
+                    location.reload();
+                } else {
+                    alert('トークンとGist IDは正しく入力する必要があります。');
+                }
+            };
+        }
+    }
 });
