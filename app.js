@@ -46,38 +46,7 @@ const YT = {
             }
         } catch (error) { console.error("自動収集エラー:", error); }
     },
-async initPipedInstances() {
 
-    try {
-
-        const res = await fetch(
-            "/api/piped_select_instance"
-        );
-
-        if (!res.ok)
-            throw new Error();
-
-        const data = await res.json();
-
-        localStorage.setItem(
-            "piped_instances",
-            JSON.stringify(data.instances)
-        );
-
-        console.table(data.instances);
-
-        Actions.showStatusNotification(
-            `Piped選別完了✅ (${data.instances.length}台)`
-        );
-
-    } catch (e) {
-
-        console.error(
-            "Piped選別失敗",
-            e
-        );
-
-    }
 
 }
     seek(seconds) {
